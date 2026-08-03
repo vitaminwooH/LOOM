@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Loom — Lobby Prototype</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0a0916;
+    --ink: #f4f2ec;
+    --ink-dim: rgba(244, 242, 236, 0.55);
+    --ink-faint: rgba(244, 242, 236, 0.28);
+    --panel: rgba(20, 22, 32, 0.55);
+    --panel-border: rgba(255, 255, 255, 0.09);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  canvas#loom-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+  canvas#loom-canvas:active {
+    cursor: grabbing;
+  }
+
+  /* ---------- 상단 로고 영역 ---------- */
+  .brand {
+    position: fixed;
+    top: 6.5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+    z-index: 10;
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(38px, 6vw, 64px);
+    letter-spacing: 0.22em;
+    color: var(--ink);
+    text-shadow: 0 0 40px rgba(140, 170, 255, 0.25);
+  }
+
+  .brand .tagline {
+    margin-top: 10px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  /* ---------- 하단 스튜디오 버튼 영역 ---------- */
+  .studio-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 6.5vh;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 30px;
+    z-index: 10;
+  }
+
+  .studio-button {
+    position: relative;
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.45s ease,
+                box-shadow 0.45s ease;
+  }
+
+  .studio-button:hover,
+  .studio-button:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px -10px var(--studio-glow, rgba(255,255,255,0.2));
+  }
+
+  .studio-button:active {
+    transform: translateY(-1px) scale(0.97);
+  }
+
+  /* 로고 이미지가 준비되면 studio-icon-initials 대신
+     <img class="studio-icon-logo" src="..."> 를 넣으면 됩니다. */
+  .studio-icon-initials {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.03em;
+    color: var(--ink);
+    opacity: 0.9;
+  }
+
+  .studio-icon-logo {
+    width: 60%;
+    height: 60%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .studio-tooltip {
+    position: absolute;
+    bottom: calc(100% + 14px);
+    left: 50%;
+    transform: translate(-50%, 6px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(8, 9, 14, 0.85);
+    border: 1px solid var(--panel-border);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: var(--ink);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .studio-button:hover .studio-tooltip,
+  .studio-button:focus-visible .studio-tooltip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  /* ---------- page transition veil (matches loom_feed.html) ---------- */
+  .page-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: var(--bg);
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .page-veil.is-hidden { opacity: 0; }
+</style>
+</head>
+<body>
+
+<canvas id="loom-canvas"></canvas>
+
+<div class="brand">
+  <h1>Loom</h1>
+  <div class="tagline">Woven Together</div>
+</div>
+
+<div class="studio-dock" id="studio-dock"></div>
+
+<div class="page-veil" id="pageVeil"></div>
+
+<!-- Three.js r128 (고정 버전 — 나중에 올려도 코드가 안 깨지도록 버전 고정) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<!-- Bloom(빛번짐) 후처리에 필요한 애드온들. EffectComposer가 다른 파일들이 기대하는
+     THREE.Pass 클래스를 정의하기 때문에 반드시 가장 먼저 로드되어야 합니다. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+/* ======================================================================
+   0. 설정값 — 여기 숫자만 바꿔서 노드 개수/성능 테스트를 하면 됩니다.
+
+   이번 버전은 "지구본"이라는 틀을 버리고, 구에 갇히지 않은 유기적인
+   지식망 덩어리로 다시 만들었습니다. 노드는 표면이 아니라 덩어리
+   부피 전체에 흩어져 있어서, 회전시키면 앞/뒤 노드가 반투명하게
+   겹쳐 보입니다. 스튜디오별 구역은 방향(벡터)으로만 느슨하게 유지합니다.
+   ====================================================================== */
+const CONFIG = {
+  NODES_PER_STUDIO: 26,            // 스튜디오 구역 하나당 노드 개수
+  AMBIENT_NODE_COUNT: 260,         // 배경(구역 없는) 지식 노드 개수 — 덩어리 부피 전체를 채움
+  AMBIENT_LINK_NEIGHBORS: 2,       // 배경 노드 하나당 가까운 이웃 몇 개와 실로 이을지
+  CROSS_CLUSTER_LINKS_PER_PAIR: 6, // 스튜디오 구역 쌍마다, 덩어리를 가로지르는 실 개수 — 두 구역이 "하나로 이어진 망"으로 보이도록 넉넉히
+
+  BLOB_RADIUS: 5,                  // 덩어리의 대략적인 바깥 반지름
+  BLOB_IRREGULARITY: 0.16,         // 완벽한 구에서 얼마나 울퉁불퉁하게 벗어날지 (0 = 완벽한 구)
+  CLUSTER_SPREAD_RADIANS: 0.32,    // 스튜디오 구역이 그 방향 주위로 얼마나 넓게 퍼질지(라디안) — 좁을수록 구역끼리 간격이 또렷함
+  CLUSTER_INNER_FRACTION: 0.45,    // 스튜디오 노드가 중심 쪽으로 얼마나 들어올 수 있는지(0~1, 1=바깥면에만)
+
+  CAMERA_DISTANCE_FACTOR: 2.35,    // BLOB_RADIUS의 배수 — 기본 카메라 거리 (가까울수록 앞/뒤 크기 대비가 커짐)
+  MIN_ZOOM_DISTANCE_FACTOR: 1.5,   // BLOB_RADIUS의 배수 — 최대로 가까이 줌인했을 때 거리
+  MAX_ZOOM_DISTANCE_FACTOR: 4.5,   // BLOB_RADIUS의 배수 — 최대로 멀리 줌아웃했을 때 거리
+  AUTO_ROTATE_SPEED: 0.35,         // 자동 회전 속도 (낮을수록 느림)
+  RESUME_ROTATE_DELAY_MS: 2200,    // 손을 뗀 뒤 자동회전 재개까지 대기 시간
+  FOCUS_ANIM_MS: 1600,             // 버튼 클릭 시 회전 애니메이션 시간
+
+  BLOOM_STRENGTH: 0.62,    // 빛번짐 강도 (과하면 화면이 뿌옇게 뜸)
+  BLOOM_RADIUS: 0.5,       // 빛번짐이 퍼지는 반경
+  BLOOM_THRESHOLD: 0.5,    // 이 밝기보다 밝은 부분만 빛번짐 — 앞쪽(밝은) 노드만 번지고 뒤쪽(어두운) 노드는 번지지 않아 크기 대비가 더 도드라짐
+  TWINKLE_AMOUNT: 0.22,    // 노드 반짝임 폭 (0에 가까울수록 은은함)
+  TWINKLE_BASE: 0.8,       // 반짝임 최저 밝기 비율
+
+  DEPTH_FRONT_BRIGHTNESS: 1.6,     // 카메라에 가장 가까운 노드/실의 밝기 배수 — 확실히 밝게 (Bloom과 겹쳐 커 보이는 효과까지 냄)
+  DEPTH_BACK_BRIGHTNESS: 0.12,     // 가장 먼 노드/실의 밝기 배수 — 확실히 흐리게, 0은 아니게
+
+  DRIFT_AMOUNT: 0.16,      // 노드가 제자리 주변에서 부유하는 폭 — 과하지 않게, 살아있는 느낌만
+  DRIFT_SPEED_MIN: 0.12,   // 부유 속도 하한
+  DRIFT_SPEED_MAX: 0.32,   // 부유 속도 상한 — 노드마다 달라서 다 같이 움직이지 않게
+};
+
+// 스튜디오 정보 — 실제 국가 위도/경도를 씁니다. 나라를 추가/변경하려면 이
+// 배열에 항목을 넣거나 lat/lon만 바꾸면 됩니다. 아직 협업이 확정 안 된
+// 스튜디오는 지우는 대신 enabled: false로 꺼두면 코드는 그대로 남고 화면(노드,
+// 버튼)에서만 빠집니다. logo 항목에 이미지 경로를 넣으면 자동으로 로고로 교체됩니다.
+const STUDIOS = [
+  {
+    id: 'doubleu',
+    name: 'DoubleU Games',
+    initials: 'DU',
+    color: 0x378ADD,
+    lat: 37.5, lon: 127, // 대한민국
+    enabled: true,
+    logo: 'assets/doubleu-logo.png', // 파일이 없으면 자동으로 이니셜(DU)로 대체됩니다
+  },
+  {
+    id: 'whow',
+    name: 'Whow Games',
+    initials: 'WH',
+    color: 0xD85A30,
+    lat: 51, lon: 9, // 독일
+    enabled: true,
+    logo: 'assets/whow-logo.png', // 파일이 없으면 자동으로 이니셜(WH)로 대체됩니다
+  },
+  {
+    id: 'paxie',
+    name: 'Paxie',
+    initials: 'PA',
+    color: 0x1D9E75,
+    lat: 37.5, lon: 127, // 좌표 미정 — 협업 확정 시 실제 위치로 채워 넣을 것
+    enabled: false, // 협업 아직 미확정 — 확정되면 true로 바꾸면 바로 노드/버튼에 나타남
+    logo: 'assets/paxie-logo.png',
+  },
+];
+
+const AMBIENT_COLOR = 0x8d94a8;
+
+/* ======================================================================
+   1. 좌표 변환 / 벡터 / 샘플링 유틸
+   ====================================================================== */
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// 위도(lat)/경도(lon) -> 단위구 위의 방향(단위 벡터). 완벽한 구나 대륙
+// 그림은 그리지 않지만, 노드가 놓이는 "뼈대"는 실제 지구 좌표를 따르게 해서
+// 한국-독일처럼 실제로 먼 지역은 화면에서도 그만큼 떨어져 보이게 합니다.
+function latLonToVector3(lat, lon) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    -Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+// 지구 전체에 균일하게 흩어지는 랜덤 위/경도 — 배경 지식 노드용. 나중에 다른
+// 나라의 자회사가 추가되면, 그 위경도 주변에도 이미 이런 배경 노드가 자연스럽게
+// 깔려 있는 구조가 됩니다.
+function randomLatLon() {
+  const lat = Math.asin(2 * Math.random() - 1) * (180 / Math.PI);
+  const lon = Math.random() * 360 - 180;
+  return { lat, lon };
+}
+
+// baseDir 주위로 spreadRadians 만큼 흩어진 랜덤 방향 — 스튜디오 구역을 만드는 데 씀
+function sampleDirectionAround(baseDir, spreadRadians) {
+  const arbitrary = Math.abs(baseDir.y) < 0.99 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const u = new THREE.Vector3().crossVectors(arbitrary, baseDir).normalize();
+  const v = new THREE.Vector3().crossVectors(baseDir, u).normalize();
+  const theta = Math.random() * Math.PI * 2;
+  const r = Math.random() * spreadRadians;
+  return baseDir.clone().multiplyScalar(Math.cos(r))
+    .addScaledVector(u, Math.sin(r) * Math.cos(theta))
+    .addScaledVector(v, Math.sin(r) * Math.sin(theta))
+    .normalize();
+}
+
+// 완벽한 구 대신 살짝 울퉁불퉁한 덩어리가 되도록, 방향마다 다른 반지름 배율을
+// 줍니다. 진짜 3D 노이즈 대신 몇 개의 sin/cos 항을 섞은 저렴한 대체품 —
+// 방향이 같으면 항상 같은 배율이 나와서 "일관되게 울퉁불퉁한" 형태가 됩니다.
+function blobRadiusScale(dir) {
+  const n = Math.sin(dir.x * 2.3 + 1.0) * Math.cos(dir.y * 3.1 + 2.0)
+          + Math.sin(dir.y * 2.7 - 1.5) * Math.cos(dir.z * 2.1 + 0.5)
+          + Math.sin(dir.z * 3.5 + 0.7) * Math.cos(dir.x * 1.9 - 1.2);
+  return 1 + (n / 3) * CONFIG.BLOB_IRREGULARITY;
+}
+
+/* ======================================================================
+   2. Three.js 기본 세팅
+   ====================================================================== */
+const canvas = document.getElementById('loom-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+// 완전 검정 대신, 딥 네이비에서 보랏빛으로 흐르는 아주 은은한 안개 배경.
+// 카메라 회전과 무관하게 화면에 고정되는 텍스처라 "안개 속에 잠긴" 느낌을 줍니다.
+function createBackgroundTexture() {
+  const size = 512;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(size * 0.5, size * 0.42, size * 0.04, size * 0.5, size * 0.5, size * 0.75);
+  grad.addColorStop(0, '#271b3f');
+  grad.addColorStop(0.45, '#160f28');
+  grad.addColorStop(1, '#07060d');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+const scene = new THREE.Scene();
+scene.background = createBackgroundTexture();
+
+const FOG_COLOR = 0x140e24;
+const cameraDistance = CONFIG.BLOB_RADIUS * CONFIG.CAMERA_DISTANCE_FACTOR;
+scene.fog = new THREE.Fog(
+  FOG_COLOR,
+  cameraDistance - CONFIG.BLOB_RADIUS * 1.15,
+  cameraDistance + CONFIG.BLOB_RADIUS * 1.15
+);
+
+const camera = new THREE.PerspectiveCamera(
+  45, window.innerWidth / window.innerHeight, 0.1, 1000
+);
+camera.position.set(0, 0, cameraDistance);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enableZoom = true;
+controls.zoomSpeed = 0.6;               // 급격하지 않게, 부드러운 휠 줌
+controls.minDistance = CONFIG.BLOB_RADIUS * CONFIG.MIN_ZOOM_DISTANCE_FACTOR;
+controls.maxDistance = CONFIG.BLOB_RADIUS * CONFIG.MAX_ZOOM_DISTANCE_FACTOR;
+controls.enablePan = false;
+controls.autoRotate = true;
+controls.autoRotateSpeed = CONFIG.AUTO_ROTATE_SPEED;
+controls.rotateSpeed = 0.45;
+// 지구본과 달리 "위/아래 극"이라는 개념이 없으니, 거의 모든 각도에서 자유롭게 볼 수 있게.
+controls.minPolarAngle = Math.PI * 0.08;
+controls.maxPolarAngle = Math.PI * 0.92;
+
+/* ======================================================================
+   2b. Bloom(빛번짐) 후처리 파이프라인
+   렌더러가 화면에 바로 그리는 대신, EffectComposer가 몇 단계를 거쳐 그립니다:
+   1) RenderPass  — 평소처럼 장면을 그림
+   2) UnrealBloomPass — 밝은 부분만 뽑아 블러(흐림) 처리한 뒤 원본 위에 은은하게 더함
+   ====================================================================== */
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(new THREE.RenderPass(scene, camera));
+
+const bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  CONFIG.BLOOM_STRENGTH,
+  CONFIG.BLOOM_RADIUS,
+  CONFIG.BLOOM_THRESHOLD
+);
+composer.addPass(bloomPass);
+
+/* ======================================================================
+   3. 지식망 덩어리 — 회전하는 그룹 하나에 노드와 연결선을 전부 담습니다.
+   구체 메쉬도, 대륙 텍스처도, 위경도 격자도 없습니다 — 오직 부피 안에
+   흩어진 노드와 그 사이를 잇는 실뿐입니다.
+   ====================================================================== */
+const blob = new THREE.Group();
+scene.add(blob);
+
+/* ---------- 3-1. 글로우 텍스처 (노드용 스프라이트) ---------- */
+function createGlowTexture() {
+  const size = 128;
+  const canvasTex = document.createElement('canvas');
+  canvasTex.width = size;
+  canvasTex.height = size;
+  const ctx = canvasTex.getContext('2d');
+  const gradient = ctx.createRadialGradient(
+    size / 2, size / 2, 0,
+    size / 2, size / 2, size / 2
+  );
+  gradient.addColorStop(0.0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.2, 'rgba(255,255,255,0.85)');
+  gradient.addColorStop(0.45, 'rgba(255,255,255,0.25)');
+  gradient.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvasTex);
+}
+const glowTexture = createGlowTexture();
+
+/* ---------- 3-2. 노드 데이터 만들기 — 표면이 아니라 부피 전체에 ---------- */
+const activeStudios = STUDIOS.filter((s) => s.enabled);
+
+// 각 스튜디오의 실제 위경도를 방향(단위 벡터)으로 미리 변환해 둡니다 —
+// 노드 배치와 포커스 버튼 회전 양쪽에서 재사용합니다.
+STUDIOS.forEach((studio) => {
+  studio.dir = latLonToVector3(studio.lat, studio.lon);
+});
+
+// 시작 화면부터 활성 스튜디오들이 잘 보이도록, 그 방향들의 평균이 카메라를
+// 향하게 덩어리를 미리 살짝 돌려 둡니다(애니메이션 없이 즉시 — focusOnStudio와
+// 같은 방식이지만 로딩 시 한 번만 적용). 한국/독일처럼 실제로 멀리 떨어진
+// 두 구역이 기본 시점에서부터 둘 다 눈에 들어오게 하기 위함입니다.
+if (activeStudios.length > 0) {
+  const initialFocusDir = activeStudios
+    .reduce((acc, s) => acc.add(s.dir), new THREE.Vector3())
+    .normalize();
+  const initialCameraDir = new THREE.Vector3(0, 0, cameraDistance).normalize();
+  blob.quaternion.setFromUnitVectors(initialFocusDir, initialCameraDir);
+}
+
+function makeDriftFields() {
+  return {
+    driftSeed: new THREE.Vector3(Math.random() * 1000, Math.random() * 1000, Math.random() * 1000),
+    driftSpeed: CONFIG.DRIFT_SPEED_MIN + Math.random() * (CONFIG.DRIFT_SPEED_MAX - CONFIG.DRIFT_SPEED_MIN),
+    _displayPos: new THREE.Vector3(),
+    _depth: 1,
+  };
+}
+
+const clusterNodes = []; // { position, color, studio, twinklePhase, twinkleSpeed, driftSeed, driftSpeed, _displayPos, _depth }
+const ambientNodes = []; // { position, twinklePhase, twinkleSpeed, driftSeed, driftSpeed, _displayPos, _depth }
+
+activeStudios.forEach((studio) => {
+  for (let i = 0; i < CONFIG.NODES_PER_STUDIO; i++) {
+    const dir = sampleDirectionAround(studio.dir, CONFIG.CLUSTER_SPREAD_RADIANS);
+    const envelope = CONFIG.BLOB_RADIUS * blobRadiusScale(dir);
+    // 구역 안에서도 깊이가 있도록 — 바깥쪽(표면)부터 안쪽까지 걸쳐서 분포시킵니다.
+    const depthT = Math.random();
+    const radius = envelope * (CONFIG.CLUSTER_INNER_FRACTION + (1 - CONFIG.CLUSTER_INNER_FRACTION) * depthT);
+    clusterNodes.push({
+      position: dir.multiplyScalar(radius),
+      color: new THREE.Color(studio.color),
+      studio,
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.5 + Math.random() * 0.6,
+      ...makeDriftFields(),
+    });
+  }
+});
+
+for (let i = 0; i < CONFIG.AMBIENT_NODE_COUNT; i++) {
+  const { lat, lon } = randomLatLon();
+  const dir = latLonToVector3(lat, lon);
+  const envelope = CONFIG.BLOB_RADIUS * blobRadiusScale(dir);
+  // 세제곱근을 써야 부피 전체에 걸쳐 밀도가 고르게 됩니다(표면 쪽으로 쏠리지 않게).
+  const radius = envelope * Math.cbrt(Math.random());
+  ambientNodes.push({
+    position: dir.multiplyScalar(radius),
+    twinklePhase: Math.random() * Math.PI * 2,
+    twinkleSpeed: 0.5 + Math.random() * 0.6,
+    ...makeDriftFields(),
+  });
+}
+
+/* ---------- 3-3. Points 로 노드 렌더링 (수백~수천 개로 늘려도 가벼움) ---------- */
+function buildPoints(nodes, colorFn, size) {
+  const positions = new Float32Array(nodes.length * 3);
+  const colors = new Float32Array(nodes.length * 3);
+
+  nodes.forEach((node, i) => {
+    positions[i * 3] = node.position.x;
+    positions[i * 3 + 1] = node.position.y;
+    positions[i * 3 + 2] = node.position.z;
+    const c = colorFn(node);
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  const positionAttr = new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage);
+  const colorAttr = new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute('position', positionAttr); // 부유(drift)로 매 프레임 다시 씀
+  geometry.setAttribute('color', colorAttr); // 트윙클+깊이 밝기로 매 프레임 다시 씀
+
+  const material = new THREE.PointsMaterial({
+    size,
+    map: glowTexture,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending, // 겹치는 노드끼리 은은하게 비쳐 보이도록
+    depthWrite: false,
+    sizeAttenuation: true, // 멀리 있는(뒤쪽) 노드가 원근에 따라 자동으로 작아짐
+    fog: true,
+  });
+
+  return new THREE.Points(geometry, material);
+}
+
+const clusterPoints = buildPoints(clusterNodes, (n) => n.color, CONFIG.BLOB_RADIUS * 0.085);
+clusterPoints.renderOrder = 4;
+blob.add(clusterPoints);
+
+const ambientColor = new THREE.Color(AMBIENT_COLOR);
+const ambientPoints = buildPoints(ambientNodes, () => ambientColor, CONFIG.BLOB_RADIUS * 0.045);
+ambientPoints.renderOrder = 3;
+blob.add(ambientPoints);
+
+/* ---------- 3-4. 연결선 — 전부 직선(옵시디언 그래프 뷰 느낌). 곡선으로
+   구 표면을 감쌀 필요가 없어졌으니, 덩어리 속을 그대로 가로지르게 둡니다.
+   초기 위치만 이 함수에서 채우고, 이후 위치(부유)와 색(깊이 밝기)은 매
+   프레임 다시 계산합니다. ---------- */
+function buildStraightLinkGeometry(refs) {
+  const positions = new Float32Array(refs.length * 6);
+  const colors = new Float32Array(refs.length * 6); // 초기값은 아무거나 — 매 프레임 덮어씀
+  refs.forEach((ref, i) => {
+    positions[i * 6 + 0] = ref.aNode.position.x;
+    positions[i * 6 + 1] = ref.aNode.position.y;
+    positions[i * 6 + 2] = ref.aNode.position.z;
+    positions[i * 6 + 3] = ref.bNode.position.x;
+    positions[i * 6 + 4] = ref.bNode.position.y;
+    positions[i * 6 + 5] = ref.bNode.position.z;
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+  return geometry;
+}
+
+// 스튜디오 구역 내부 연결 (촘촘한 망 느낌) — enabled인 구역만
+const studioLinkRefs = [];
+activeStudios.forEach((studio) => {
+  const nodesOfStudio = clusterNodes.filter((n) => n.studio === studio);
+  const n = nodesOfStudio.length;
+  nodesOfStudio.forEach((node, i) => {
+    const targets = [(i + 1) % n, (i + Math.floor(n / 3)) % n];
+    targets.forEach((ti) => {
+      if (ti === i) return;
+      studioLinkRefs.push({ aNode: node, bNode: nodesOfStudio[ti], colorA: node.color, colorB: nodesOfStudio[ti].color });
+    });
+  });
+});
+
+// 구역 사이를 가로지르는 실 몇 가닥 — 덩어리 속을 지나며 앞뒤 노드와 겹쳐 깊이를 더하고,
+// 두 구역이 따로 노는 뭉치가 아니라 하나로 이어진 망으로 보이게 합니다. (enabled인 구역끼리만)
+for (let si = 0; si < activeStudios.length; si++) {
+  for (let sj = si + 1; sj < activeStudios.length; sj++) {
+    const poolA = clusterNodes.filter((n) => n.studio === activeStudios[si]);
+    const poolB = clusterNodes.filter((n) => n.studio === activeStudios[sj]);
+    for (let k = 0; k < CONFIG.CROSS_CLUSTER_LINKS_PER_PAIR; k++) {
+      const a = poolA[Math.floor(Math.random() * poolA.length)];
+      const b = poolB[Math.floor(Math.random() * poolB.length)];
+      studioLinkRefs.push({ aNode: a, bNode: b, colorA: a.color, colorB: b.color });
+    }
+  }
+}
+
+const studioLines = new THREE.LineSegments(
+  buildStraightLinkGeometry(studioLinkRefs),
+  new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.4,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    fog: true,
+  })
+);
+studioLines.renderOrder = 5;
+blob.add(studioLines);
+
+/* ---------- 3-5. 배경 노드끼리도 가까운 것끼리 은은하게 연결 ----------
+   스튜디오 노드보다 훨씬 어둡고 옅게 해서, 색이 있는 구역이 계속 주인공으로
+   보이도록 하되, 전체적으로는 하나의 유기적인 신경망처럼 보이게 합니다.
+
+   노드마다 나머지 전체와 거리를 재는 예전 방식은 O(n²)이라 노드가 늘어나면
+   느려집니다. 대신 3D 공간을 격자 칸(정육면체)으로 미리 나눠 담고, 각
+   노드는 자기 칸 주변만 훑어 후보를 좁힌 뒤 그 후보들 안에서만 정확한
+   거리를 계산합니다. ---------- */
+function buildNearestNeighborRefs3D(nodes, kNearest, color) {
+  const refs = [];
+  const alreadyLinked = new Set();
+  const n = nodes.length;
+
+  function linkPair(i, j) {
+    const key = i < j ? i + '_' + j : j + '_' + i;
+    if (alreadyLinked.has(key)) return;
+    alreadyLinked.add(key);
+    refs.push({ aNode: nodes[i], bNode: nodes[j], colorA: color, colorB: color });
+  }
+
+  // 노드가 적을 때는 격자를 짤 이유가 없으니 전수 비교를 그대로 씁니다.
+  if (n <= 64) {
+    nodes.forEach((node, i) => {
+      const distances = nodes
+        .map((other, j) => ({ j, d: i === j ? Infinity : node.position.distanceToSquared(other.position) }))
+        .sort((a, b) => a.d - b.d);
+      for (let k = 0; k < kNearest && k < distances.length; k++) linkPair(i, distances[k].j);
+    });
+    return refs;
+  }
+
+  let maxExtent = 1;
+  nodes.forEach((node) => {
+    maxExtent = Math.max(maxExtent, Math.abs(node.position.x), Math.abs(node.position.y), Math.abs(node.position.z));
+  });
+  maxExtent *= 1.01;
+
+  const TARGET_PER_CELL = 6;
+  const gridRes = Math.max(2, Math.round(Math.cbrt(n / TARGET_PER_CELL)));
+  const cellSize = (maxExtent * 2) / gridRes;
+
+  function cellIndexOf(pos) {
+    const ix = Math.min(gridRes - 1, Math.max(0, Math.floor((pos.x + maxExtent) / cellSize)));
+    const iy = Math.min(gridRes - 1, Math.max(0, Math.floor((pos.y + maxExtent) / cellSize)));
+    const iz = Math.min(gridRes - 1, Math.max(0, Math.floor((pos.z + maxExtent) / cellSize)));
+    return { ix, iy, iz };
+  }
+
+  const grid = new Map(); // "ix_iy_iz" -> node indices[]
+  const cellOfNode = nodes.map((node, i) => {
+    const c = cellIndexOf(node.position);
+    const key = c.ix + '_' + c.iy + '_' + c.iz;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(i);
+    return c;
+  });
+
+  nodes.forEach((node, i) => {
+    const { ix, iy, iz } = cellOfNode[i];
+
+    // 자기 칸을 중심으로 반지름 1칸 -> 2칸 -> ... 순서로 넓혀가며, 최소
+    // kNearest개의 후보가 모일 때까지(또는 격자 전체를 다 훑을 때까지) 찾습니다.
+    let ring = 1;
+    let candidates;
+    do {
+      const seen = new Set();
+      candidates = [];
+      for (let dx = -ring; dx <= ring; dx++) {
+        const cx = ix + dx;
+        if (cx < 0 || cx >= gridRes) continue;
+        for (let dy = -ring; dy <= ring; dy++) {
+          const cy = iy + dy;
+          if (cy < 0 || cy >= gridRes) continue;
+          for (let dz = -ring; dz <= ring; dz++) {
+            const cz = iz + dz;
+            if (cz < 0 || cz >= gridRes) continue;
+            const bucket = grid.get(cx + '_' + cy + '_' + cz);
+            if (!bucket) continue;
+            bucket.forEach((j) => {
+              if (j === i || seen.has(j)) return;
+              seen.add(j);
+              candidates.push(j);
+            });
+          }
+        }
+      }
+      ring++;
+    } while (candidates.length < kNearest && ring <= gridRes);
+
+    const distances = candidates
+      .map((j) => ({ j, d: node.position.distanceToSquared(nodes[j].position) }))
+      .sort((a, b) => a.d - b.d);
+
+    for (let k = 0; k < kNearest && k < distances.length; k++) linkPair(i, distances[k].j);
+  });
+
+  return refs;
+}
+
+const ambientLinkRefs = buildNearestNeighborRefs3D(ambientNodes, CONFIG.AMBIENT_LINK_NEIGHBORS, ambientColor);
+
+const ambientLines = new THREE.LineSegments(
+  buildStraightLinkGeometry(ambientLinkRefs),
+  new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.16,
+    blending: THREE.NormalBlending,
+    depthWrite: false,
+    fog: true,
+  })
+);
+ambientLines.renderOrder = 3;
+blob.add(ambientLines);
+
+/* ======================================================================
+   4. 자동회전 <-> 드래그 제어
+   ====================================================================== */
+let resumeTimer = null;
+
+function pauseAutoRotate() {
+  controls.autoRotate = false;
+  if (resumeTimer) clearTimeout(resumeTimer);
+}
+
+function scheduleResumeAutoRotate() {
+  if (resumeTimer) clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(() => {
+    controls.autoRotate = true;
+  }, CONFIG.RESUME_ROTATE_DELAY_MS);
+}
+
+controls.addEventListener('start', () => {
+  activeFocusTween = null; // 드래그 시작하면 버튼 애니메이션 취소
+  pauseAutoRotate();
+});
+controls.addEventListener('end', scheduleResumeAutoRotate);
+
+/* ======================================================================
+   5. 버튼 클릭 -> 해당 스튜디오 구역을 정면으로 회전
+   ====================================================================== */
+let activeFocusTween = null;
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function focusOnStudio(studio) {
+  pauseAutoRotate();
+
+  const cameraDir = camera.position.clone().normalize();
+  const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(
+    studio.dir.clone(), cameraDir
+  );
+
+  activeFocusTween = {
+    from: blob.quaternion.clone(),
+    to: targetQuaternion,
+    start: performance.now(),
+    duration: CONFIG.FOCUS_ANIM_MS,
+  };
+}
+
+function updateFocusTween(now) {
+  if (!activeFocusTween) return;
+  const t = Math.min(1, (now - activeFocusTween.start) / activeFocusTween.duration);
+  const eased = easeInOutCubic(t);
+  blob.quaternion.slerpQuaternions(activeFocusTween.from, activeFocusTween.to, eased);
+  if (t >= 1) {
+    activeFocusTween = null;
+    scheduleResumeAutoRotate();
+  }
+}
+
+// 스튜디오 버튼을 누르면: 그 나라 쪽으로 덩어리를 회전시켜 보여준 뒤, feed로
+// 넘어갑니다. 지금은 회전 연출이 끝나는 시점에 맞춰 그냥 페이지 이동만
+// 하는 "척"입니다 — 진짜 구글 로그인은 아직 붙어있지 않습니다.
+//
+// TODO(auth): 실제 인증을 붙일 때는 여기서 바로 location.href를 옮기는 대신
+// 구글 로그인 팝업/리다이렉트를 먼저 태우고, 로그인이 성공했을 때만
+// loom_feed.html로 이동하도록 바꿔야 합니다.
+// 어느 스튜디오 버튼으로 들어왔는지 — loom_feed.html이 "지금 로그인한 스튜디오"로
+// 읽어서, Designers 화면의 첫 스튜디오와 편집 권한을 정하는 데 씁니다.
+// TODO(auth): 실제 서비스에서는 이 값이 로그인 계정에 딸린 소속으로 판별돼야
+// 합니다. localStorage는 사용자가 직접 고칠 수 있으므로 권한 근거가 될 수 없고,
+// 여기서는 로그인이 아직 없는 프로토타입이라 그 자리를 대신 채워둔 것뿐입니다.
+const CURRENT_STUDIO_STORAGE_KEY = 'loom_current_studio';
+
+function enterStudioAndProceed(studio) {
+  try {
+    localStorage.setItem(CURRENT_STUDIO_STORAGE_KEY, studio.id);
+  } catch (err) {
+    // 시크릿 모드 등 저장이 막힌 환경 — feed 쪽에서 기본 스튜디오로 폴백합니다.
+    console.warn('[Loom lobby] 현재 스튜디오를 저장하지 못했습니다:', err);
+  }
+  focusOnStudio(studio);
+  const veil = document.getElementById('pageVeil');
+  // Fade the veil back in a beat before navigating, so the jump to
+  // loom_feed.html reads as a soft hand-off instead of a hard browser cut.
+  setTimeout(() => { if (veil) veil.classList.remove('is-hidden'); }, CONFIG.FOCUS_ANIM_MS - 80);
+  setTimeout(() => {
+    window.location.href = 'loom_feed.html';
+  }, CONFIG.FOCUS_ANIM_MS + 400); // 회전이 눈에 다 들어올 시간을 살짝 더 줌
+}
+
+// Reveal the scene shortly after first paint — matches the same veil
+// treatment on loom_feed.html so arriving here doesn't flash.
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const veil = document.getElementById('pageVeil');
+    if (veil) veil.classList.add('is-hidden');
+  });
+});
+
+/* ======================================================================
+   6. 하단 스튜디오 버튼 DOM 생성
+   ====================================================================== */
+const dock = document.getElementById('studio-dock');
+
+activeStudios.forEach((studio) => {
+  const btn = document.createElement('button');
+  btn.className = 'studio-button';
+  btn.style.setProperty('--studio-glow', `#${studio.color.toString(16).padStart(6, '0')}55`);
+  btn.setAttribute('aria-label', studio.name);
+
+  // 이니셜을 기본으로 항상 넣어두고, 로고 이미지 로드에 성공했을 때만 교체합니다.
+  // -> assets 폴더에 로고 파일이 없으면 이니셜이, 넣으면 로고가 자동으로 보입니다.
+  const initialsSpan = document.createElement('span');
+  initialsSpan.className = 'studio-icon-initials';
+  initialsSpan.textContent = studio.initials;
+  btn.appendChild(initialsSpan);
+
+  if (studio.logo) {
+    const img = document.createElement('img');
+    img.className = 'studio-icon-logo';
+    img.alt = studio.name;
+    img.style.display = 'none';
+    img.onload = () => {
+      img.style.display = 'block';
+      initialsSpan.style.display = 'none';
+    };
+    img.onerror = () => {
+      img.remove(); // 파일이 없거나 깨졌으면 이니셜만 남깁니다
+    };
+    img.src = studio.logo;
+    btn.appendChild(img);
+  }
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'studio-tooltip';
+  tooltip.textContent = studio.name;
+  btn.appendChild(tooltip);
+
+  btn.addEventListener('click', () => enterStudioAndProceed(studio));
+  dock.appendChild(btn);
+});
+
+/* ======================================================================
+   7. 렌더 루프 — 깊이감이 이번 디자인의 핵심이라, 매 프레임 카메라와의
+   실제 거리를 기준으로 노드/실의 밝기를 다시 계산합니다.
+   ====================================================================== */
+const _tmpDepthVec = new THREE.Vector3();
+
+function updateDepthFog() {
+  // 줌인/줌아웃을 해도 "앞은 또렷하게, 뒤는 흐리게"가 항상 카메라 거리 기준으로
+  // 맞도록 매 프레임 안개 범위를 다시 계산합니다.
+  const camDist = camera.position.length();
+  scene.fog.near = camDist - CONFIG.BLOB_RADIUS * 1.15;
+  scene.fog.far = camDist + CONFIG.BLOB_RADIUS * 1.15;
+}
+
+// 노드가 제자리에서 아주 미세하게 부유하도록 — 각 축마다 주파수/위상을 다르게
+// 섞어서 단순 왕복이 아니라 리사주 곡선처럼 은은하게 유영합니다. 노드마다
+// driftSeed/driftSpeed가 달라서 다 같이 맞춰 움직이지 않습니다. 결과는
+// node._displayPos에 담아 두고, 밝기 계산과 연결선 위치 양쪽에서 재사용합니다.
+function updateDrift(now) {
+  const t = now * 0.001;
+
+  function apply(nodes) {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const dx = Math.sin(t * node.driftSpeed + node.driftSeed.x) * CONFIG.DRIFT_AMOUNT;
+      const dy = Math.sin(t * node.driftSpeed * 1.3 + node.driftSeed.y) * CONFIG.DRIFT_AMOUNT;
+      const dz = Math.sin(t * node.driftSpeed * 0.8 + node.driftSeed.z) * CONFIG.DRIFT_AMOUNT;
+      node._displayPos.set(node.position.x + dx, node.position.y + dy, node.position.z + dz);
+    }
+  }
+
+  apply(clusterNodes);
+  apply(ambientNodes);
+}
+
+// 노드의 현재(부유가 반영된) 위치를 덩어리 회전까지 적용한 실제 월드 좌표로
+// 바꾼 뒤 카메라와의 거리를 기준으로, "앞쪽"이면 확실히 밝고, "뒤쪽"이면
+// 확실히 흐리게 보이도록 밝기 배수를 계산합니다. 결과는 node._depth에
+// 캐시해 두고, 실(연결선) 색을 칠할 때도 재사용합니다.
+function computeDepthFactor(node) {
+  const world = _tmpDepthVec.copy(node._displayPos).applyQuaternion(blob.quaternion);
+  const dist = world.distanceTo(camera.position);
+  const t = clamp01((dist - scene.fog.near) / (scene.fog.far - scene.fog.near));
+  const factor = lerp(CONFIG.DEPTH_FRONT_BRIGHTNESS, CONFIG.DEPTH_BACK_BRIGHTNESS, t);
+  node._depth = factor;
+  return factor;
+}
+
+// 노드 하나하나가 별처럼 은은하게 맥동하도록(트윙클) + 깊이에 따른 밝기 +
+// 부유 위치까지 매 프레임 위치/색상 버퍼를 다시 계산합니다. 노드 수가
+// 수백~수천 개로 늘어나도 단순한 sin() + 거리 계산이라 매우 가볍습니다.
+function updateNodeAppearance(now) {
+  const t = now * 0.001;
+
+  function apply(points, nodes, baseColorFn) {
+    const posAttr = points.geometry.attributes.position;
+    const colorAttr = points.geometry.attributes.color;
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      posAttr.array[i * 3] = node._displayPos.x;
+      posAttr.array[i * 3 + 1] = node._displayPos.y;
+      posAttr.array[i * 3 + 2] = node._displayPos.z;
+
+      const twinkle = CONFIG.TWINKLE_BASE + CONFIG.TWINKLE_AMOUNT * Math.sin(t * node.twinkleSpeed + node.twinklePhase);
+      const depthFactor = computeDepthFactor(node);
+      const factor = twinkle * depthFactor;
+      const base = baseColorFn(node);
+      colorAttr.array[i * 3] = base.r * factor;
+      colorAttr.array[i * 3 + 1] = base.g * factor;
+      colorAttr.array[i * 3 + 2] = base.b * factor;
+    }
+    posAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+  }
+
+  apply(clusterPoints, clusterNodes, (n) => n.color);
+  apply(ambientPoints, ambientNodes, () => ambientColor);
+}
+
+// 연결선도 양 끝 노드의 부유 위치/깊이 밝기를 그대로 물려받습니다 — 노드 쪽에서
+// 이미 계산해 둔 _displayPos/_depth를 재사용하므로 여기서는 추가 계산이 없습니다.
+function updateLinkAppearance() {
+  function apply(lineObj, refs) {
+    const posAttr = lineObj.geometry.attributes.position;
+    const colorAttr = lineObj.geometry.attributes.color;
+    for (let i = 0; i < refs.length; i++) {
+      const ref = refs[i];
+      posAttr.array[i * 6 + 0] = ref.aNode._displayPos.x;
+      posAttr.array[i * 6 + 1] = ref.aNode._displayPos.y;
+      posAttr.array[i * 6 + 2] = ref.aNode._displayPos.z;
+      posAttr.array[i * 6 + 3] = ref.bNode._displayPos.x;
+      posAttr.array[i * 6 + 4] = ref.bNode._displayPos.y;
+      posAttr.array[i * 6 + 5] = ref.bNode._displayPos.z;
+
+      const fa = ref.aNode._depth, fb = ref.bNode._depth;
+      colorAttr.array[i * 6 + 0] = ref.colorA.r * fa;
+      colorAttr.array[i * 6 + 1] = ref.colorA.g * fa;
+      colorAttr.array[i * 6 + 2] = ref.colorA.b * fa;
+      colorAttr.array[i * 6 + 3] = ref.colorB.r * fb;
+      colorAttr.array[i * 6 + 4] = ref.colorB.g * fb;
+      colorAttr.array[i * 6 + 5] = ref.colorB.b * fb;
+    }
+    posAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+  }
+
+  apply(studioLines, studioLinkRefs);
+  apply(ambientLines, ambientLinkRefs);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  updateFocusTween(now);
+  updateDepthFog();
+  updateDrift(now);          // 먼저 각 노드의 부유 위치(_displayPos)를 갱신
+  updateNodeAppearance(now); // 그 위치 기준으로 밝기(_depth)까지 계산
+  updateLinkAppearance();    // 노드 쪽에서 계산해 둔 위치/밝기를 그대로 재사용
+  controls.update();
+  composer.render();
+}
+animate();
+
+/* ======================================================================
+   8. 리사이즈 대응
+   ====================================================================== */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

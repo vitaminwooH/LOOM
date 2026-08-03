@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# scratch / working files (anything starting with "scratchpad")
+scratchpad*
+
+# screen recordings and captures
+*.webm
+*.gif
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Claude Code per-machine settings — the ".local" file is meant to stay on the
+# machine that wrote it (it holds absolute paths and this user's Windows
+# profile name). The shared .claude/settings.json, if one is ever added, is
+# tracked normally.
+.claude/settings.local.json
