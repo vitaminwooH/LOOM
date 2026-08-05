@@ -20,11 +20,11 @@
     --ink-faint: rgba(28, 28, 30, 0.36);
     --shadow-resting: 0 20px 40px -26px rgba(20, 20, 20, 0.18);
     --shadow-hover: 0 44px 84px -24px rgba(20, 20, 20, 0.32);
-    /* One "floor" of the feed — the topbar is 98px, so this is exactly what's
-       left of the viewport. Every one of the three floors is pinned to this
-       height with no exceptions, which is what makes one wheel tick always
-       land on exactly one floor (see initFeedWheelSnap). */
-    --floor-h: calc(100vh - 98px);
+    /* A floor is exactly one viewport. There is no chrome in the layout to
+       subtract — everything fixed floats over the floors rather than stacking
+       above them — and that exactness is what makes one wheel tick always land
+       on exactly one floor (see initFeedWheelSnap). */
+    --floor-h: 100vh;
     /* the "scene change" arrival reveal (playArrivalReveal): a hard ease-out
        so each element launches and then settles for a long time, matching the
        floor tween's own character rather than drifting on its own schedule */
@@ -98,24 +98,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 15, 12, 0.42);
+    /* 0.78, not 0.42: this used to open only over floor 1's dark banner, where
+       a light scrim was enough. Floors 2 and 3 are near-white, and the blur
+       behind this colour turns them into an even brighter wash, so anything
+       lighter left white type sitting on mid-grey. At 0.78 the composite is
+       ~#383837 whichever floor is underneath, and one set of item colours
+       works everywhere. */
+    background: rgba(12, 12, 10, 0.78);
     backdrop-filter: blur(0px);
     -webkit-backdrop-filter: blur(0px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.4s ease, backdrop-filter 0.4s ease;
+    /* This is the CLOSING duration — the base rule is the state being
+       transitioned *to* when .is-open comes off. 220ms, matching
+       MENU_CLOSE_DUR_MS, so the backdrop leaves with the items instead of
+       hanging around for another 180ms after the last one has gone. */
+    transition: opacity 0.22s ease, backdrop-filter 0.22s ease;
   }
+  /* and this is the opening one: slower, because arriving should feel like the
+     room dimming and leaving should feel like getting out of the way */
   .menu-overlay.is-open {
     opacity: 1;
     pointer-events: auto;
     backdrop-filter: blur(22px);
     -webkit-backdrop-filter: blur(22px);
+    transition: opacity 0.4s ease, backdrop-filter 0.4s ease;
   }
 
+  /* the same back arrow as everywhere else, in the dark-overlay dialect and
+     sitting exactly where the hamburger was */
   .menu-close {
     position: absolute;
-    top: 26px;
-    right: 32px;
+    top: 22px;
+    left: 24px;
     width: 42px;
     height: 42px;
     border-radius: 50%;
@@ -130,7 +145,8 @@
     cursor: pointer;
     transition: background 0.25s ease, transform 0.25s ease;
   }
-  .menu-close:hover { background: rgba(255, 255, 255, 0.18); transform: scale(1.06); }
+  .menu-close svg { width: 19px; height: 19px; }
+  .menu-close:hover { background: rgba(255, 255, 255, 0.18); transform: translateX(-2px); }
 
   .menu-list { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 
@@ -147,98 +163,36 @@
     font-weight: 600;
     font-size: clamp(30px, 5.2vw, 52px);
     letter-spacing: -0.01em;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.82);
     padding: 8px 20px;
     opacity: 0;
     transform: translateY(22px);
     transition: opacity 0.2s ease, transform 0.2s ease, color 0.3s ease;
   }
   .menu-item:hover, .menu-item:focus-visible { color: rgba(255, 255, 255, 0.92); }
+  /* Tools has nowhere to go yet, and says so in place rather than looking
+     identical to the four items that do work. */
+  .menu-item[data-kind="pending"] { color: rgba(255, 255, 255, 0.42); }
+  .menu-item[data-kind="pending"]:hover { color: rgba(255, 255, 255, 0.5); }
+  .menu-item-aside {
+    margin-left: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.34em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    color: rgba(255, 255, 255, 0.38);
+  }
   .menu-item.is-active { color: #ffffff; }
   .menu-item.is-visible { opacity: 1; transform: translateY(0); }
-
-  /* ---------- back-to-lobby link — a small standalone pill pinned to the
-     bottom-left corner (used to live at the foot of the old sidebar) ---------- */
-  .sidebar-footer {
-    position: fixed;
-    bottom: 22px;
-    left: 22px;
-    z-index: 15;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 4px;
-    box-shadow: var(--shadow-resting);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-  /* icon-only at rest; hovering the pill widens it and slides the label in
-     from behind the icon (item 6) — a width/margin transition, not just a
-     fade, so it genuinely reads as the pill growing rather than text
-     popping in. Collapses back the instant the pointer leaves. */
-  .sidebar-footer .sidebar-item {
-    margin-bottom: 0;
-    gap: 0;
-    padding: 7px;
-    transition: padding 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease, color 0.25s ease;
-  }
-  .sidebar-footer:hover .sidebar-item { padding: 7px 16px 7px 7px; }
-  .sidebar-footer .sidebar-item:hover .sidebar-item-badge { background: var(--ink); color: #fff; }
-  .sidebar-footer .sidebar-item-label {
-    display: inline-block;
-    max-width: 0;
-    margin-left: 0;
-    opacity: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    transition: max-width 0.4s cubic-bezier(0.22, 1, 0.36, 1), margin-left 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
-  }
-  .sidebar-footer:hover .sidebar-item-label { max-width: 200px; margin-left: 10px; opacity: 1; }
-  /* hidden while composing in share mode, so it can't be misclicked mid-write */
-  .sidebar-footer.is-hidden-in-share { opacity: 0; transform: translateY(8px) scale(0.95); pointer-events: none; }
-
-  .sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border: none;
-    background: transparent;
-    border-radius: 999px;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
-    color: var(--ink-dim);
-    white-space: nowrap;
-    text-align: left;
-    text-decoration: none;
-    transition: background 0.25s ease, color 0.25s ease;
-  }
-  .sidebar-item:hover { background: rgba(20, 20, 20, 0.05); color: var(--ink); }
-
-  .sidebar-item-badge {
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    background: rgba(20, 20, 20, 0.06);
-    color: var(--ink-dim);
-    transition: background 0.25s ease, color 0.25s ease;
-  }
-  .sidebar-item-badge svg { width: 13px; height: 13px; }
 
   /* ---------- app content ---------- */
   .app {
     transition: filter 0.55s ease, transform 0.55s ease, opacity 0.45s ease;
   }
-  .app.is-receded { filter: blur(7px) brightness(0.94); transform: scale(0.98); }
-  /* page-to-page hand-off: the same soft recede used when a card opens,
-     reused so leaving/arriving on this screen never feels like a hard cut */
+  /* page-to-page hand-off: a soft recede, so leaving or arriving on this
+     screen never feels like a hard cut */
   .app.is-transitioning { opacity: 0.35; filter: blur(6px) brightness(0.96); transform: scale(0.975); }
 
   /* ---------- page transition veil ---------- */
@@ -253,52 +207,101 @@
   }
   .page-veil.is-hidden { opacity: 0; }
 
-  /* ---------- top bar ---------- */
-  .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding: 26px 48px;
-    background: rgba(250, 250, 248, 0.86);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .brand-mini {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
-    font-size: 23px;
-    letter-spacing: 0.14em;
-    color: var(--ink);
-    flex-shrink: 0;
-  }
-
-  /* ---------- share-knowledge button ---------- */
-  .share-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 18px 9px 15px;
-    border-radius: 999px;
+  /* ---------- floating chrome: hamburger, back, corner marks ----------
+     No panel, no pill, no white disc — the mark alone. These sit over anything
+     from a white browse floor to a dark full-bleed photo, so legibility comes
+     from a two-tone drop-shadow on the glyph itself: a tight light halo lifts it
+     off dark art, a wider soft dark one keeps it readable on white. Cheaper than
+     a backdrop and it never boxes the icon in. */
+  .icon-ghost {
     border: none;
-    background: var(--ink);
-    color: #ffffff;
-    font-family: 'Inter', sans-serif;
-    font-size: 12.5px;
-    font-weight: 650;
+    background: transparent;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ink);
     text-decoration: none;
-    white-space: nowrap;
-    flex-shrink: 0;
-    box-shadow: 0 10px 22px -12px rgba(20, 20, 20, 0.45);
-    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+    filter:
+      drop-shadow(0 0 1px rgba(255, 255, 255, 0.85))
+      drop-shadow(0 2px 8px rgba(20, 20, 20, 0.28));
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, color 0.25s ease;
   }
-  .share-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 28px -12px rgba(20, 20, 20, 0.5); }
-  .share-btn:active { transform: translateY(0) scale(0.97); }
-  .share-btn svg { width: 13px; height: 13px; }
+  .icon-ghost:hover { transform: scale(1.1); }
+  .icon-ghost:active { transform: scale(0.93); }
+  .icon-ghost:focus-visible { outline: 2px solid var(--ink-dim); outline-offset: 4px; border-radius: 8px; }
+  /* over the banner's dark scrim the mark inverts — same shadow pair, reversed */
+  .icon-ghost.on-dark {
+    color: #ffffff;
+    filter:
+      drop-shadow(0 0 1px rgba(0, 0, 0, 0.5))
+      drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
+  }
+
+  /* top-left: the one piece of chrome on every floor and every surface */
+  .hamburger-btn {
+    position: fixed;
+    top: 24px;
+    left: 26px;
+    z-index: 300;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+  .hamburger-btn svg { width: 22px; height: 22px; }
+
+  /* Back (←) — the single "leave this screen" control, in one place on every
+     screen that has one. It replaced four different ✕ buttons that each sat in
+     a different corner. Offset right of the hamburger so the two never overlap. */
+  .back-btn {
+    position: fixed;
+    top: 24px;
+    left: 70px;
+    z-index: 300;
+    width: 26px;
+    height: 26px;
+  }
+  .back-btn svg { width: 21px; height: 21px; }
+  .back-btn:hover { transform: translateX(-3px) scale(1.06); }
+  .back-btn:active { transform: translateX(-3px) scale(0.93); }
+
+  /* ---------- bottom-left: write, and leave ---------- */
+  .corner-dock {
+    position: fixed;
+    bottom: 24px;
+    left: 26px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column; /* Share is first in the markup, so it sits on top */
+    align-items: flex-start;
+    gap: 20px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  /* hidden while composing, so a stray click can't discard the moment */
+  .corner-dock.is-hidden-in-share { opacity: 0; transform: translateY(8px) scale(0.95); pointer-events: none; }
+
+  .corner-btn { width: 26px; height: 26px; position: relative; }
+  .corner-btn svg { width: 22px; height: 22px; }
+  /* the label rides out to the right on hover rather than living on screen —
+     two bare glyphs in a corner say enough at rest */
+  .corner-btn-label {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translate(-6px, -50%);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: inherit;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(255, 255, 255, 0.7);
+    transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .corner-btn:hover .corner-btn-label { opacity: 1; transform: translate(0, -50%); }
+  .corner-btn.on-dark .corner-btn-label { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
 
   .search-wrap input {
     width: 250px;
@@ -355,63 +358,160 @@
   }
   .chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-  .lang-switcher { position: relative; }
+  /* ---------- language, bottom-right ----------
+     An icon-sized chip carrying only the code, with the list unfolding upwards.
+     Language is not a thing that should disappear because of which floor you
+     are on, so it is fixed like everything else in a corner. */
+  .lang-switcher {
+    position: fixed;
+    right: 28px;
+    bottom: 24px;
+    z-index: 300;
+  }
   .lang-btn {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: #ffffff;
+    justify-content: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0;
     font-family: 'Inter', sans-serif;
     font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ink-dim);
-    cursor: pointer;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     white-space: nowrap;
-    transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  .lang-btn:hover { background: rgba(20, 20, 20, 0.05); color: var(--ink); transform: translateY(-1px); }
-  .lang-btn:active { transform: translateY(0) scale(0.97); }
-  .lang-btn svg { width: 11px; height: 11px; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+  .lang-btn svg { width: 10px; height: 10px; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
   .lang-switcher.is-open .lang-btn svg { transform: rotate(180deg); }
-  .lang-switcher.is-open .lang-btn { background: rgba(20, 20, 20, 0.05); color: var(--ink); }
 
   .lang-menu {
     position: absolute;
-    top: calc(100% + 10px);
+    bottom: calc(100% + 10px);
     right: 0;
-    min-width: 148px;
+    min-width: 54px;
     background: #ffffff;
     border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-resting);
+    border-radius: 16px;
+    box-shadow: var(--shadow-hover);
     padding: 6px;
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
+    transform: translateY(8px) scale(0.96);
+    transform-origin: bottom right;
     pointer-events: none;
     transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 30;
   }
   .lang-switcher.is-open .lang-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
   .lang-menu-item {
     display: block;
     width: 100%;
-    text-align: left;
-    padding: 9px 12px;
-    border-radius: 9px;
+    text-align: center;
+    padding: 9px 10px;
+    border-radius: 11px;
     border: none;
     background: transparent;
     font-family: 'Inter', sans-serif;
-    font-size: 13px;
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
     color: var(--ink-dim);
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease;
   }
   .lang-menu-item:hover { background: rgba(20, 20, 20, 0.05); color: var(--ink); }
-  .lang-menu-item.is-active { color: var(--ink); font-weight: 650; background: rgba(20, 20, 20, 0.05); }
+  .lang-menu-item.is-active { color: #ffffff; background: var(--ink); }
+
+  /* ---------- bottom-centre: this floor's tools, and the wordmark ----------
+     One fixed column. The horizontal insets are not decoration: the bottom-left
+     corner holds the write/leave marks and the bottom-right holds the language
+     switch, so the stack is only allowed the middle. Below the width where that
+     middle stops being usable it lifts above both corners instead. */
+  .bottom-center {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 22px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 11px;
+    padding: 0 170px;
+    pointer-events: none;
+  }
+  .bottom-center > * { pointer-events: auto; }
+
+  .floor-dock {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    transform: translateY(10px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+  .floor-dock.is-visible { opacity: 1; transform: translateY(0); }
+  .floor-dock.is-visible .floor-dock-group { pointer-events: auto; }
+  /* nothing to show on this floor — collapse rather than leave the stack's
+     gap reserving a row above the wordmark */
+  .floor-dock:not(.is-visible) { display: none; }
+
+  .floor-dock-group {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    pointer-events: none;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-resting);
+  }
+  .floor-dock-group.is-active { display: flex; }
+
+  /* the dock's field and chips sit on a translucent plate, so they drop their
+     individual white fills and let the plate carry them */
+  .floor-dock .search-wrap input { background: transparent; border-color: transparent; padding: 8px 14px; width: 220px; }
+  .floor-dock .search-wrap input:focus { width: 260px; background: #ffffff; border-color: var(--border); box-shadow: none; }
+  .floor-dock .studio-chip,
+  .floor-dock .type-filter-btn { background: transparent; }
+  .floor-dock .studio-chip:hover:not(.is-active),
+  .floor-dock .type-filter-btn:hover { background: rgba(20, 20, 20, 0.06); }
+  /* the dock is at the foot of the screen, so its menu opens upward */
+  .floor-dock .type-filter-menu { top: auto; bottom: calc(100% + 12px); transform-origin: bottom right; }
+
+  /* ---------- the wordmark ----------
+     Loom lost its name when the top bar went, and a product with no name
+     anywhere reads as a page rather than a place. It comes back as a footer:
+     centred, serif, small, at the very bottom. Signature, not navigation.
+     Floor 1 doesn't get one — the cover carries nothing but image and title. */
+  .brand-footer {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em; /* balances the tracking on the last letter */
+    color: var(--ink-faint);
+    user-select: none;
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+  .brand-footer.is-visible { opacity: 1; transform: translateY(0); }
+  .brand-footer:not(.is-visible) { display: none; }
+
+  @media (max-width: 1240px) {
+    /* not enough middle left between the two corners — clear them vertically
+       instead, and give the row the full width back */
+    .bottom-center { bottom: 74px; padding: 0 32px; }
+    .browse-section { padding-bottom: 214px; }
+    .questions-scroll { padding-bottom: 214px; }
+  }
 
   /* ======================================================================
      Feed — two tiers, deliberately different in size/density/character:
@@ -458,111 +558,183 @@
     overscroll-behavior: contain;
   }
 
-  /* ---------- Discover — one screen-filling banner, newest-first ---------- */
+  /* ---------- Discover — the magazine cover ----------
+     No chrome at all on this floor. No section heading, no explainer, no
+     rounded card sitting politely inside a margin. The image goes edge to edge
+     and becomes background; the title is the subject. */
   .discover-section {
-    padding: 26px 0 22px;
-  }
-  .discover-header { padding: 0 56px; margin-bottom: 16px; flex-shrink: 0; }
-  .discover-heading {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
-    font-size: 27px;
-    letter-spacing: -0.005em;
-    color: var(--ink);
-    margin: 0 0 4px;
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
-  }
-  .discover-sub {
-    margin: 0;
-    font-size: 13px;
-    color: var(--ink-dim);
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
-  }
-  /* wheel-snap arrival back up to the hero (see playArrivalReveal) rises
-     the heading/subhead + whichever hero card-content is on stage. */
-  .discover-heading.is-pre-reveal, .discover-sub.is-pre-reveal, .hero-slide .card-content.is-pre-reveal {
-    opacity: 0;
-    transform: translateY(28px);
+    padding: 0;
   }
 
   /* one full-bleed banner, not a row — the single newest thing, crossfading
      through the same top-N recency slice Discover always curated (see
-     computeDiscoverIndices). No drag/scroll left here; navigation is the
-     arrows/dots below plus the autoplay timer (see initHeroControls). */
+     computeDiscoverIndices). No drag/scroll here; navigation is the arrows and
+     dots plus the autoplay timer (see initHeroControls). */
   .discover-hero {
     position: relative;
     flex: 1;
     min-height: 0;
-    margin: 0 56px;
-    border-radius: 24px;
+    margin: 0;
+    border-radius: 0;
     overflow: hidden;
     background: var(--surface);
-    border: 0.5px solid var(--border);
-    box-shadow: var(--shadow-resting);
+    border: none;
+    box-shadow: none;
     cursor: pointer;
     transition: opacity 0.22s ease;
   }
 
   .hero-slides { position: relative; width: 100%; height: 100%; }
 
+  /* 950ms with a hard ease-out: the outgoing frame is most of the way gone in
+     the first third and the rest is a long settle. */
   .hero-slide {
     position: absolute;
     inset: 0;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.9s ease;
+    transition: opacity 0.95s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .hero-slide.is-active { opacity: 1; pointer-events: auto; z-index: 1; }
-  .hero-slide.is-source-hidden { visibility: hidden; }
   .hero-slide.is-hidden { opacity: 0 !important; pointer-events: none; }
 
-  /* bigger type for the one-at-a-time hero — reuses the same card-media/
-     card-scrim/card-content/card-title pieces the expanded modal is built
-     from, just resized up since there's a whole banner to fill now */
-  .hero-slide .card-content { padding: 44px 64px 50px; max-width: 62%; }
-  .hero-slide .card-meta { margin-bottom: 16px; }
-  .hero-slide .card-studio { font-size: 15px; }
-  .hero-slide .card-type { font-size: 12px; padding: 5px 13px; }
-  .hero-slide .card-title { font-size: 36px; line-height: 1.26; -webkit-line-clamp: 2; }
-  .hero-slide .card-lineage-hint { font-size: 12.5px; margin-top: 12px; }
-  .hero-slide .card-discover-badges { top: 26px; right: 30px; }
+  /* Ken Burns — 5s, 1.0 -> 1.06, matching CONFIG.HERO_ROTATE_MS so the push is
+     still creeping when the crossfade takes over rather than finishing early
+     and sitting still. Declared only on the active slide, so re-activating a
+     slide restarts it from 1.0 for free. */
+  @keyframes heroKenBurns {
+    from { transform: scale(1); }
+    to { transform: scale(1.06); }
+  }
+  .hero-slide .card-media { transform-origin: 50% 46%; will-change: transform; }
+  .hero-slide.is-active .card-media { animation: heroKenBurns 5s cubic-bezier(0.33, 0, 0.67, 1) forwards; }
+
+  /* the scrim works much harder now that the title is 7vw — it reaches higher
+     up the frame and lands darker at the foot */
+  .hero-slide .card-scrim {
+    height: 92%;
+    background: linear-gradient(to top, rgba(8, 8, 8, 0.9) 0%, rgba(8, 8, 8, 0.66) 34%, rgba(8, 8, 8, 0.12) 76%, rgba(8, 8, 8, 0) 100%);
+  }
+
+  .hero-slide .card-content { padding: 0 max(5vw, 40px) clamp(76px, 11vh, 120px); max-width: min(1100px, 82%); }
+  .hero-slide .card-meta { margin-bottom: clamp(14px, 2.2vh, 26px); }
+  .hero-slide .card-studio { font-size: clamp(14px, 1.15vw, 18px); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  .hero-slide .card-type { font-size: clamp(11px, 0.9vw, 13px); padding: 6px 15px; }
+  /* The whole point of floor 1: type at cover scale, taking a third of the
+     screen on its own. The clamp is only the ceiling — fitHeroTitle() steps it
+     down per slide so a long title never runs past ~38% of the banner. No line
+     clamp: a long title is allowed to be long. And no text-shadow, because each
+     word sits in an overflow:hidden mask (see .hero-word) and a blurred shadow
+     gets clipped square at that mask's edges, which reads as a grey box behind
+     every word. The scrim carries the contrast instead. */
+  .hero-slide .card-title {
+    font-size: clamp(38px, 6.6vw, 116px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+    display: block;
+    overflow: visible;
+    text-shadow: none;
+  }
+  .hero-slide .card-lineage-hint { font-size: clamp(12px, 1vw, 14px); margin-top: clamp(14px, 2vh, 22px); }
+  /* static, so it rides the caption's own flex line instead of being pinned to
+     a corner — see the note in renderDiscover's template */
+  .hero-slide .card-discover-badges {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
   .hero-slide .card-new-badge { font-size: 11px; padding: 5px 12px; }
-  .hero-slide .card-time-badge { font-size: 11.5px; padding: 5px 12px; }
+  /* no plate: on the caption line this is set against the scrim like the studio
+     name beside it, and a pill here would read as a second, louder label */
+  .hero-slide .card-time-badge {
+    font-size: 11.5px;
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  /* the separator the caption line needs now that two things share it */
+  .hero-slide .card-discover-badges::before {
+    content: '·';
+    color: rgba(255, 255, 255, 0.45);
+    margin-right: 2px;
+  }
   .hero-slide .card-media-icon svg { width: 96px; height: 96px; }
   .hero-slide .card-media-badge { width: 44px; height: 44px; top: 24px; left: 30px; }
   .hero-slide .card-media-badge svg { width: 20px; height: 20px; }
 
+  /* ---------- word-by-word rise ----------
+     Each word is a clipping box with the word itself inside it, so the letters
+     genuinely emerge from behind a mask rather than fading in place. The
+     per-word delay is written inline by renderHeroTitle (70ms apart). */
+  .hero-word {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding: 0 0.06em 0.1em 0;
+  }
+  .hero-word > span {
+    display: inline-block;
+    transform: translateY(115%);
+    opacity: 0;
+    transition: transform 0.98s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+  }
+  .hero-slide.is-active .hero-word > span { transform: translateY(0); opacity: 1; }
+
+  /* one frame of "snap shut, don't animate it" — see replayHeroIntro(), which
+     needs the closed state committed instantly before it can be released
+     again. Without this the reset is itself a delayed transition, so the words
+     never actually leave and there is nothing left to replay. */
+  .hero-slide.is-replaying .hero-word > span,
+  .hero-slide.is-replaying .card-meta,
+  .hero-slide.is-replaying .card-lineage-hint { transition: none !important; }
+
+  /* caption and lineage ride in on the same stagger, one block each. The time
+     badge is inside .card-meta now, so it arrives with the studio name it
+     belongs to instead of on a beat of its own. */
+  .hero-slide .card-meta,
+  .hero-slide .card-lineage-hint {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.7s ease, transform 0.95s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hero-slide.is-active .card-meta,
+  .hero-slide.is-active .card-lineage-hint { opacity: 1; transform: translateY(0); }
+  .hero-slide.is-active .card-meta { transition-delay: 0.08s; }
+  /* lineage lands last — it is the footnote under the headline, so it waits for
+     the title's words to have finished rising */
+  .hero-slide.is-active .card-lineage-hint { transition-delay: 0.42s; }
+
+  /* the arrows are the mark alone: this sits over a full-bleed photo that can
+     be any brightness, so it carries the .on-dark shadow pair, not a plate */
   .hero-arrow {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 2;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(255, 255, 255, 0.85);
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+    z-index: 3;
+    width: 30px;
+    height: 30px;
     opacity: 0;
-    box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.4);
-    transition: opacity 0.25s ease, background 0.25s ease, transform 0.25s ease;
   }
-  .hero-arrow svg { width: 18px; height: 18px; }
-  .hero-arrow:hover { background: #ffffff; transform: translateY(-50%) scale(1.06); }
-  .hero-arrow-prev { left: 22px; }
-  .hero-arrow-next { right: 22px; }
-  .discover-hero:hover .hero-arrow { opacity: 1; }
+  .hero-arrow svg { width: 26px; height: 26px; }
+  .hero-arrow:hover { transform: translateY(-50%) scale(1.14); }
+  .hero-arrow:active { transform: translateY(-50%) scale(0.94); }
+  .hero-arrow-prev { left: 30px; }
+  .hero-arrow-next { right: 30px; }
+  .discover-hero:hover .hero-arrow { opacity: 0.85; }
+  .discover-hero .hero-arrow:hover { opacity: 1; }
 
+  /* Raised clear of the bottom-centre stack and the corner marks. */
   .hero-dots {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 22px;
-    z-index: 2;
+    bottom: 30px;
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -666,48 +838,10 @@
   /* height comes from the shared floor rule above — this floor is exactly one
      viewport and never a pixel more. The poster row is horizontal, so nothing
      here needs to overflow vertically in the first place. */
-  .browse-section { padding: 4px 56px 24px; }
-  .browse-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding-top: 18px;
-    margin-bottom: 16px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .browse-heading {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
-    font-size: 20px;
-    color: var(--ink);
-    margin: 0;
-    flex-shrink: 0;
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
-  }
-  /* the short one-line explainer under each tier's heading (item 11) — what
-     this tier actually is, for someone who's never seen the page before */
-  .browse-sub, .questions-sub {
-    margin: 3px 0 0;
-    font-size: 12.5px;
-    color: var(--ink-faint);
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
-  }
-  /* the "scene change" reveal on wheel-snap arrival (see playArrivalReveal)
-     reuses this same pre-reveal look for the heading/controls too, not just
-     the poster cards — so the whole screen reads as arriving together. */
-  .browse-heading.is-pre-reveal, .browse-sub.is-pre-reveal, .browse-controls.is-pre-reveal {
-    opacity: 0;
-    transform: translateY(28px);
-  }
-  .browse-controls { transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-  /* search sits on its own, then a hairline divider, then the two filter
-     groups — studio as always-visible color chips (the more frequent pick),
-     type tucked into one dropdown button so the row never reads as "seven
-     buttons in search of a hierarchy" (see the type-filter-dropdown below). */
-  .browse-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  /* No heading to reserve room for any more; the generous bottom padding is the
+     lane the floor dock and the wordmark sit in — a poster must never end up
+     underneath the search field. */
+  .browse-section { padding: 34px 56px 162px; }
   .filter-divider { width: 1px; height: 22px; background: var(--border-strong); flex-shrink: 0; }
 
   .browse-empty, .questions-empty {
@@ -830,8 +964,10 @@
   .poster-card {
     position: relative;
     flex: 0 0 auto;
-    height: clamp(340px, 68vh, 720px);
-    width: calc(clamp(340px, 68vh, 720px) / 1.7);
+    /* 72vh — the middle of the 70-75% the floor is specced at. Height first,
+       width derived from the same ~1.7:1 ratio so the two always move together. */
+    height: clamp(340px, 72vh, 760px);
+    width: calc(clamp(340px, 72vh, 760px) / 1.7);
     margin-right: 32px;
     border-radius: 20px;
     overflow: hidden;
@@ -867,8 +1003,6 @@
     transform: scale(0.92) !important;
   }
   .poster-card.is-pre-reveal { opacity: 0; transform: translateY(30px) scale(0.985); }
-  .poster-card.is-source-hidden { visibility: hidden; }
-  .question-card.is-source-hidden { visibility: hidden; }
 
   /* ---------- Open Question cards — nothing's finished yet, so the question
      itself is the artifact instead of a photo: a paper-toned card, no scrim,
@@ -945,49 +1079,44 @@
   /* height comes from the shared floor rule — this is the one floor whose
      content genuinely can run long (a wrapping grid of questions), so the
      grid gets its own .floor-scroll region rather than the floor growing. */
-  .questions-section { padding: 4px 56px 0; }
-  .questions-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding-top: 18px;
-    margin-bottom: 20px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .questions-heading {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
-    font-size: 20px;
-    color: var(--ink);
-    margin: 0;
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
-  }
-  .questions-heading.is-pre-reveal, .questions-sub.is-pre-reveal, .questions-count.is-pre-reveal {
-    opacity: 0;
-    transform: translateY(28px);
-  }
+  .questions-section { padding: 42px 56px 0; }
+  /* the count reads as a line of text in the dock, not a chip on a chip — the
+     dock plate is already the container (see .floor-dock-group) */
   .questions-count {
     flex-shrink: 0;
     font-size: 12.5px;
-    font-weight: 650;
+    font-weight: 600;
     color: var(--ink-dim);
-    background: rgba(20, 20, 20, 0.05);
-    padding: 8px 15px;
-    border-radius: 999px;
+    padding: 5px 8px;
     white-space: nowrap;
-    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
   }
-  /* the scroll region itself (see .floor-scroll) — the negative/positive
-     margin pair lets the poster-card hover lift and shadow bleed to the
-     floor's edge without being clipped by the scroller's own box */
-  .questions-scroll { margin: 0 -8px; padding: 0 8px 28px; }
+  /* the scroll region itself (see .floor-scroll) — the negative/positive margin
+     pair lets a card's hover lift and shadow bleed to the floor's edge without
+     being clipped by the scroller's own box. The tall bottom padding is the
+     floor dock's lane. */
+  .questions-scroll {
+    margin: 0 -8px;
+    padding: 0 8px 162px;
+    /* a flex column purely so the grid below can centre itself with auto
+       margins — see .questions-grid */
+    display: flex;
+    flex-direction: column;
+  }
   .questions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    /* auto-FIT with a capped track, not auto-fill with 1fr: auto-fill kept the
+       empty fourth column, so three questions read as "one is missing" instead
+       of as three questions. The cap stops a lone question from stretching to
+       1500px, and centring keeps a partial row under the middle of the floor
+       rather than pushed against the left edge. */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 400px));
+    justify-content: center;
     gap: 22px;
+    /* margin-block: auto, not justify-content: center — auto margins collapse
+       to zero the moment the content is taller than the scroller, so three
+       questions sit in the middle of the floor and thirty still scroll from
+       the top instead of having their first row clipped above the scrollport. */
+    margin-block: auto;
   }
 
   .question-card {
@@ -995,8 +1124,12 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 250px;
-    padding: 26px 26px 22px;
+    /* taller than the old fixed 250px: on a full-height floor with no heading
+       above it, a question is the only thing on screen and should carry some
+       weight. Still a clamp, so a short window doesn't force a scroll for
+       three of them. */
+    min-height: clamp(240px, 28vh, 330px);
+    padding: 30px 28px 24px;
     border-radius: 20px;
     border: 1.5px dashed var(--border-strong);
     background:
@@ -1156,40 +1289,35 @@
     overflow: hidden;
   }
 
-  /* ---------- scrim behind the expanded card ---------- */
-  .scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(15, 15, 12, 0.28);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.55s ease, backdrop-filter 0.55s ease;
-  }
-  .scrim.is-visible {
-    opacity: 1;
-    pointer-events: auto;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-  }
 
-  /* ---------- expanded card ---------- */
+  /* ---------- knowledge detail ----------
+     A whole screen, not a modal. It used to be a FLIP-animated card that grew
+     out of the poster you clicked and floated over a blurred feed; a floating
+     panel is a footnote, and a piece of knowledge is not a footnote. It takes
+     the screen the same way Share does, with the same crossfade+lift (see
+     .mode-fade-out and enterShareMode) so the two feel like one gesture. */
   .expanded-card {
     display: none;
     position: fixed;
+    inset: 0;
     flex-direction: column;
-    background: var(--surface);
+    background: var(--bg);
     z-index: 100;
     overflow: hidden;
-    box-shadow: 0 50px 110px -25px rgba(20, 20, 20, 0.35);
-    transition: top 0.55s cubic-bezier(0.22, 1, 0.36, 1), left 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-                width 0.55s cubic-bezier(0.22, 1, 0.36, 1), height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-                border-radius 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity: 0;
+    transform: translateY(12px) scale(0.992);
+    /* deliberately the same numbers .mode-fade-out uses */
+    transition: opacity 0.3s ease, transform 0.44s cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .expanded-card.is-open { opacity: 1; transform: translateY(0) scale(1); }
 
+  /* A teaser strip at 22vh. It was a third of the screen spent on a picture
+     before a single word of what was learned — and the picture is already the
+     thing you clicked. */
   .expanded-media {
     position: relative;
     flex-shrink: 0;
+    height: clamp(130px, 22vh, 260px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1200,6 +1328,9 @@
     background-blend-mode: multiply, normal, normal, normal, normal;
   }
   .expanded-media .card-media-icon svg { width: 52px; height: 52px; }
+  /* over to the right: the banner starts at the very top of the window, and
+     top-left is the hamburger's corner on every screen in this app */
+  .expanded-media .card-media-badge { left: auto; right: 24px; top: 20px; }
   .expanded-media.has-image {
     background-image: var(--card-img);
     background-size: cover;
@@ -1208,40 +1339,45 @@
   }
   .expanded-media.has-image .card-media-icon { display: none; }
   .expanded-media:not(.has-image) .card-media-badge { display: none; }
-  /* Open Question: same paper tone as the feed cards instead of a studio-
-     colored bloom — there's no result to illustrate yet. */
-  .expanded-media.is-open-question:not(.has-image) {
-    background-image: none;
-    background-color: #fbf9f3;
-  }
 
-  .expanded-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    line-height: 1;
-    cursor: pointer;
-    z-index: 5;
-    box-shadow: 0 6px 18px -8px rgba(20, 20, 20, 0.25);
-    transition: background 0.3s ease, transform 0.3s ease;
-  }
-  .expanded-close:hover { background: #ffffff; transform: scale(1.08); }
-
-  .expanded-body-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 26px 48px 36px;
+  /* ---------- the two panes ----------
+     Written on the left, received on the right — the same split the Question
+     detail uses for conversation/brief. Each pane scrolls on its own: a long
+     body shouldn't drag the lineage list off the bottom of the window. */
+  .expanded-panes {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 62fr) minmax(320px, 38fr);
     transition: opacity 0.22s ease;
+  }
+  .expanded-pane {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .expanded-pane-inner { max-width: 720px; margin: 0 auto; }
+  .expanded-pane-body { padding: clamp(26px, 3.6vh, 42px) clamp(28px, 3.4vw, 56px) 60px; }
+
+  .expanded-pane-response {
+    background: rgba(20, 20, 20, 0.022);
+    border-left: 1px solid var(--border);
+    padding: clamp(26px, 3.6vh, 42px) clamp(22px, 2.2vw, 34px) 60px;
+  }
+  .expanded-pane-response .expanded-pane-inner { max-width: 520px; }
+
+  /* Below this both columns would be too narrow to read, so the response side
+     goes under the body and the whole thing becomes one scroller again. */
+  @media (max-width: 1080px) {
+    .expanded-panes { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+    .expanded-pane { overflow: visible; }
+    .expanded-pane-response {
+      border-left: none;
+      border-top: 1px solid var(--border);
+      padding-top: clamp(22px, 3vh, 32px);
+    }
+    .expanded-pane-inner, .expanded-pane-response .expanded-pane-inner { max-width: 720px; }
   }
 
   .expanded-meta {
@@ -1258,10 +1394,10 @@
   .expanded-title {
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    font-size: 27px;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
-    margin: 0 0 22px;
+    font-size: clamp(28px, 3vw, 44px);
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+    margin: 0 0 30px;
     color: var(--ink);
   }
 
@@ -1274,11 +1410,15 @@
     color: var(--studio-color, #9aa3b8);
     margin-bottom: 7px;
   }
+  /* Paragraph breaks the author typed are part of what they wrote. Everything
+     here is set with textContent, so pre-wrap is the whole fix: newlines render
+     and runs of spaces still collapse the way prose should. */
   .expanded-section p {
     margin: 0;
     font-size: 14.5px;
     line-height: 1.65;
     color: rgba(28, 28, 30, 0.78);
+    white-space: pre-wrap;
   }
 
   .expanded-footer {
@@ -1361,7 +1501,26 @@
   .delete-link:hover { color: var(--ink-dim); }
   .delete-link svg { width: 13px; height: 13px; }
 
-  .delete-confirm { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .delete-confirm { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* Edit borrows Delete's shape and sits beside it, but stays the neutral of
+     the two: fixing what you wrote is ordinary, taking it back isn't. */
+  .edit-link {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px 7px 11px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .edit-link svg { width: 15px; height: 15px; }
+  .edit-link:hover { color: var(--ink); border-color: var(--border-strong); background: rgba(20, 20, 20, 0.03); }
   .delete-confirm p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); max-width: 320px; text-align: right; }
   .delete-confirm-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
@@ -1412,7 +1571,9 @@
     container-type: inline-size;
     container-name: question-detail;
   }
-  .question-detail-header { flex-shrink: 0; padding: 30px 40px 18px; border-bottom: 1px solid var(--border); }
+  /* 66px, not 30: a question has no banner above it, so this header is the
+     first thing under the fixed top-left hamburger and back arrow. */
+  .question-detail-header { flex-shrink: 0; padding: 66px 40px 18px; border-bottom: 1px solid var(--border); }
   .question-detail-meta {
     display: flex;
     align-items: center;
@@ -1625,7 +1786,6 @@
     justify-content: center;
     background: var(--bg);
   }
-  .designers-close { top: 22px; right: 26px; }
 
   /* ---------- heading ---------- */
   .designers-head {
@@ -2275,7 +2435,7 @@
 
   .share-viewport {
     position: relative;
-    height: calc(100vh - 98px);
+    height: var(--floor-h);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -2661,49 +2821,102 @@
 </head>
 <body>
 
-<div class="sidebar-footer" id="sidebarFooter">
-  <a class="sidebar-item" id="backToLobbyBtn" href="loom_lobby.html">
-    <span class="sidebar-item-badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="6" cy="6.5" r="1.8" fill="currentColor" stroke="none"/>
-        <circle cx="18" cy="7.5" r="1.4" fill="currentColor" stroke="none"/>
-        <circle cx="9.5" cy="17.5" r="1.6" fill="currentColor" stroke="none"/>
-        <circle cx="18" cy="17" r="1.3" fill="currentColor" stroke="none"/>
-        <path d="M6 6.5L9.5 17.5M6 6.5L18 7.5M9.5 17.5L18 17M18 7.5L18 17"/>
-      </svg>
-    </span>
-    <span class="sidebar-item-label" id="backToLobbyLabel"></span>
-  </a>
-</div>
-
 <div class="menu-overlay" id="menuOverlay">
-  <button type="button" class="menu-close" id="menuCloseBtn" aria-label="Close">✕</button>
+  <button type="button" class="menu-close" id="menuCloseBtn" aria-label="Back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+  </button>
   <nav class="menu-list" id="menuList"></nav>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<div class="app is-transitioning" id="app">
-  <header class="topbar">
-    <button type="button" class="hamburger-btn" id="menuToggleBtn" aria-label="Menu" aria-expanded="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
-    <div class="brand-mini">Loom</div>
-    <div class="topbar-right" id="topbarRight">
-      <div class="lang-switcher" id="langSwitcher">
-        <button class="lang-btn" id="langBtn" type="button">
-          <span id="langBtnLabel">English</span>
+<!-- ---------- the fixed chrome ----------
+     Everything here is pinned to the screen rather than to a floor, and all of
+     it lives outside .app: .app takes a transform during the page-to-page
+     hand-off, and a transformed ancestor turns position:fixed into
+     position:absolute.
+
+     There is no top bar. Every function one used to carry has a permanent home
+     in a corner instead: navigation top-left, Share and the way out
+     bottom-left, language bottom-right, this floor's own tools bottom-centre.
+     A bar that appears on two of three floors to say "Loom" was costing the
+     other floor 98px and telling nobody anything. -->
+
+<button type="button" class="icon-ghost hamburger-btn" id="menuToggleBtn" aria-label="Menu" aria-expanded="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+</button>
+
+<!-- Stacked, pencil on top: writing is the action, and the way out of the app
+     is the thing you should have to reach past it for. -->
+<div class="corner-dock" id="cornerDock">
+  <button type="button" class="icon-ghost corner-btn" id="cornerShareBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 20h4L18.5 9.5a2 2 0 0 0-2.8-2.8L5 17.2z"/><path d="M13.5 6.5l4 4"/>
+    </svg>
+    <span class="corner-btn-label" id="cornerShareLabel"></span>
+  </button>
+  <a class="icon-ghost corner-btn" id="backToLobbyBtn" href="loom_lobby.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="6.5" r="1.8" fill="currentColor" stroke="none"/>
+      <circle cx="18" cy="7.5" r="1.4" fill="currentColor" stroke="none"/>
+      <circle cx="9.5" cy="17.5" r="1.6" fill="currentColor" stroke="none"/>
+      <circle cx="18" cy="17" r="1.3" fill="currentColor" stroke="none"/>
+      <path d="M6 6.5L9.5 17.5M6 6.5L18 7.5M9.5 17.5L18 17M18 7.5L18 17"/>
+    </svg>
+    <span class="corner-btn-label" id="backToLobbyLabel"></span>
+  </a>
+</div>
+
+<div class="lang-switcher" id="langSwitcher">
+  <button class="icon-ghost lang-btn" id="langBtn" type="button">
+    <span id="langBtnLabel">EN</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+  </button>
+  <div class="lang-menu" id="langMenu"></div>
+</div>
+
+<!-- ---------- the bottom-centre stack ----------
+     This floor's own tools, and the wordmark under them. One column so they can
+     never collide with each other or with the corner marks. -->
+<div class="bottom-center" id="bottomCenter">
+  <div class="floor-dock" id="floorDock">
+    <div class="floor-dock-group" id="dockBrowse">
+      <!-- only present while a person is picked in Designers -->
+      <button type="button" class="author-chip" id="authorChipBrowse" style="display:none;">
+        <span class="author-chip-avatar" id="authorChipBrowseAvatar"></span>
+        <span class="author-chip-label" id="authorChipBrowseLabel"></span>
+        <span class="author-chip-clear">✕</span>
+      </button>
+      <div class="search-wrap">
+        <input id="searchInput" type="text" autocomplete="off" />
+      </div>
+      <div class="filter-divider"></div>
+      <div class="studio-filter" id="studioFilter"></div>
+      <div class="type-filter-dropdown" id="typeFilterDropdown">
+        <button type="button" class="type-filter-btn" id="typeFilterBtn">
+          <span class="type-filter-btn-icon" id="typeFilterBtnIcon"></span>
+          <span id="typeFilterBtnLabel"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
-        <div class="lang-menu" id="langMenu"></div>
+        <div class="type-filter-menu" id="typeFilterMenu"></div>
       </div>
-      <button type="button" class="share-btn" id="shareKnowledgeBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-        <span id="shareBtnLabel"></span>
-      </button>
     </div>
-  </header>
 
+    <div class="floor-dock-group" id="dockQuestions">
+      <button type="button" class="author-chip" id="authorChipQuestions" style="display:none;">
+        <span class="author-chip-avatar" id="authorChipQuestionsAvatar"></span>
+        <span class="author-chip-label" id="authorChipQuestionsLabel"></span>
+        <span class="author-chip-clear">✕</span>
+      </button>
+      <div class="questions-count" id="questionsCount"></div>
+    </div>
+  </div>
+
+  <!-- signature, not navigation -->
+  <div class="brand-footer" id="brandFooter">Loom</div>
+</div>
+
+<div class="app is-transitioning" id="app">
   <main class="feed-main" id="feedMain">
    <!-- The three floors stacked in one transform-driven stage — see the
         .feed-stage CSS and goToFloor() for why this isn't a scroll container. -->
@@ -2711,11 +2924,8 @@
     <!-- ---------- Discover: one full-width banner, newest-first, autoplaying
          through the same top-N slice — "other studios just shared this" is
          the first thing feed shows, and it fills the whole top of the page ---------- -->
+    <!-- No heading, no explainer, no chrome: the banner IS the floor. -->
     <section class="discover-section">
-      <div class="discover-header">
-        <h2 class="discover-heading" id="discoverHeading"></h2>
-        <p class="discover-sub" id="discoverSub"></p>
-      </div>
       <div class="discover-hero" id="discoverHero">
         <div class="hero-slides" id="heroSlides"></div>
         <button type="button" class="hero-arrow hero-arrow-prev" id="heroPrevBtn" aria-label="Previous">
@@ -2731,34 +2941,10 @@
     <!-- ---------- Browse (tier 2): finished, testable knowledge only —
          Project/Experiment. Questions live one tier down instead, so this
          row never mixes "done" work with "still open" work. ---------- -->
+    <!-- No heading either: the hamburger menu already names every floor, and
+         repeating it here cost the cards a strip of screen. Search and the
+         filters live in #floorDock. -->
     <section class="browse-section">
-      <div class="browse-header">
-        <div>
-          <h3 class="browse-heading" id="browseHeading"></h3>
-          <p class="browse-sub" id="browseSub"></p>
-        </div>
-        <div class="browse-controls" id="browseControls">
-          <!-- only present while a person is picked in Designers -->
-          <button type="button" class="author-chip" id="authorChipBrowse" style="display:none;">
-            <span class="author-chip-avatar" id="authorChipBrowseAvatar"></span>
-            <span class="author-chip-label" id="authorChipBrowseLabel"></span>
-            <span class="author-chip-clear">✕</span>
-          </button>
-          <div class="search-wrap">
-            <input id="searchInput" type="text" autocomplete="off" />
-          </div>
-          <div class="filter-divider"></div>
-          <div class="studio-filter" id="studioFilter"></div>
-          <div class="type-filter-dropdown" id="typeFilterDropdown">
-            <button type="button" class="type-filter-btn" id="typeFilterBtn">
-              <span class="type-filter-btn-icon" id="typeFilterBtnIcon"></span>
-              <span id="typeFilterBtnLabel"></span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="type-filter-menu" id="typeFilterMenu"></div>
-          </div>
-        </div>
-      </div>
       <div class="browse-track-wrap" id="browseTrackWrap">
         <div class="browse-track" id="browseGrid"></div>
       </div>
@@ -2769,20 +2955,6 @@
          right now, pulled out into its own tier on purpose — nothing here
          is finished, so it reads differently on sight, not just by label. ---------- -->
     <section class="questions-section">
-      <div class="questions-header">
-        <div>
-          <h3 class="questions-heading" id="questionsHeading"></h3>
-          <p class="questions-sub" id="questionsSub"></p>
-        </div>
-        <div class="questions-header-right">
-          <button type="button" class="author-chip" id="authorChipQuestions" style="display:none;">
-            <span class="author-chip-avatar" id="authorChipQuestionsAvatar"></span>
-            <span class="author-chip-label" id="authorChipQuestionsLabel"></span>
-            <span class="author-chip-clear">✕</span>
-          </button>
-          <div class="questions-count" id="questionsCount"></div>
-        </div>
-      </div>
       <!-- the only floor whose content can genuinely run long: it scrolls
            inside itself rather than making the floor taller than a viewport -->
       <div class="floor-scroll questions-scroll" id="questionsScroll">
@@ -2798,7 +2970,9 @@
        knowledge, it's the people behind it, and it shouldn't sit in the same
        vertical sequence as the three knowledge tiers. ---------- -->
   <section class="designers-viewport" id="designersViewport" style="display:none;">
-    <button class="expanded-close designers-close" id="designersCloseBtn" aria-label="Close">✕</button>
+    <button type="button" class="icon-ghost back-btn" id="designersCloseBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    </button>
 
     <div class="designers-head">
       <div class="designers-intro">
@@ -2909,7 +3083,9 @@
   </section>
 
   <section class="share-viewport" id="shareViewport" style="display:none;">
-    <button class="expanded-close" id="shareCloseBtn" aria-label="Close">✕</button>
+    <button type="button" class="icon-ghost back-btn" id="shareCloseBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    </button>
 
     <div class="step step-compose" id="stepCompose">
       <div class="compose-scroll">
@@ -3017,69 +3193,95 @@
 
 <div class="page-veil" id="pageVeil"></div>
 
-<div class="scrim" id="scrim"></div>
 
 <div class="expanded-card" id="expandedCard">
-  <button class="expanded-close reveal-on-open" id="expandedClose">✕</button>
+  <button type="button" class="icon-ghost back-btn" id="expandedClose" aria-label="Back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+  </button>
   <div class="expanded-media" id="expandedMedia"></div>
-  <div class="expanded-body-scroll" id="expandedBodyScroll">
-    <div class="expanded-meta reveal-on-open">
-      <span class="card-dot" id="expandedDot"></span>
-      <span id="expandedStudioName"></span>
-      <span class="sep">·</span>
-      <span id="expandedAuthor"></span>
-      <span class="sep">·</span>
-      <span id="expandedTime"></span>
-      <span id="expandedStatusBadge"></span>
-      <span id="expandedLangBadge" class="lang-pending-badge" style="display:none;"></span>
-    </div>
-    <h2 class="expanded-title reveal-on-open" id="expandedTitle"></h2>
+  <!-- Two panes, the same shape the Question detail below uses (conversation
+       left, brief right) so both detail screens read as one design: what the
+       author wrote on the left, what came back from it on the right. Stacked
+       vertically they were one long column in which "How we solved it" and
+       somebody else's reaction looked like the same kind of thing. -->
+  <div class="expanded-panes" id="expandedPanes">
 
-    <div class="reveal-on-open">
-      <div class="expanded-section">
-        <div class="label" id="labelProblem"></div>
-        <p id="expandedProblem"></p>
+    <!-- LEFT — the finished knowledge, as its author left it -->
+    <div class="expanded-pane expanded-pane-body" id="expandedBodyScroll">
+      <div class="expanded-pane-inner">
+        <div class="expanded-meta reveal-on-open">
+          <span class="card-dot" id="expandedDot"></span>
+          <span id="expandedStudioName"></span>
+          <span class="sep">·</span>
+          <span id="expandedAuthor"></span>
+          <span class="sep">·</span>
+          <span id="expandedTime"></span>
+          <span id="expandedStatusBadge"></span>
+          <span id="expandedLangBadge" class="lang-pending-badge" style="display:none;"></span>
+        </div>
+        <h2 class="expanded-title reveal-on-open" id="expandedTitle"></h2>
+
+        <div class="reveal-on-open">
+          <div class="expanded-section">
+            <div class="label" id="labelProblem"></div>
+            <p id="expandedProblem"></p>
+          </div>
+          <div class="expanded-section">
+            <div class="label" id="labelTried"></div>
+            <p id="expandedTried"></p>
+          </div>
+          <div class="expanded-section" id="resultSection">
+            <div class="label" id="labelResult"></div>
+            <p id="expandedResult"></p>
+          </div>
+        </div>
+
+        <div class="expanded-section reveal-on-open" id="attachmentsSection" style="display:none;">
+          <div class="label" id="labelAttachments"></div>
+          <div class="attachments-list-wrap" id="expandedAttachmentsWrap"></div>
+        </div>
+
+        <!-- Only shown for cards created via Share mode in this session (see
+             populateExpanded).
+             TODO(auth): a real backend gates this on the signed-in account
+             matching the card's author/studio, server-side, rather than on a
+             flag the client could flip. -->
+        <div class="expanded-delete-row reveal-on-open" id="expandedDeleteRow" style="display:none;">
+          <button type="button" class="edit-link" id="editCardBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 20h4L18 10a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/>
+            </svg>
+            <span id="editCardLabel"></span>
+          </button>
+          <button type="button" class="delete-link" id="deleteCardBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.1a1 1 0 0 1-1 .9H8.8a1 1 0 0 1-1-.9L7 7"/>
+            </svg>
+            <span id="deleteCardLabel"></span>
+          </button>
+          <div class="delete-confirm" id="deleteConfirmBox" style="display:none;">
+            <p id="deleteConfirmText"></p>
+            <div class="delete-confirm-actions">
+              <button type="button" class="btn-ghost-sm" id="deleteCancelBtn"></button>
+              <button type="button" class="btn-delete-confirm" id="deleteConfirmBtn"></button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="expanded-section">
-        <div class="label" id="labelTried"></div>
-        <p id="expandedTried"></p>
-      </div>
-      <div class="expanded-section" id="resultSection">
-        <div class="label" id="labelResult"></div>
-        <p id="expandedResult"></p>
-      </div>
     </div>
 
-    <div class="expanded-section reveal-on-open" id="attachmentsSection" style="display:none;">
-      <div class="label" id="labelAttachments"></div>
-      <div class="attachments-list-wrap" id="expandedAttachmentsWrap"></div>
-    </div>
+    <!-- RIGHT — where it went. Tinted a shade off the left so the two are
+         legibly different kinds of thing without a wall down the middle. -->
+    <div class="expanded-pane expanded-pane-response" id="expandedResponsePane">
+      <div class="expanded-pane-inner">
+        <div class="expanded-section reveal-on-open">
+          <div class="label" id="labelApplied"></div>
+          <div class="lineage-list-wrap" id="lineageListWrap"></div>
+        </div>
 
-    <div class="expanded-section reveal-on-open">
-      <div class="label" id="labelApplied"></div>
-      <div class="lineage-list-wrap" id="lineageListWrap"></div>
-    </div>
-
-    <div class="expanded-footer reveal-on-open">
-      <div class="applied-summary" id="appliedSummary"></div>
-      <button class="apply-btn" id="applyBtn"></button>
-    </div>
-
-    <!-- Only shown for cards created via Share mode in this session (see
-         populateExpanded). A real backend would gate this on the logged-in
-         user matching the card's author/studio, not a client-side flag. -->
-    <div class="expanded-delete-row reveal-on-open" id="expandedDeleteRow" style="display:none;">
-      <button type="button" class="delete-link" id="deleteCardBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.1a1 1 0 0 1-1 .9H8.8a1 1 0 0 1-1-.9L7 7"/>
-        </svg>
-        <span id="deleteCardLabel"></span>
-      </button>
-      <div class="delete-confirm" id="deleteConfirmBox" style="display:none;">
-        <p id="deleteConfirmText"></p>
-        <div class="delete-confirm-actions">
-          <button type="button" class="btn-ghost-sm" id="deleteCancelBtn"></button>
-          <button type="button" class="btn-delete-confirm" id="deleteConfirmBtn"></button>
+        <div class="expanded-footer reveal-on-open">
+          <div class="applied-summary" id="appliedSummary"></div>
+          <button class="apply-btn" id="applyBtn"></button>
         </div>
       </div>
     </div>
@@ -3144,13 +3346,9 @@
    ====================================================================== */
 const CONFIG = {
   RESUME_DELAY_MS: 900,         // delay before hero autoplay resumes after hover/modal/share mode
-  EXPANDED_MEDIA_HEIGHT: 190,   // hero image height once a card is expanded — a teaser strip, not half the modal
-  EXPANDED_WIDTH_RATIO: 0.74,   // expanded card width as a fraction of window width
-  EXPANDED_WIDTH_MAX: 1080,     // and its hard cap in pixels
-  EXPANDED_HEIGHT_RATIO: 0.9,   // expanded card height as a fraction of window height — tall, small top/bottom margins only
-  QUESTION_WIDTH_RATIO: 0.86,   // Question detail modal is wider — a two-pane conversation needs the room
-  QUESTION_WIDTH_MAX: 1220,
-  QUESTION_HEIGHT_RATIO: 0.88,
+  // (the expanded card's width/height/media-height ratios used to sit here. A
+  //  detail is a whole screen now, so its size is the viewport and the CSS owns
+  //  it — see .expanded-card and openCard.)
   LANG_FADE_MS: 220,            // fade duration when switching languages
   HERO_ROTATE_MS: 5000,         // discover hero: time on each slide before auto-advancing
 
@@ -3229,7 +3427,8 @@ const TRANSLATIONS = {
       filterAll: 'All',
       types: { project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { all: 'All', project: 'Projects', experiment: 'Experiments', question: 'Questions', tools: 'Tools', designers: 'Designers' },
+      menu: { share: 'New knowledge', browse: 'Browse everything', question: 'Questions', designers: 'Designers', tools: 'Tools' },
+      menuToolsAside: 'Coming soon',
       toolsComingSoon: 'Tools — coming soon',
       sectionProblem: 'Problem',
       sectionTried: 'What we tried',
@@ -3285,6 +3484,11 @@ const TRANSLATIONS = {
       backToNetwork: 'Back to the network',
       justNow: 'Just now',
       deleteLink: 'Delete this card',
+      editLink: 'Edit',
+      editHeading: 'Edit what you shared',
+      editIntro: 'Change anything you got wrong. Who applied it stays as it is.',
+      editSubmit: 'Save changes',
+      editSaved: 'Your changes are saved.',
       deleteConfirmText: 'Delete this piece of knowledge? Studios that applied it may be affected.',
       deleteCancel: 'Cancel',
       deleteConfirmButton: 'Delete',
@@ -3433,7 +3637,8 @@ const TRANSLATIONS = {
       filterAll: '전체',
       types: { project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { all: '전체', project: '프로젝트', experiment: '실험', question: '질문', tools: '툴', designers: '디자이너' },
+      menu: { share: '새 지식 공유', browse: '전체 둘러보기', question: '질문', designers: '디자이너', tools: '툴' },
+      menuToolsAside: '준비 중',
       toolsComingSoon: '툴 — 곧 제공됩니다',
       sectionProblem: '문제',
       sectionTried: '시도한 것',
@@ -3489,6 +3694,11 @@ const TRANSLATIONS = {
       backToNetwork: '신경망으로 돌아가기',
       justNow: '방금 전',
       deleteLink: '이 카드 삭제',
+      editLink: '수정',
+      editHeading: '공유한 내용 수정',
+      editIntro: '잘못 쓴 부분을 고쳐 주세요. 이 지식을 적용한 사람들은 그대로 남습니다.',
+      editSubmit: '수정 저장',
+      editSaved: '수정한 내용을 저장했어요.',
       deleteConfirmText: '이 지식을 삭제하시겠어요? 연결된 지식들도 영향을 받을 수 있어요.',
       deleteCancel: '취소',
       deleteConfirmButton: '삭제',
@@ -3637,7 +3847,8 @@ const TRANSLATIONS = {
       filterAll: 'Alle',
       types: { project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { all: 'Alle', project: 'Projekte', experiment: 'Experimente', question: 'Fragen', tools: 'Werkzeuge', designers: 'Designer' },
+      menu: { share: 'Neues Wissen', browse: 'Alles durchsehen', question: 'Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      menuToolsAside: 'Demnächst',
       toolsComingSoon: 'Werkzeuge — demnächst',
       sectionProblem: 'Problem',
       sectionTried: 'Was wir versucht haben',
@@ -3693,6 +3904,11 @@ const TRANSLATIONS = {
       backToNetwork: 'Zurück zum Netzwerk',
       justNow: 'Gerade eben',
       deleteLink: 'Diese Karte löschen',
+      editLink: 'Bearbeiten',
+      editHeading: 'Geteiltes bearbeiten',
+      editIntro: 'Korrigiere, was nicht stimmt. Wer es angewendet hat, bleibt erhalten.',
+      editSubmit: 'Änderungen speichern',
+      editSaved: 'Deine Änderungen sind gespeichert.',
       deleteConfirmText: 'Dieses Wissen löschen? Studios, die es übernommen haben, könnten davon betroffen sein.',
       deleteCancel: 'Abbrechen',
       deleteConfirmButton: 'Löschen',
@@ -3841,7 +4057,8 @@ const TRANSLATIONS = {
       filterAll: 'Tümü',
       types: { project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { all: 'Tümü', project: 'Projeler', experiment: 'Deneyler', question: 'Sorular', tools: 'Araçlar', designers: 'Tasarımcılar' },
+      menu: { share: 'Yeni bilgi', browse: 'Hepsine göz at', question: 'Sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menuToolsAside: 'Yakında',
       toolsComingSoon: 'Araçlar — yakında',
       sectionProblem: 'Sorun',
       sectionTried: 'Ne denedik',
@@ -3897,6 +4114,11 @@ const TRANSLATIONS = {
       backToNetwork: 'Ağa geri dön',
       justNow: 'Az önce',
       deleteLink: 'Bu kartı sil',
+      editLink: 'Düzenle',
+      editHeading: 'Paylaştığınızı düzenleyin',
+      editIntro: 'Yanlış yazdığınız her şeyi değiştirin. Bunu uygulayanlar olduğu gibi kalır.',
+      editSubmit: 'Değişiklikleri kaydet',
+      editSaved: 'Değişiklikleriniz kaydedildi.',
       deleteConfirmText: 'Bu bilgiyi silmek istiyor musun? Bunu uygulayan stüdyolar bundan etkilenebilir.',
       deleteCancel: 'Vazgeç',
       deleteConfirmButton: 'Sil',
@@ -4104,6 +4326,116 @@ function visibleAppliedBy(data) {
    the edit permission is enforced server-side. localStorage is user-writable,
    so it can stand in for "who am I" in a prototype but could never be the
    basis for an authorisation decision. */
+/* ======================================================================
+   Section 2a — persistence
+   ----------------------------------------------------------------------
+   TODO(backend): localStorage is the wrong home for any of this and is only
+   standing in while this is a prototype. It is per-browser (so "the studio's
+   roster" is really "the roster on this one machine"), per-origin (~5MB total,
+   shared with everything else this page stores), synchronous, and trivially
+   editable by the reader — none of which a knowledge base for several studios
+   can live with. A real Loom keeps cards, rosters and attachments in a server
+   database, with the author's identity checked server-side rather than read
+   out of `loom_current_studio`, and uploads in object storage rather than
+   base64 in a string. Every function below is written so that swapping in
+   `await api.put(...)` touches this section and nothing else.
+
+   What it does in the meantime: never leave storage half-written. setItem is
+   atomic per key, but "the write threw" and "the write worked" are not the
+   only two outcomes — Safari's private mode throws on any write at all, and a
+   quota failure part-way through a multi-key update would leave two keys
+   disagreeing. So every write snapshots the previous value, writes, reads
+   back what actually landed, and restores the snapshot if it doesn't match.
+   ====================================================================== */
+
+// Roughly how much of the origin budget is in use. UTF-16 in memory, so two
+// bytes per code unit is the honest estimate; the browsers that report a real
+// number don't agree with each other anyway. Diagnostics only — nothing
+// branches on it.
+function storageUsageBytes() {
+  let units = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      units += k.length + (localStorage.getItem(k) || '').length;
+    }
+  } catch (err) { return -1; }
+  return units * 2;
+}
+
+const STORAGE_BUDGET_BYTES = 5 * 1024 * 1024; // what browsers converge on
+
+function logStorageUsage(label) {
+  const used = storageUsageBytes();
+  if (used < 0) { console.warn('[Loom storage] usage unavailable (storage is blocked)'); return; }
+  const pct = (used / STORAGE_BUDGET_BYTES) * 100;
+  const detail = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      detail.push(k + ' ' + Math.round(((localStorage.getItem(k) || '').length * 2) / 1024) + 'KB');
+    }
+  } catch (err) { /* enumerating is best-effort */ }
+  const line = '[Loom storage] ' + (label || 'usage') + ': '
+    + Math.round(used / 1024) + 'KB of ~' + Math.round(STORAGE_BUDGET_BYTES / 1024) + 'KB'
+    + ' (' + pct.toFixed(1) + '%) — ' + (detail.join(', ') || 'empty');
+  if (pct > 80) console.warn(line + '  ← running out of room');
+  else console.log(line);
+}
+
+/* The one write. Returns { ok, quota, err }:
+     ok    — the value is in storage and reads back byte-identical
+     quota — it failed specifically because there is no room, which is the one
+             failure the caller can do something about (drop an image, trim
+             older entries) rather than just report */
+function safeSetItem(key, value) {
+  let previous = null;
+  try {
+    previous = localStorage.getItem(key);
+  } catch (err) {
+    // Reading threw, so storage is unavailable outright (blocked cookies,
+    // private mode). Nothing to roll back to and nothing will land.
+    console.error('[Loom storage] storage is unavailable:', err);
+    return { ok: false, quota: false, err: err };
+  }
+
+  const restore = () => {
+    try {
+      if (previous === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, previous);
+    } catch (err) {
+      console.error('[Loom storage] rollback of "' + key + '" failed:', err);
+    }
+  };
+
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    restore();
+    // Chrome/Safari/Firefox all name it differently; code 22 is the DOMException
+    // constant, and Firefox's own name is the third case.
+    const quota = err && (err.name === 'QuotaExceededError'
+      || err.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+      || err.code === 22);
+    if (quota) console.warn('[Loom storage] no room for "' + key + '" (' + Math.round(value.length * 2 / 1024) + 'KB)');
+    else console.error('[Loom storage] write to "' + key + '" failed:', err);
+    logStorageUsage('after a failed write');
+    return { ok: false, quota: !!quota, err: err };
+  }
+
+  // A write can "succeed" and still not be there — some browsers accept the
+  // call and drop the value once the budget is gone.
+  let landed = null;
+  try { landed = localStorage.getItem(key); } catch (err) { /* fall through */ }
+  if (landed !== value) {
+    console.error('[Loom storage] "' + key + '" did not read back as written — rolling back');
+    restore();
+    return { ok: false, quota: true, err: null };
+  }
+
+  return { ok: true, quota: false, err: null };
+}
+
 const CURRENT_STUDIO_STORAGE_KEY = 'loom_current_studio';
 
 function readCurrentStudioKey() {
@@ -4135,18 +4467,23 @@ const WEAVE_STUDIOS = Object.keys(STUDIOS)
     center: WEAVE_CLUSTER_CENTERS[key],
   }));
 
-// Center overlay menu items. `filter` types map straight onto the `type`
-// tag shown on each card and jump to Browse (tier 2); 'question' instead
-// jumps to the Questions tier (tier 3) since that tier is already nothing
-// but questions — no extra filtering needed there. 'tools' has no
-// destination yet, so it just surfaces a "coming soon" toast.
+/* Five places to go, in the order somebody actually wants them: write
+   something, read everything, see what's unanswered, see who's here.
+
+   This used to be the type filter (All / Projects / Experiments) wearing a
+   menu's clothes, which answered a question nobody opens a menu to ask — and
+   it meant two of the six items didn't navigate anywhere, they just re-filtered
+   the floor you were already on. Filtering by type belongs to floor 2, where
+   the posters are, and it still lives in that floor's own dock.
+
+   Tools has no destination yet and says so in place rather than looking
+   identical to the four that work. */
 const MENU_ITEMS = [
-  { key: 'all' },
-  { key: 'project', filterType: 'project', tier: 1 },
-  { key: 'experiment', filterType: 'experiment', tier: 1 },
+  { key: 'share', share: true },
+  { key: 'browse', tier: 1 },
   { key: 'question', tier: 2 },
-  { key: 'tools', comingSoon: true },
   { key: 'designers', designers: true },
+  { key: 'tools', comingSoon: true },
 ];
 
 /* ======================================================================
@@ -4236,17 +4573,18 @@ function loadDesigners() {
 let designerRoster = loadDesigners();
 
 function persistDesigners() {
-  try {
-    localStorage.setItem(DESIGNERS_STORAGE_KEY, JSON.stringify(designerRoster));
+  const res = safeSetItem(DESIGNERS_STORAGE_KEY, JSON.stringify(designerRoster));
+  if (res.ok) {
+    logStorageUsage('designer roster saved');
     return true;
-  } catch (err) {
-    // Photos are downscaled hard on the way in (see DESIGNER_PHOTO_MAX_DIM),
-    // so this should not happen — but a full origin budget must be said out
-    // loud rather than leaving an edit that quietly won't survive a reload.
-    console.error('[Loom feed] could not persist the designer roster:', err);
-    showToast(t().designers.saveFailed);
-    return false;
   }
+  // Photos are downscaled hard on the way in (see DESIGNER_PHOTO_MAX_DIM), so
+  // this should not happen — but a full origin budget must be said out loud
+  // rather than leaving an edit that quietly won't survive a reload.
+  // safeSetItem has already put the previous roster back, so storage still
+  // matches what was there before this edit rather than holding half of it.
+  showToast(t().designers.saveFailed);
+  return false;
 }
 
 // A studio's roster is that studio's own to edit. The check is here rather
@@ -4629,19 +4967,12 @@ let isDesignersMode = false;
 const MENU_OPEN_STAGGER_MS = 50;
 const MENU_OPEN_DUR_MS = 440;
 const MENU_OPEN_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
-const MENU_CLOSE_STAGGER_MS = 26;
+// 18ms x 5 items = the last one starts 72ms in and finishes at ~292ms, which
+// keeps the whole reverse inside the 200-300ms it is specced at. At 26 it ran
+// to ~350ms — still fast, but the tail was doing nothing for the last 50.
+const MENU_CLOSE_STAGGER_MS = 18;
 const MENU_CLOSE_DUR_MS = 220;
 const MENU_CLOSE_EASE = 'cubic-bezier(0.5, 0, 0.85, 0.35)';
-
-// Updates which menu item reads as "active" — only the type-filter items
-// (All/Projects/Experiments) actually persist as a filter state; Questions
-// and Tools are one-shot navigation/actions, never "active".
-function updateMenuActiveState() {
-  document.querySelectorAll('.menu-item[data-kind="filter"]').forEach((b) => {
-    const isAll = b.dataset.value === 'all';
-    b.classList.toggle('is-active', isAll ? selectedTypeFilter === 'all' : b.dataset.value === selectedTypeFilter);
-  });
-}
 
 function renderMenuOverlay() {
   const list = document.getElementById('menuList');
@@ -4649,37 +4980,39 @@ function renderMenuOverlay() {
   MENU_ITEMS.forEach((item) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'menu-item' + (item.key === 'all' ? ' is-active' : '');
+    btn.className = 'menu-item';
+    btn.dataset.kind = item.comingSoon ? 'pending' : 'nav';
     btn.dataset.value = item.key;
 
+    const label = document.createElement('span');
+    label.className = 'menu-item-label';
+    btn.appendChild(label);
     if (item.comingSoon) {
-      btn.addEventListener('click', () => {
-        showToast(t().toolsComingSoon);
-        closeMenuOverlay();
-      });
-    } else if (item.designers) {
-      btn.dataset.kind = 'nav';
-      btn.addEventListener('click', () => {
-        closeMenuOverlay();
-        enterDesignersMode();
-      });
-    } else if (item.key === 'question') {
-      btn.dataset.kind = 'nav';
-      btn.addEventListener('click', () => {
-        closeMenuOverlay();
-        goToFloor(item.tier);
-      });
-    } else {
-      btn.dataset.kind = 'filter';
-      btn.addEventListener('click', () => {
-        selectedTypeFilter = item.key === 'all' ? 'all' : item.filterType;
-        updateMenuActiveState();
+      const aside = document.createElement('span');
+      aside.className = 'menu-item-aside';
+      btn.appendChild(aside);
+    }
+
+    btn.addEventListener('click', () => {
+      closeMenuOverlay();
+      if (item.comingSoon) { showToast(t().toolsComingSoon); return; }
+      if (item.share) {
+        // Both of these are surfaces, and only one surface can hold the screen
+        // — the close animation has to finish before the next one starts.
+        setTimeout(enterShareMode, MENU_CLOSE_DUR_MS);
+        return;
+      }
+      if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
+      // Browse means all of it: arriving from the menu shouldn't land you on a
+      // floor still filtered down by a choice made minutes ago.
+      if (item.key === 'browse' && selectedTypeFilter !== 'all') {
+        selectedTypeFilter = 'all';
         updateTypeFilterButtonUI();
         applyBrowseFilters();
-        closeMenuOverlay();
-        goToFloor(item.tier || 1);
-      });
-    }
+      }
+      goToFloor(item.tier);
+    });
+
     list.appendChild(btn);
   });
 
@@ -4696,7 +5029,11 @@ function renderMenuOverlay() {
 
 function refreshMenuLabels() {
   document.querySelectorAll('.menu-item').forEach((btn) => {
-    btn.textContent = t().menu[btn.dataset.value];
+    // textContent on the label span, not the button — the button also holds the
+    // "Coming soon" aside, which writing to the button would wipe out.
+    btn.querySelector('.menu-item-label').textContent = t().menu[btn.dataset.value];
+    const aside = btn.querySelector('.menu-item-aside');
+    if (aside) aside.textContent = t().menuToolsAside;
   });
 }
 
@@ -4810,7 +5147,6 @@ function renderTypeFilterDropdown() {
       dropdown.classList.remove('is-open');
       document.querySelectorAll('.type-filter-menu-item').forEach((el) => el.classList.toggle('is-active', el.dataset.value === selectedTypeFilter));
       updateTypeFilterButtonUI();
-      updateMenuActiveState();
       applyBrowseFilters();
     });
     menu.appendChild(menuItem);
@@ -4877,7 +5213,6 @@ function setLanguage(lang) {
     document.getElementById('heroSlides'),
     document.getElementById('browseGrid'),
     document.getElementById('menuList'),
-    document.getElementById('topbarRight'),
     document.getElementById('searchInput'),
   ];
   if (isCardExpanded) fadeEls.push(document.querySelector('.expanded-body-scroll'));
@@ -4907,20 +5242,12 @@ function refreshAllText() {
   });
   updateTypeFilterButtonUI();
 
-  document.getElementById('discoverHeading').textContent = strings.discoverHeading;
-  document.getElementById('discoverSub').textContent = strings.discoverSub;
-  document.getElementById('browseHeading').textContent = strings.browseHeading;
-  document.getElementById('browseSub').textContent = strings.browseSub;
-  document.getElementById('questionsHeading').textContent = strings.questionsHeading;
-  document.getElementById('questionsSub').textContent = strings.questionsSub;
+  // (no per-floor headings any more — the menu names every floor, and floor 1
+  //  carries nothing but its image and its title)
   document.getElementById('browseEmpty').textContent = strings.browseEmptyText;
   document.getElementById('questionsEmpty').textContent = strings.questionsEmptyText;
 
-  document.getElementById('shareBtnLabel').textContent = strings.shareButton;
-  const backLink = document.getElementById('backToLobbyBtn');
-  backLink.setAttribute('aria-label', strings.backToNetwork);
-  backLink.title = strings.backToNetwork;
-  document.getElementById('backToLobbyLabel').textContent = strings.backToNetwork;
+  refreshCornerDockText();
 
   updateLanguageButtonUI();
   renderDiscover();
@@ -4936,6 +5263,7 @@ function refreshAllText() {
   const applyBtn = document.getElementById('applyBtn');
   applyBtn.textContent = applyBtn.classList.contains('is-applied') ? strings.applyButtonDone : strings.applyButton;
   document.getElementById('deleteCardLabel').textContent = strings.deleteLink;
+  document.getElementById('editCardLabel').textContent = strings.editLink;
   document.getElementById('deleteConfirmText').textContent = strings.deleteConfirmText;
   document.getElementById('deleteCancelBtn').textContent = strings.deleteCancel;
   document.getElementById('deleteConfirmBtn').textContent = strings.deleteConfirmButton;
@@ -4954,6 +5282,75 @@ function refreshAllText() {
 
    Browse: every card, small and dense, filtered/searched independently.
    ====================================================================== */
+/* ---------- the cover's title ----------
+   Each word is wrapped in a .hero-word mask around a plain span (the thing that
+   moves), so the letters emerge from behind an edge rather than fading in
+   place. The CSS holds the closed state and .is-active on the slide releases
+   it, so a slide coming back round replays for free. 70ms sits in the middle
+   of the 60-80ms the motion is specced at. textContent on the inner span,
+   never innerHTML — a card title is user copy. */
+const HERO_WORD_STAGGER_MS = 70;
+
+function renderHeroTitle(el, title) {
+  el.innerHTML = '';
+  String(title).split(/\s+/).filter(Boolean).forEach((word, i) => {
+    const mask = document.createElement('span');
+    mask.className = 'hero-word';
+    const inner = document.createElement('span');
+    inner.textContent = word;
+    inner.style.transitionDelay = (i * HERO_WORD_STAGGER_MS) + 'ms';
+    mask.appendChild(inner);
+    el.appendChild(mask);
+    el.appendChild(document.createTextNode(' '));
+  });
+}
+
+/* The title is meant to take roughly a third of the screen — which is a height
+   target, and a font-size can't hit a height target on its own: the same 116px
+   runs to two lines for one card and five for the next. So the CSS clamp is
+   only the ceiling, and this steps it down until the block actually fits. Cheap
+   enough to run per slide (five of them, once per render and once per resize)
+   and it beats guessing a size that suits every title. */
+const HERO_TITLE_MAX_H = 0.38;  // share of the banner the title may occupy
+const HERO_TITLE_MIN_PX = 30;
+
+function fitHeroTitle(titleEl) {
+  const hero = document.getElementById('discoverHero');
+  if (!hero || !hero.clientHeight || !titleEl) return;
+  const maxH = hero.clientHeight * HERO_TITLE_MAX_H;
+
+  titleEl.style.fontSize = ''; // back to the CSS ceiling, so a resize can grow it again
+  let size = parseFloat(getComputedStyle(titleEl).fontSize);
+  let guard = 0;
+  while (titleEl.scrollHeight > maxH && size > HERO_TITLE_MIN_PX && guard++ < 30) {
+    size *= 0.93;
+    titleEl.style.fontSize = size + 'px';
+  }
+}
+
+function fitAllHeroTitles() {
+  document.querySelectorAll('#heroSlides .card-title').forEach(fitHeroTitle);
+}
+
+/* Re-arms the cover: strips .is-active, forces the closed frame to paint, then
+   puts it back — which restarts both the word stagger and the Ken Burns push.
+   Called when you land back on floor 1, so returning to the cover is an arrival
+   rather than a resume.
+
+   .is-replaying kills the transitions for exactly one frame. Without it,
+   dropping .is-active starts a *delayed* transition back to closed, the words
+   have not moved yet when .is-active returns, and there is nothing to replay. */
+function replayHeroIntro() {
+  const slide = document.querySelector('#heroSlides .hero-slide.is-active');
+  if (!slide) return;
+  slide.classList.add('is-replaying');
+  slide.classList.remove('is-active');
+  void slide.offsetWidth;
+  slide.classList.remove('is-replaying');
+  void slide.offsetWidth;
+  slide.classList.add('is-active');
+}
+
 let heroIndices = [];
 let heroIndex = 0;
 let heroTimer = null;
@@ -4973,8 +5370,11 @@ function renderDiscover() {
     const hint = lineageHintFor(data);
     const openQ = isOpenQuestion(data);
 
+    // .is-active is deliberately NOT set here — an element inserted already in
+    // its finished state has nothing to transition from, so the first cover
+    // would simply appear. It is added on the next frame instead (below).
     const slide = document.createElement('div');
-    slide.className = 'hero-slide' + (i === 0 ? ' is-active' : '') + (openQ ? ' is-open-question' : '');
+    slide.className = 'hero-slide' + (openQ ? ' is-open-question' : '');
     slide.dataset.index = String(index);
     slide.dataset.studio = data.studio;
     slide.dataset.cardId = data.id;
@@ -4983,29 +5383,41 @@ function renderDiscover() {
         <span class="card-media-icon" style="color:${studio.color}">${ICONS[data.type]}</span>
         <span class="card-media-badge">${ICONS[data.type]}</span>
       </div>
-      <div class="card-discover-badges">
-        ${data.justNow ? `<span class="card-new-badge">${t().newBadge}</span>` : ''}
-        <span class="card-time-badge">${timeText}</span>
-      </div>
       <div class="card-scrim"></div>
       <div class="card-content">
         <div class="card-meta">
           <span class="card-dot" style="background:${studio.color}"></span>
           <span class="card-studio">${studio.name}</span>
+          <!-- in the caption line, not the top-right corner: that corner is
+               reserved for the For-you badge, and "DoubleU · 3 days ago" is one
+               thought rather than two things at opposite ends of the screen -->
+          <span class="card-discover-badges">
+            ${data.justNow ? `<span class="card-new-badge">${t().newBadge}</span>` : ''}
+            <span class="card-time-badge">${timeText}</span>
+          </span>
           ${statusBadgeHTML(data)}
           <span class="card-type">${t().types[data.type]}</span>
         </div>
-        <div class="card-title">${text.title}</div>
+        <div class="card-title"></div>
         ${hint ? `<div class="card-lineage-hint">↳ ${hint}</div>` : ''}
         ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
       </div>
     `;
+    renderHeroTitle(slide.querySelector('.card-title'), text.title);
     slide.addEventListener('click', () => openCard(slide));
     slidesWrap.appendChild(slide);
     applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color);
   });
 
   renderHeroDots();
+  // two frames: one for the closed state to paint, one to release it
+  requestAnimationFrame(() => {
+    fitAllHeroTitles();
+    requestAnimationFrame(() => {
+      const first = slidesWrap.querySelector('.hero-slide');
+      if (first) first.classList.add('is-active');
+    });
+  });
   startHeroAutoplay();
 }
 
@@ -6173,7 +6585,10 @@ const feedSnapEase = makeCubicBezier.apply(null, CONFIG.FEED_SNAP_EASE);
 
 function floorHeight() {
   const feedMain = document.getElementById('feedMain');
-  return (feedMain && feedMain.clientHeight) || Math.max(1, window.innerHeight - 98);
+  // A floor is exactly the viewport now (--floor-h), so the fallback for a
+  // not-yet-laid-out #feedMain is the viewport, not the viewport minus a bar
+  // that no longer exists.
+  return (feedMain && feedMain.clientHeight) || Math.max(1, window.innerHeight);
 }
 
 function setStageOffset(px) {
@@ -6197,32 +6612,36 @@ const REVEAL_CARD_STAGGER_CAP = 8;  // past this many, the rest land together
 function floorRevealParts(floor) {
   if (floor === 2) {
     return {
-      heading: document.getElementById('questionsHeading'),
-      explainer: document.getElementById('questionsSub'),
+      heading: null,
+      explainer: null,
       controls: document.getElementById('questionsCount'),
       cards: Array.from(document.querySelectorAll('#questionsGrid .question-card:not(.is-hidden)')),
     };
   }
   if (floor === 1) {
     return {
-      heading: document.getElementById('browseHeading'),
-      explainer: document.getElementById('browseSub'),
-      controls: document.getElementById('browseControls'),
+      heading: null,
+      explainer: null,
+      controls: null,
       cards: Array.from(document.querySelectorAll('#browseGrid .poster-card:not(.is-hidden)')),
     };
   }
-  return {
-    heading: document.getElementById('discoverHeading'),
-    explainer: document.getElementById('discoverSub'),
-    controls: null,
-    cards: Array.from(document.querySelectorAll('.hero-slide.is-active .card-content')),
-  };
+  // Floor 1 has no heading, explainer or controls left to reveal — the cover
+  // replays its own arrival instead (see playArrivalReveal).
+  return { heading: null, explainer: null, controls: null, cards: [] };
 }
 
 let revealTimers = [];
 function playArrivalReveal(floor) {
   revealTimers.forEach(clearTimeout);
   revealTimers = [];
+
+  // Floor 1's arrival is the cover's own word-stagger + Ken Burns, replayed
+  // from the top, rather than the cards ladder the other two use.
+  if (floor === 0) {
+    revealTimers.push(setTimeout(replayHeroIntro, REVEAL_START_MS));
+    return;
+  }
 
   const parts = floorRevealParts(floor);
   const all = [parts.heading, parts.explainer, parts.controls].concat(parts.cards).filter(Boolean);
@@ -6254,11 +6673,13 @@ function goToFloor(floor, options) {
     feedSnapAnimating = false;
     currentFloor = target;
     setStageOffset(endPx);
+    updateChrome();
     return;
   }
   if (feedSnapAnimating) return;
 
   currentFloor = target;
+  updateChrome();
   const startPx = feedStageOffset;
   const distance = endPx - startPx;
 
@@ -6302,10 +6723,11 @@ function innerScrollHasRoom(el, deltaY) {
 }
 
 function initFeedWheelSnap() {
-  const feedMain = document.getElementById('feedMain');
-
-  feedMain.addEventListener('wheel', (e) => {
-    if (isCardExpanded || isShareMode) return;
+  /* On the document, not on #feedMain: anything fixed floating over the feed
+     would otherwise swallow a tick that happened to land on it, and the page
+     simply wouldn't move until you moved the pointer somewhere else. */
+  document.addEventListener('wheel', (e) => {
+    if (isCardExpanded || isShareMode || isDesignersMode) return;
     if (e.deltaY === 0) return;
     if (feedSnapAnimating) { e.preventDefault(); return; }
 
@@ -6321,27 +6743,67 @@ function initFeedWheelSnap() {
   // The stage is positioned in pixels, so a resized window would otherwise
   // leave it parked between floors — re-derive it from the floor we're on.
   window.addEventListener('resize', () => {
+    fitAllHeroTitles(); // the cover title is sized against the banner, not the font
     if (feedSnapAnimating) return;
     setStageOffset(currentFloor * floorHeight());
   });
 }
 
-// Both of these are plain <a href> navigations (no real auth yet — this is
-// still a prototype), just with their label/tooltip populated per language.
-function initTopbarLinks() {
-  document.getElementById('discoverHeading').textContent = t().discoverHeading;
-  document.getElementById('discoverSub').textContent = t().discoverSub;
-  document.getElementById('browseHeading').textContent = t().browseHeading;
-  document.getElementById('browseSub').textContent = t().browseSub;
-  document.getElementById('questionsHeading').textContent = t().questionsHeading;
-  document.getElementById('questionsSub').textContent = t().questionsSub;
+// One-time text for the pieces that aren't rebuilt on every render.
+function initStaticText() {
+  // (no per-floor headings any more)
   document.getElementById('browseEmpty').textContent = t().browseEmptyText;
   document.getElementById('questionsEmpty').textContent = t().questionsEmptyText;
-  document.getElementById('shareBtnLabel').textContent = t().shareButton;
+  refreshCornerDockText();
+}
+
+/* The two bottom-left marks carry no visible label at rest — hovering slides
+   one out — so the accessible name and the tooltip are the same string. */
+function refreshCornerDockText() {
+  const strings = t();
+
   const backLink = document.getElementById('backToLobbyBtn');
-  backLink.setAttribute('aria-label', t().backToNetwork);
-  backLink.title = t().backToNetwork;
-  document.getElementById('backToLobbyLabel').textContent = t().backToNetwork;
+  backLink.setAttribute('aria-label', strings.backToNetwork);
+  backLink.title = strings.backToNetwork;
+  document.getElementById('backToLobbyLabel').textContent = strings.backToNetwork;
+
+  const shareBtn = document.getElementById('cornerShareBtn');
+  shareBtn.setAttribute('aria-label', strings.shareButton);
+  shareBtn.title = strings.shareButton;
+  document.getElementById('cornerShareLabel').textContent = strings.shareButton;
+}
+
+/* ---- what chrome the current screen gets ----
+   The floor dock and the wordmark: only the two lower feed floors. Floor 1 is
+   the cover and carries nothing but the image and the knowledge; the full-screen
+   surfaces (Share, Designers, a detail) are takeovers with their own back
+   button.
+
+   And the corner marks: they have no plate behind them, so on floor 1 they sit
+   directly on the banner's dark scrim and have to invert. Everywhere else the
+   page is white and they don't. */
+function updateChrome() {
+  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
+  const onToolFloor = onFeed && currentFloor > 0;
+
+  const dock = document.getElementById('floorDock');
+  if (dock) {
+    dock.classList.toggle('is-visible', onToolFloor);
+    document.getElementById('dockBrowse').classList.toggle('is-active', currentFloor === 1);
+    document.getElementById('dockQuestions').classList.toggle('is-active', currentFloor === 2);
+  }
+
+  // the wordmark keeps the dock company — both say "you are in the archive"
+  const brand = document.getElementById('brandFooter');
+  if (brand) brand.classList.toggle('is-visible', onToolFloor);
+
+  const overDarkBanner = onFeed && currentFloor === 0;
+  ['cornerDock', 'langBtn'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('on-dark', overDarkBanner);
+    el.querySelectorAll('.icon-ghost').forEach((b) => b.classList.toggle('on-dark', overDarkBanner));
+  });
 }
 
 /* ======================================================================
@@ -6405,7 +6867,7 @@ function populateExpanded(data, index) {
   const text = cardText(data);
   const expandedCard = document.getElementById('expandedCard');
   const expandedMedia = document.getElementById('expandedMedia');
-  const expandedBodyScroll = document.getElementById('expandedBodyScroll');
+  const panes = document.getElementById('expandedPanes');
   const questionDetail = document.getElementById('questionDetail');
   const openQ = isOpenQuestion(data);
 
@@ -6414,7 +6876,7 @@ function populateExpanded(data, index) {
   if (openQ) {
     currentQuestionData = data;
     expandedMedia.style.display = 'none';
-    expandedBodyScroll.style.display = 'none';
+    panes.style.display = 'none';
     questionDetail.style.display = 'flex';
     populateQuestionDetail(data);
     return;
@@ -6422,7 +6884,7 @@ function populateExpanded(data, index) {
 
   currentQuestionData = null;
   expandedMedia.style.display = '';
-  expandedBodyScroll.style.display = '';
+  panes.style.display = '';
   questionDetail.style.display = 'none';
 
   const resolved = data.status === 'resolved' && !!text.result;
@@ -6656,16 +7118,27 @@ function setRevealVisible(visible) {
   });
 }
 
+/* ---- opening a card is a screen change, not a popover ----
+   This used to be a FLIP: the poster's bounding box was measured, the detail was
+   snapped onto it, and top/left/width/height were animated out to a centred
+   panel floating over a blurred feed. A floating panel reads as a preview of the
+   knowledge rather than the knowledge itself, and it meant the two most
+   substantial screens in the app — Share, and what somebody actually wrote —
+   arrived in two unrelated ways.
+
+   Both use one gesture now: the surface you were on fades and settles back, the
+   new screen lifts in over the whole window. Same .mode-fade-out, same
+   CONFIG.MODE_SWAP_MS hand-off point as enterShareMode, which this is
+   deliberately a copy of. */
+let detailReturnSurface = null;
+
 function openCard(cardEl) {
   if (isCardExpanded) return;
   const index = Number(cardEl.dataset.index);
   const data = ALL_CARDS[index];
   if (!data) return;
 
-  const appEl = document.getElementById('app');
-  const scrim = document.getElementById('scrim');
   const expandedCard = document.getElementById('expandedCard');
-  const expandedMedia = document.getElementById('expandedMedia');
 
   activeCardEl = cardEl;
   currentOpenIndex = index;
@@ -6673,100 +7146,59 @@ function openCard(cardEl) {
   pauseAutoScroll();
 
   populateExpanded(data, index);
-
-  const firstRect = cardEl.getBoundingClientRect();
-
-  // Fixed to a generous share of the viewport (tall, small top/bottom
-  // margins only) rather than measured from content — the point is a roomy
-  // modal with a small image teaser, not one sized to whatever text happens
-  // to be in it. Questions get a wider, taller frame — there's a two-pane
-  // conversation to fit, not a single column of text.
-  const openQ = isOpenQuestion(data);
-  const finalWidth = openQ
-    ? Math.min(CONFIG.QUESTION_WIDTH_MAX, window.innerWidth * CONFIG.QUESTION_WIDTH_RATIO)
-    : Math.min(CONFIG.EXPANDED_WIDTH_MAX, window.innerWidth * CONFIG.EXPANDED_WIDTH_RATIO);
-  const finalHeight = window.innerHeight * (openQ ? CONFIG.QUESTION_HEIGHT_RATIO : CONFIG.EXPANDED_HEIGHT_RATIO);
-  const finalLeft = (window.innerWidth - finalWidth) / 2;
-  const finalTop = (window.innerHeight - finalHeight) / 2;
-
-  expandedCard.style.transition = 'none';
-  expandedCard.style.display = 'flex';
-  expandedCard.style.visibility = 'hidden';
-  expandedMedia.style.transition = 'none';
-  expandedMedia.style.height = CONFIG.EXPANDED_MEDIA_HEIGHT + 'px';
-
-  // Snap to the clicked card's exact position/size first, with no transition —
-  // the whole card IS the image now, so the hero starts at the card's full height.
-  // (This also works correctly if the card was mid-flip or showing its back face,
-  // since firstRect comes from the static outer .card box, not its rotated child.)
-  expandedCard.style.top = firstRect.top + 'px';
-  expandedCard.style.left = firstRect.left + 'px';
-  expandedCard.style.width = firstRect.width + 'px';
-  expandedCard.style.height = firstRect.height + 'px';
-  expandedCard.style.borderRadius = '20px';
-  expandedMedia.style.height = firstRect.height + 'px';
   setRevealVisible(false);
-  expandedCard.style.visibility = 'visible';
 
-  cardEl.classList.add('is-source-hidden');
-  scrim.classList.add('is-visible');
-  appEl.classList.add('is-receded');
+  // Whichever surface we came from is the one we go back to — the feed
+  // normally, the roster if a designer's shared work was opened from there.
+  const leaving = activeSurfaceEl();
+  detailReturnSurface = leaving;
+  updateChrome(); // the takeover carries its own back arrow; floor tools stand down
 
-  void expandedCard.offsetWidth; // force reflow
+  leaving.classList.add('mode-fade-out');
+  setTimeout(() => {
+    leaving.style.display = 'none';
+    leaving.classList.remove('mode-fade-out');
 
-  requestAnimationFrame(() => {
-    expandedCard.style.transition = '';
-    expandedMedia.style.transition = 'height 0.55s cubic-bezier(0.22, 1, 0.36, 1)';
-    expandedCard.style.top = finalTop + 'px';
-    expandedCard.style.left = finalLeft + 'px';
-    expandedCard.style.width = finalWidth + 'px';
-    expandedCard.style.height = finalHeight + 'px';
-    expandedCard.style.borderRadius = '26px';
-    expandedMedia.style.height = CONFIG.EXPANDED_MEDIA_HEIGHT + 'px';
+    expandedCard.style.display = 'flex';
+    // Each pane scrolls on its own, so each has to start at its own top.
+    expandedCard.querySelectorAll('.expanded-pane, .qd-pane').forEach((p) => { p.scrollTop = 0; });
+    void expandedCard.offsetWidth; // force reflow so .is-open actually transitions
+    expandedCard.classList.add('is-open');
     setRevealVisible(true);
-  });
+  }, CONFIG.MODE_SWAP_MS);
 }
 
 function closeCard() {
-  if (!isCardExpanded || !activeCardEl) return;
-  const cardEl = activeCardEl;
+  if (!isCardExpanded) return;
 
-  const appEl = document.getElementById('app');
-  const scrim = document.getElementById('scrim');
   const expandedCard = document.getElementById('expandedCard');
-  const expandedMedia = document.getElementById('expandedMedia');
-
-  const firstRect = cardEl.getBoundingClientRect();
+  const returning = detailReturnSurface || document.getElementById('feedMain');
 
   setRevealVisible(false);
-  scrim.classList.remove('is-visible');
-  appEl.classList.remove('is-receded');
+  expandedCard.classList.remove('is-open');
 
-  expandedMedia.style.transition = 'height 0.55s cubic-bezier(0.22, 1, 0.36, 1)';
-  expandedCard.style.top = firstRect.top + 'px';
-  expandedCard.style.left = firstRect.left + 'px';
-  expandedCard.style.width = firstRect.width + 'px';
-  expandedCard.style.height = firstRect.height + 'px';
-  expandedCard.style.borderRadius = '20px';
-  expandedMedia.style.height = firstRect.height + 'px';
-
-  const onDone = (e) => {
-    if (e && e.propertyName !== 'width') return;
-    expandedCard.removeEventListener('transitionend', onDone);
+  setTimeout(() => {
     expandedCard.style.display = 'none';
-    cardEl.classList.remove('is-source-hidden');
+
+    // designersViewport is a flex column, feedMain a plain block — restoring the
+    // wrong one collapses the roster's centring.
+    returning.style.display = returning.id === 'designersViewport' ? 'flex' : 'block';
+    returning.classList.add('mode-fade-out'); // reused as "not yet visible"
+    void returning.offsetWidth;
+    returning.classList.remove('mode-fade-out');
+
     activeCardEl = null;
     currentOpenIndex = null;
+    detailReturnSurface = null;
     isCardExpanded = false;
+    updateChrome();
     scheduleResumeAutoScroll();
-  };
-  expandedCard.addEventListener('transitionend', onDone);
+  }, CONFIG.MODE_SWAP_MS);
 }
 
 function initExpandCard() {
   document.getElementById('expandedClose').setAttribute('aria-label', t().closeAria);
   document.getElementById('expandedClose').addEventListener('click', closeCard);
-  document.getElementById('scrim').addEventListener('click', closeCard);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (isCardExpanded) closeCard();
@@ -6785,6 +7217,12 @@ function initDeleteCard() {
   document.getElementById('deleteConfirmText').textContent = t().deleteConfirmText;
   document.getElementById('deleteCancelBtn').textContent = t().deleteCancel;
   document.getElementById('deleteConfirmBtn').textContent = t().deleteConfirmButton;
+
+  document.getElementById('editCardLabel').textContent = t().editLink;
+  document.getElementById('editCardBtn').addEventListener('click', () => {
+    const id = document.getElementById('expandedDeleteRow').dataset.cardId;
+    if (id) enterEditMode(id);
+  });
 
   document.getElementById('deleteCardBtn').addEventListener('click', () => {
     document.getElementById('deleteCardBtn').style.display = 'none';
@@ -6817,11 +7255,11 @@ function deleteSharedCardById(id) {
 
   const finish = () => {
     sharedCards = sharedCards.filter((c) => c.id !== id);
-    try {
-      localStorage.setItem(SHARED_CARDS_STORAGE_KEY, JSON.stringify(sharedCards));
-    } catch (err) {
-      console.error('[Loom feed] could not persist card deletion:', err);
-    }
+    // A deletion that doesn't reach storage is worse than a save that doesn't:
+    // the card comes back on reload, and the reader has every reason to think
+    // it's gone. Deleting frees room rather than needing it, so this failing at
+    // all means storage is unavailable, not full — either way, say so.
+    if (!writeSharedCards(sharedCards)) showToast(t().share.storageFailed);
     ALL_CARDS = buildAllCards();
     renderDiscover();
     renderBrowse();
@@ -6950,8 +7388,15 @@ function setUploadPreview(url) {
        is a `--card-img` background, see applyCardMedia).
    1400px on the long edge is well past what a poster card or the hero banner
    can actually show, and JPEG at 0.82 puts a typical photo around 200-350KB. */
-const IMAGE_MAX_DIM = 1400;
-const IMAGE_JPEG_QUALITY = 0.82;
+/* 1400px / 0.82 put a typical photo at 200-350KB. Three or four of those and a
+   ~5MB origin budget is gone, which is what makes cards quietly disappear on
+   reload. 1000px is still more than the banner can resolve at any realistic
+   window size, and 0.7 roughly halves the byte count for a difference you have
+   to go looking for on a photograph. Base64 inflates whatever comes out by a
+   further ~33%, so the number that matters is the encoded string length, not
+   the pixel count. */
+const IMAGE_MAX_DIM = 1000;
+const IMAGE_JPEG_QUALITY = 0.7;
 const IMAGE_SECOND_PASS_BYTES = 600000; // still heavy after pass one -> re-encode harder
 const IMAGE_SECOND_PASS_QUALITY = 0.6;
 
@@ -7248,6 +7693,107 @@ function resetComposeForm() {
   // it was left instead of starting clean from the top.
   const composeScroll = document.querySelector('#stepCompose .compose-scroll');
   if (composeScroll) composeScroll.scrollTop = 0;
+
+  // Including the wording. An abandoned edit clears editingCardId on the way
+  // out (see exitShareMode) but left its heading and button label written into
+  // the form, so the next visit was a blank compose still calling itself
+  // "Edit what you shared". refreshShareText re-applies the edit labels itself
+  // when an edit *is* in progress, so this is safe either way.
+  refreshShareText();
+}
+
+/* ---- editing something already shared ----
+   The compose form, not a second form. A separate edit dialog would be another
+   place for the same six fields to drift out of step, and this one already
+   knows how to present a Question differently from a project.
+
+   Only what the author typed can change here. id, appliedBy, relatedTo and the
+   conversation belong to everyone who touched the card afterwards — fixing a
+   typo in a title must not quietly reset who has applied it. */
+let editingCardId = null;
+
+function prefillComposeFrom(card) {
+  const text = card.text || {};
+  const title = text.title || '';
+  document.getElementById('titleInput').value = title;
+  document.getElementById('problemInput').value = text.problem || '';
+  document.getElementById('triedInput').value = text.tried || '';
+  document.getElementById('resultInput').value = text.result || '';
+
+  selectedType = card.type || 'project';
+  document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.type === selectedType);
+  });
+  updateComposeFieldsForType();
+
+  selectedImageUrl = card.image || null;
+  setUploadPreview(selectedImageUrl);
+
+  attachedFiles = (card.attachments || []).slice();
+  renderAttachmentList();
+
+  // resetComposeForm disabled it; the gate is "there is a title" either way
+  // (see initSubmitGate), and an existing card always has one.
+  document.getElementById('submitBtn').disabled = title.trim().length === 0;
+}
+
+function enterEditMode(cardId) {
+  const card = sharedCards.find((c) => c.id === cardId);
+  if (!card) return;
+  editingCardId = cardId;
+
+  // Close the detail first, then open Share — two surfaces can't both hold the
+  // screen, and enterShareMode refuses outright while a detail is open.
+  closeCard();
+  setTimeout(() => {
+    enterShareMode();
+    // enterShareMode resets the form to empty, so the card's own values go in
+    // after it, not before.
+    prefillComposeFrom(card);
+    applyEditModeLabels();
+  }, CONFIG.MODE_SWAP_MS + 40);
+}
+
+/* The only visible difference between composing and editing is what the
+   heading, the intro and the button say — the fields are the same fields.
+   refreshShareText() writes the compose wording unconditionally, so this runs
+   after it (including on a language switch made mid-edit). */
+function applyEditModeLabels() {
+  if (!editingCardId) return;
+  const s = t();
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  setText('composeHeading', s.editHeading);
+  setText('composeIntro', s.editIntro);
+  setText('submitBtnLabel', s.editSubmit);
+}
+
+// Writes the edited fields back onto the card already in the gallery, in place,
+// so its position and everything attached to it survive the edit.
+function commitCardEdit() {
+  const card = sharedCards.find((c) => c.id === editingCardId);
+  editingCardId = null;
+  if (!card) return;
+
+  const isOpenQ = selectedType === 'question';
+  const title = document.getElementById('titleInput').value.trim();
+  const problem = document.getElementById('problemInput').value.trim();
+  const tried = document.getElementById('triedInput').value.trim();
+  // A Question has no result — the hidden field's stale value never ships.
+  const result = isOpenQ ? '' : document.getElementById('resultInput').value.trim();
+
+  card.type = selectedType;
+  card.image = selectedImageUrl;
+  card.attachments = attachedFiles.slice();
+  card.sourceLang = currentLang;
+  card.text = { title, summary: truncateForSummary(result || tried || problem || title, 100), problem, tried, result };
+
+  if (writeSharedCards(sharedCards)) showToast(t().editSaved);
+  else showToast(t().share.storageFailed);
+
+  ALL_CARDS = buildAllCards();
+  renderDiscover();
+  renderBrowse();
+  renderQuestions();
 }
 
 /* ---- hand the composed card to the gallery itself — no page, no reload ---- */
@@ -7292,13 +7838,11 @@ function buildSharedCardEntry() {
   };
 }
 
+// Returns true only if the list is genuinely in storage. On failure the
+// previous list is back in place (see safeSetItem), so a half-applied write
+// can't leave the reader with a card list they never had.
 function writeSharedCards(list) {
-  try {
-    localStorage.setItem(SHARED_CARDS_STORAGE_KEY, JSON.stringify(list));
-    return true;
-  } catch (err) {
-    return false; // realistically QuotaExceededError — the caller decides what to give up
-  }
+  return safeSetItem(SHARED_CARDS_STORAGE_KEY, JSON.stringify(list)).ok;
 }
 
 // Images are downscaled on the way in (see resizeImageToDataUrl), so this
@@ -7316,7 +7860,10 @@ function saveSharedCard(entry) {
   } catch (err) { /* corrupt or missing — start fresh */ }
   list.unshift(entry);
 
-  if (writeSharedCards(list)) return true;
+  if (writeSharedCards(list)) {
+    logStorageUsage('shared card saved');
+    return true;
+  }
 
   while (list.length > 1) {
     list.pop(); // drop the oldest shared card and try again
@@ -7335,6 +7882,7 @@ function saveSharedCard(entry) {
   }
 
   console.error('[Loom feed] could not persist the shared card: no room in localStorage');
+  logStorageUsage('gave up on a card');
   showToast(t().share.storageFailed);
   return false;
 }
@@ -7363,6 +7911,15 @@ function flushPendingSharedCards() {
 function initSubmit() {
   document.getElementById('submitBtn').addEventListener('click', () => {
     if (document.getElementById('submitBtn').disabled) return;
+
+    // An edit is a correction, not an arrival: it skips the weave moment and
+    // drops straight back to where the card already lives.
+    if (editingCardId) {
+      commitCardEdit();
+      exitShareMode();
+      return;
+    }
+
     const entry = buildSharedCardEntry();
     saveSharedCard(entry);
     pendingSharedEntries.push(entry);
@@ -7858,6 +8415,7 @@ function refreshShareText() {
   setText('weaveDoneTitle', s.weaveDoneTitle);
   setText('weaveCount', s.weaveDoneCount);
   setText('seeFullWeaveBtn', s.seeFullWeave);
+  applyEditModeLabels(); // no-op unless an edit is in progress
   setText('shareAnotherBtn', s.shareAnother);
   setText('doneBtnLabel', s.done);
   const closeBtn = document.getElementById('shareCloseBtn');
@@ -7943,7 +8501,7 @@ function enterShareMode() {
   // The back-to-lobby pill is fixed in the corner independent of the gallery/
   // share-viewport swap below — hide it explicitly so a stray click while
   // composing can't discard the moment by leaving the app entirely.
-  document.getElementById('sidebarFooter').classList.add('is-hidden-in-share');
+  document.getElementById('cornerDock').classList.add('is-hidden-in-share');
 
   const gallery = leaving;
   const share = document.getElementById('shareViewport');
@@ -7976,8 +8534,11 @@ function enterShareMode() {
 function exitShareMode() {
   if (!isShareMode) return;
   isShareMode = false;
+  // Also the abandon path: leaving without saving drops the edit, so the next
+  // visit to Share is a blank compose form rather than somebody's old card.
+  editingCardId = null;
 
-  document.getElementById('sidebarFooter').classList.remove('is-hidden-in-share');
+  document.getElementById('cornerDock').classList.remove('is-hidden-in-share');
 
   const gallery = document.getElementById('feedMain');
   const share = document.getElementById('shareViewport');
@@ -8004,7 +8565,12 @@ function exitShareMode() {
 
 function initShareMode() {
   refreshShareText();
-  document.getElementById('shareKnowledgeBtn').addEventListener('click', enterShareMode);
+  // The only way into Share: the fixed bottom-left pencil. From a detail screen
+  // it has to close that first; enterShareMode refuses while one is open.
+  document.getElementById('cornerShareBtn').addEventListener('click', () => {
+    if (isCardExpanded) { closeCard(); setTimeout(enterShareMode, CONFIG.MODE_SWAP_MS + 40); }
+    else enterShareMode();
+  });
   document.getElementById('shareCloseBtn').addEventListener('click', exitShareMode);
   document.getElementById('doneBtn').addEventListener('click', exitShareMode);
 }
@@ -8051,7 +8617,11 @@ safeInit('questions rendering', renderQuestions);
 safeInit('designers', initDesigners);
 safeInit('type filter dropdown', renderTypeFilterDropdown);
 safeInit('search', initSearch);
-safeInit('topbar links', initTopbarLinks);
+safeInit('storage log', () => logStorageUsage('at startup'));
+safeInit('static text', initStaticText);
+// The page opens on floor 1 with nothing having called goToFloor yet, so the
+// corner marks have to be told once that they start life over a dark banner.
+safeInit('chrome', updateChrome);
 safeInit('hero controls', initHeroControls);
 safeInit('browse scroll', initBrowseScroll);
 safeInit('feed wheel snap', initFeedWheelSnap);
