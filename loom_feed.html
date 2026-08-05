@@ -1602,10 +1602,16 @@
      Designers — who is weaving this, one studio per screen.
 
      Deliberately a roster and not a scoreboard: nothing on a card can be
-     compared against the next card (photo, name, job title — that's all),
-     nothing is ordered by output, and the two studios are never on screen
-     together to be read side by side. See the DESIGNERS comment in the
-     script for why this is a rule and not a style choice.
+     compared against the next card (photo, name, job title, how to reach them
+     — that's all), nothing is ordered by output, no card says how much anyone
+     has shared, and the two studios are never on screen together to be read
+     side by side. See the DESIGNERS comment in the script for why this is a
+     rule and not a style choice.
+
+     The screen is sized to fill rather than to sit politely in the middle of
+     itself: the roster IS the content here, so the cards take the height and
+     the studio arrows go out to the edges of the viewport where there is room
+     to make them obvious.
      ====================================================================== */
   .designers-viewport {
     position: relative;
@@ -1613,11 +1619,15 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* heading, card row and studio caption are one block, centred as a whole.
+       sizeAllRosters() keeps that block inside the surface, which is what makes
+       centring safe here rather than clipping the top. */
     justify-content: center;
     background: var(--bg);
   }
   .designers-close { top: 22px; right: 26px; }
 
+  /* ---------- heading ---------- */
   .designers-head {
     flex-shrink: 0;
     padding: 0 max(6vw, 28px);
@@ -1629,96 +1639,62 @@
   .designers-intro h1 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    font-size: 40px;
-    letter-spacing: -0.01em;
+    font-size: clamp(38px, 4vw, 62px);
+    line-height: 1.04;
+    letter-spacing: -0.015em;
     color: var(--ink);
-    margin: 0 0 10px;
+    margin: 0 0 8px;
   }
   .designers-intro p {
-    margin: 0 auto;
-    max-width: 560px;
-    font-size: 14px;
-    line-height: 1.65;
+    margin: 0;
+    font-size: clamp(13.5px, 1.05vw, 16px);
+    line-height: 1.5;
     color: var(--ink-dim);
   }
 
-  /* ---------- studio pager ---------- */
-  .studio-pager {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 30px;
-  }
-  .studio-pager-arrow {
-    width: 34px;
-    height: 34px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: #ffffff;
-    color: var(--ink-dim);
+  /* ---------- big edge arrows ----------
+     Pinned to the left and right edges of the viewport and vertically centred,
+     well clear of the card row (see .designers-panel's side padding, which
+     reserves the lane they sit in). No plate behind them: at this size a white
+     disc would read as a button floating over the roster rather than as a
+     direction to go in. */
+  .studio-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    width: clamp(38px, 3.4vw, 54px);
+    height: clamp(38px, 3.4vw, 54px);
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: var(--ink-faint);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background 0.25s ease, color 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease;
+    transition: color 0.3s ease, transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
   }
-  .studio-pager-arrow svg { width: 15px; height: 15px; }
-  .studio-pager-arrow:hover { color: var(--ink); border-color: var(--border-strong); transform: scale(1.08); }
-  .studio-pager-arrow:active { transform: scale(0.94); }
-  /* one studio, one arrow pair — with nowhere to go the arrows go away
-     rather than sitting there dead */
-  .studio-pager.is-single .studio-pager-arrow { display: none; }
-
-  .studio-pager-current {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    min-width: 190px;
-    justify-content: center;
-    padding: 8px 18px;
-    border-radius: 999px;
-    background: var(--studio-tint, rgba(20, 20, 20, 0.05));
-    transition: background 0.4s ease;
-  }
-  .studio-pager-name {
-    font-size: 14.5px;
-    font-weight: 650;
-    color: var(--ink);
-    white-space: nowrap;
-  }
-  /* the quiet "this one's yours" marker — the same signal the edit toggle
-     depends on, said in words so it isn't only implied by a button appearing */
-  .studio-pager-you {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--studio-color, var(--ink-dim));
-    white-space: nowrap;
-  }
-  .studio-pager-you:empty { display: none; }
-
-  .roster-edit-toggle {
-    margin-left: 6px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--border-strong);
-    background: #ffffff;
-    font-family: 'Inter', sans-serif;
-    font-size: 12.5px;
-    font-weight: 650;
-    color: var(--ink-dim);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .roster-edit-toggle:hover { border-color: var(--ink); color: var(--ink); }
-  .roster-edit-toggle:active { transform: scale(0.96); }
-  .roster-edit-toggle.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .studio-nav svg { width: 100%; height: 100%; }
+  .studio-nav-prev { left: clamp(20px, 2.6vw, 48px); }
+  .studio-nav-next { right: clamp(20px, 2.6vw, 48px); }
+  .studio-nav:hover { color: var(--ink); transform: translateY(-50%) scale(1.12); }
+  .studio-nav-prev:hover { transform: translateY(-50%) scale(1.12) translateX(-3px); }
+  .studio-nav-next:hover { transform: translateY(-50%) scale(1.12) translateX(3px); }
+  .studio-nav:active { transform: translateY(-50%) scale(0.95); }
+  /* one studio, nowhere to go — the arrows go away rather than sit there dead */
+  .designers-viewport.is-single-studio .studio-nav { display: none; }
+  /* and in edit mode: the Add tile is a fourth card-sized tile, and four of
+     them plus an arrow lane on each side would squeeze the cards well below the
+     size this screen is built around. So the arrows stand down and give the row
+     the room. The trade is that you press Done before you can move to another
+     studio — acceptable, because edit mode is an explicit, focused state on
+     your own studio and the other studio isn't editable anyway. */
+  .designers-viewport.is-editing .studio-nav { display: none; }
 
   /* ---------- the sliding stage ---------- */
   .designers-stage-wrap {
+    position: relative; /* the edge arrows anchor to this, not the viewport */
     flex: 0 1 auto;
     min-height: 0;
     overflow: hidden;
@@ -1735,60 +1711,117 @@
     flex: 0 0 100%;
     min-width: 0;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    /* the top padding is the gap under the pager; the bottom one keeps a
-       card's hover lift and shadow from being clipped by the stage */
-    padding: 34px max(6vw, 28px) 18px;
-    overflow-y: auto;
+    /* the side padding is the lane the edge arrows live in — a card must never
+       end up underneath one */
+    padding: clamp(14px, 2vh, 28px) clamp(84px, 7vw, 130px) clamp(16px, 2.2vh, 30px);
+    transition: padding 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    /* A studio bigger than fits stays one fixed row and scrolls sideways; it
+       never turns into an auto-flowing track. The bar itself is hidden: the
+       panel's width and padding are both animated (sliding between studios,
+       entering edit mode), and every frame where the content is a pixel wider
+       than the box would otherwise flash a scrollbar across the screen. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  /* fixed, not a flowing track: everyone in the studio is on screen at once,
-     wrapping to a second row only if a studio ever grows past one */
+  .designers-panel::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  /* no arrow lane to leave clear once the arrows are gone */
+  .designers-viewport.is-editing .designers-panel {
+    padding-left: clamp(36px, 4vw, 84px);
+    padding-right: clamp(36px, 4vw, 84px);
+  }
+
+  /* Fixed, not a flowing track: the whole studio is on screen at once, and the
+     row takes as much height as the screen will give it.
+
+     The height is written by sizeAllRosters() rather than declared here: a
+     card's width follows from its height (aspect-ratio), so the row has to be
+     sized against the *narrower* of the two constraints, and how many tiles are
+     in it is only known at render time — turning edit mode on adds one. CSS
+     can't see that count, so it can't do this arithmetic. */
   .designer-roster {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: center;
-    gap: 26px;
-    max-height: 100%;
+    gap: clamp(16px, 1.6vw, 36px);
+    height: 100%;
+    margin: auto; /* keeps a short row centred once the panel can scroll */
+    transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* ---------- the card, and its two faces ----------
+     Hover turns the card over: the portrait on the front, how to reach the
+     person on the back. The card itself carries no border or background — each
+     face does — or the frame would sit in front of whichever face is turned
+     away. Height-first: the card takes the row's height and derives its width
+     from the 1:1.4 ratio, so a shorter window shrinks the whole row evenly
+     instead of overflowing. */
   .designer-card {
     position: relative;
-    width: clamp(172px, 14vw, 218px);
+    height: 100%;
+    aspect-ratio: 1 / 1.4;
+    flex: 0 0 auto;
+    perspective: 1400px;
+    font-family: 'Inter', sans-serif;
+    cursor: default;
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .designer-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.66s cubic-bezier(0.32, 1, 0.3, 1);
+  }
+  /* :focus-within so tabbing to a link on the back turns the card and keeps it
+     turned — otherwise the thing you are focused on is facing away from you */
+  .designer-card:hover .designer-card-inner,
+  .designer-card:focus-within .designer-card-inner { transform: rotateY(180deg); }
+  /* while a studio is arranging its roster the card is an object, not something
+     to read: it stays face-up and the whole surface opens the editor */
+  .designer-card.is-editing { cursor: pointer; }
+  .designer-card.is-editing .designer-card-inner { transform: none; }
+
+  .designer-face {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
-    padding: 0;
-    text-align: left;
-    border-radius: 18px;
+    border-radius: 26px;
     border: 1px solid var(--border);
     background: var(--surface);
-    font-family: 'Inter', sans-serif;
     overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transition: box-shadow 0.34s ease, border-color 0.3s ease;
   }
-  .designer-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-resting);
-    border-color: var(--border-strong);
-  }
-  .designer-card:active { transform: translateY(-1px) scale(0.99); }
-  .designer-card.is-active { border-color: var(--ink); }
+  .designer-card:hover .designer-face { box-shadow: var(--shadow-hover); border-color: var(--border-strong); }
+  .designer-card.is-active .designer-face { border-color: var(--ink); }
+  .designer-face-back { transform: rotateY(180deg); }
 
-  /* a real photo when there is one, a studio-tinted initials disc when there
-     isn't — identical box either way, so a studio filling in photos over
-     time never reflows the roster */
+  /* A real photo when there is one, a studio-tinted initials panel when there
+     isn't — identical box either way, so a studio filling in photos over time
+     never reflows the roster.
+
+     Absolutely filling the card, not a flex row above the label: centred in the
+     *photo box* put the initials well above the card's real centre, because the
+     box stopped where the name/role bar began. Filling the card also lets a
+     real photo bleed behind that bar instead of being cut off square at it. */
   .designer-photo {
-    width: 100%;
-    aspect-ratio: 3 / 4;
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 34px;
+    font-size: clamp(46px, 6vw, 104px);
     font-weight: 600;
     letter-spacing: 0.01em;
+    line-height: 1;
     color: var(--studio-color, var(--ink));
     background: var(--studio-tint, rgba(20, 20, 20, 0.05));
     background-size: cover;
@@ -1797,37 +1830,106 @@
   .designer-photo.has-photo { color: transparent; }
 
   .designer-card-text {
-    padding: 14px 16px 16px;
+    position: relative; /* above the photo, which now fills the card */
+    margin-top: auto;
+    background: var(--surface);
+    padding: clamp(16px, 2.2vh, 26px) clamp(18px, 1.7vw, 28px) clamp(18px, 2.4vh, 28px);
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
     min-width: 0;
   }
   .designer-name {
-    font-size: 14px;
+    font-size: clamp(17px, 1.5vw, 25px);
     font-weight: 650;
+    line-height: 1.2;
     color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .designer-role {
-    font-size: 12px;
+    font-size: clamp(12.5px, 1vw, 16px);
     color: var(--ink-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* the pencil only exists on your own studio, and only once edit mode is on
-     — browsing another studio's people should look like reading, not like a
-     form you happen to lack permission for */
+  /* ---------- the back face ----------
+     Everything here has to fit without scrolling. A card that grows a scrollbar
+     the moment you hover it is a card that flinches, and the bar itself lands
+     on top of the link text — the one thing you turned the card over to read.
+     Five links is the ceiling (DESIGNER_LINK_KINDS), so the metrics below are
+     sized against exactly that. */
+  .designer-face-back {
+    justify-content: flex-start;
+    gap: clamp(9px, 1.4vh, 15px);
+    padding: clamp(16px, 2.2vh, 28px) clamp(15px, 1.5vw, 24px);
+    overflow: hidden;
+  }
+  .designer-back-head { flex-shrink: 0; min-width: 0; }
+  .designer-back-head .designer-name { white-space: normal; font-size: clamp(15px, 1.3vw, 21px); }
+  .designer-back-head .designer-role { margin-top: 3px; white-space: normal; font-size: clamp(11.5px, 0.9vw, 14px); }
+
+  .designer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 0;
+    overflow: hidden; /* no scrollbar, in either axis, ever */
+    margin: 0 -6px;
+    padding: 0 6px;
+  }
+  .designer-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: clamp(4px, 0.7vh, 7px) 8px;
+    margin: 0 -8px;
+    border-radius: 9px;
+    color: var(--ink-dim);
+    text-decoration: none;
+    font-size: clamp(10.5px, 0.82vw, 12.5px);
+    line-height: 1.3;
+    flex-shrink: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .designer-link:hover { background: rgba(20, 20, 20, 0.05); color: var(--ink); }
+  .designer-link-icon { flex-shrink: 0; display: flex; color: var(--studio-color, var(--ink-dim)); }
+  .designer-link-icon svg { width: clamp(12px, 1vw, 15px); height: clamp(12px, 1vw, 15px); }
+  .designer-link-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .designer-links-empty { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-faint); }
+
+  /* the only thing on this screen that navigates — deliberately a button you
+     have to aim at, not the whole card (see buildDesignerCard) */
+  .designer-see-work {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: clamp(7px, 1.1vh, 11px) 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11px, 0.9vw, 12.5px);
+    font-weight: 650;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .designer-see-work:hover { background: var(--ink); color: #fff; transform: translateY(-1px); }
+  .designer-see-work:active { transform: translateY(0) scale(0.97); }
+
+  /* the pencil only exists on your own studio, and only once edit mode is on —
+     browsing another studio's people should look like reading, not like a form
+     you happen to lack permission for */
   .designer-edit-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 30px;
-    height: 30px;
+    z-index: 2; /* above .designer-card-inner, which is a 3D context */
+    top: 14px;
+    right: 14px;
+    width: clamp(34px, 2.8vw, 46px);
+    height: clamp(34px, 2.8vw, 46px);
     border-radius: 50%;
     border: none;
     background: rgba(20, 20, 20, 0.55);
@@ -1840,76 +1942,174 @@
     cursor: pointer;
     opacity: 0;
     transform: scale(0.9);
-    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background 0.22s ease;
+    transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), background 0.24s ease;
   }
-  .designer-edit-btn svg { width: 14px; height: 14px; }
+  .designer-edit-btn svg { width: 44%; height: 44%; }
   .designer-card:hover .designer-edit-btn,
   .designer-edit-btn:focus-visible { opacity: 1; transform: scale(1); }
   .designer-edit-btn:hover { background: var(--ink); }
 
-  /* the add tile matches the card's footprint exactly so turning edit mode on
-     doesn't shuffle the row */
+  /* the add tile matches a card's footprint exactly so turning edit mode on
+     doesn't resize the row */
   .designer-add-card {
-    width: clamp(172px, 14vw, 218px);
-    align-self: stretch;
-    min-height: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1.4;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 30px 16px;
-    border-radius: 18px;
+    gap: 16px;
+    padding: 30px;
+    border-radius: 26px;
     border: 1.5px dashed var(--border-strong);
     background: transparent;
     font-family: 'Inter', sans-serif;
-    font-size: 12.5px;
+    font-size: clamp(13px, 1.1vw, 17px);
     font-weight: 650;
     color: var(--ink-dim);
     cursor: pointer;
-    transition: border-color 0.25s ease, color 0.25s ease, background 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: border-color 0.25s ease, color 0.25s ease, background 0.25s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  .designer-add-card svg { width: 22px; height: 22px; }
-  .designer-add-card:hover { border-color: var(--ink); color: var(--ink); background: rgba(20, 20, 20, 0.02); transform: translateY(-3px); }
-  .designer-add-card:active { transform: translateY(0) scale(0.98); }
+  .designer-add-card svg { width: clamp(32px, 3vw, 48px); height: clamp(32px, 3vw, 48px); }
+  .designer-add-card:hover { border-color: var(--ink); color: var(--ink); background: rgba(20, 20, 20, 0.02); transform: translateY(-6px); }
+  .designer-add-card:active { transform: translateY(-2px) scale(0.99); }
 
   .designer-roster-empty {
-    font-size: 13.5px;
+    font-size: 15px;
     color: var(--ink-faint);
     text-align: center;
     align-self: center;
   }
 
-  /* ---------- add / edit dialog ---------- */
-  .designer-editor { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; }
-  .designer-editor-scrim { position: absolute; inset: 0; background: rgba(20, 20, 20, 0.34); }
+  /* ---------- the studio caption ----------
+     Below the roster, not above it: you look at the people first, then read
+     whose they are. It reads as a caption too — the studio's mark, its name in
+     the serif at display size, and the "yours" note as a small-caps aside.
+     Nothing is boxed. */
+  .studio-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(18px, 2.4vw, 34px);
+    padding: clamp(10px, 1.6vh, 20px) max(6vw, 28px) clamp(14px, 2.2vh, 28px);
+  }
+  .studio-pager-current {
+    display: flex;
+    align-items: baseline;
+    gap: clamp(10px, 1vw, 16px);
+    min-width: 0;
+  }
+  /* the studio's logo where a colour dot used to be — a real mark reads as
+     identity in a way a coloured circle never quite does. buildStudioMark()
+     falls back to that circle when there is no file for a studio. */
+  .studio-pager-mark {
+    align-self: center;
+    flex-shrink: 0;
+    width: clamp(24px, 2vw, 32px);
+    height: clamp(24px, 2vw, 32px);
+    border-radius: 50%;
+    background-color: var(--studio-tint, rgba(20, 20, 20, 0.06));
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.45s ease;
+  }
+  .studio-mark-dot {
+    width: 42%;
+    height: 42%;
+    border-radius: 50%;
+    background: var(--studio-color, var(--ink-dim));
+  }
+  .studio-pager-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: clamp(26px, 2.4vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  /* the quiet "this one's yours" marker — the same signal the edit toggle
+     depends on, said in words so it isn't only implied by a button appearing */
+  .studio-pager-you {
+    font-size: clamp(9.5px, 0.72vw, 11px);
+    font-weight: 650;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--studio-color, var(--ink-dim));
+    white-space: nowrap;
+  }
+  .studio-pager-you:empty { display: none; }
+
+  .roster-edit-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 20px 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(11.5px, 0.9vw, 13px);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .roster-edit-toggle svg { width: 14px; height: 14px; }
+  .roster-edit-toggle:hover { border-color: var(--border-strong); color: var(--ink); background: rgba(20, 20, 20, 0.035); }
+  .roster-edit-toggle:active { transform: scale(0.96); }
+  .roster-edit-toggle.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  /* ---------- add / edit dialog ----------
+     Two columns at this size: the photo is the biggest decision on this form,
+     so it gets its own half rather than a thumbnail wedged above the fields. */
+  .designer-editor { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .designer-editor-scrim { position: absolute; inset: 0; background: rgba(20, 20, 20, 0.38); }
   .designer-editor-card {
     position: relative;
-    width: min(460px, calc(100vw - 48px));
+    width: min(900px, 100%);
     max-height: calc(var(--floor-h) - 48px);
     overflow-y: auto;
-    padding: 28px;
-    border-radius: 22px;
+    padding: clamp(26px, 3.2vw, 44px);
+    border-radius: 28px;
     background: var(--surface);
     box-shadow: var(--shadow-hover);
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: clamp(20px, 2.4vh, 30px);
   }
   .designer-editor-card h3 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    font-size: 26px;
+    font-size: clamp(26px, 2.6vw, 38px);
+    line-height: 1.1;
     color: var(--ink);
     margin: 0;
   }
 
-  .editor-photo-row { display: flex; gap: 18px; align-items: flex-start; }
+  .editor-body {
+    display: flex;
+    gap: clamp(24px, 3vw, 42px);
+    align-items: stretch;
+  }
+  .editor-photo-col {
+    flex: 0 0 auto;
+    width: clamp(180px, 18vw, 260px);
+    display: flex;
+    flex-direction: column;
+  }
   .editor-photo-zone {
-    flex-shrink: 0;
-    width: 96px;
-    height: 120px;
-    border-radius: 14px;
+    position: relative; /* anchors the drag hint */
+    width: 100%;
+    aspect-ratio: 1 / 1.32;
+    border-radius: 20px;
     border: 1.5px dashed var(--border-strong);
     background: var(--studio-tint, rgba(20, 20, 20, 0.04));
     background-size: cover;
@@ -1917,45 +2117,115 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: clamp(38px, 4vw, 58px);
     font-weight: 600;
+    line-height: 1;
     color: var(--studio-color, var(--ink-faint));
     cursor: pointer;
     transition: border-color 0.25s ease, background-color 0.25s ease;
   }
   .editor-photo-zone.is-dragover { border-color: var(--ink); background-color: rgba(20, 20, 20, 0.06); }
   .editor-photo-zone.has-photo { border-style: solid; border-color: var(--border); color: transparent; }
-  .editor-photo-side { flex: 1 1 auto; min-width: 0; }
-  .editor-photo-label { font-size: 12px; font-weight: 650; color: var(--ink); margin-bottom: 5px; }
-  .editor-photo-hint { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: var(--ink-faint); }
-  .editor-photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  .editor-field-label { font-size: 12px; font-weight: 650; color: var(--ink); margin-bottom: 7px; }
+  /* the fields sit level with the middle of the photo rather than tracking its
+     top edge, so the two columns read as one form and not as two stacks */
+  .editor-form-col {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(16px, 2vh, 26px);
+  }
+
+  .editor-photo-label { font-size: 13px; font-weight: 650; color: var(--ink); margin-bottom: 9px; }
+  .editor-photo-hint { margin: 11px 0 13px; font-size: 12.5px; line-height: 1.55; color: var(--ink-faint); }
+  .editor-photo-actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: auto; }
+  .editor-photo-actions .btn-ghost-sm { padding: 9px 16px; font-size: 12.5px; }
+
+  .editor-field-label { font-size: 13px; font-weight: 650; color: var(--ink); margin-bottom: 8px; }
   .editor-field input {
     width: 100%;
-    padding: 11px 14px;
-    border-radius: 11px;
+    padding: 14px 18px;
+    border-radius: 14px;
     border: 1px solid var(--border-strong);
     background: #ffffff;
     font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
+    font-size: 15.5px;
     color: var(--ink);
     outline: none;
     transition: border-color 0.22s ease;
   }
   .editor-field input:focus { border-color: var(--ink); }
+  .editor-field input::placeholder { color: var(--ink-faint); }
 
-  .editor-actions { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+  .editor-links { display: flex; flex-direction: column; }
+  .editor-links-grid { display: flex; flex-direction: column; gap: 8px; }
+  .editor-link-row { display: flex; align-items: center; gap: 10px; }
+  .editor-link-row-icon { flex-shrink: 0; display: flex; color: var(--ink-faint); }
+  .editor-link-row-icon svg { width: 16px; height: 16px; }
+  .editor-link-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 13px;
+    border-radius: 11px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.22s ease;
+  }
+  .editor-link-row input:focus { border-color: var(--ink); }
+  .editor-link-row input::placeholder { color: var(--ink-faint); }
+
+  .editor-actions { display: flex; align-items: center; gap: 12px; }
   .editor-actions-spacer { flex: 1 1 auto; }
-  .editor-delete-link { padding: 0; }
-  .editor-save { padding: 11px 22px; }
+  .editor-delete-link { padding: 0; font-size: 13px; }
+  .editor-actions .btn-ghost-sm { padding: 12px 24px; font-size: 14px; }
+  .editor-save { padding: 13px 32px; font-size: 14.5px; }
   .editor-save:disabled { opacity: 0.4; cursor: not-allowed; }
   .editor-delete-confirm {
-    padding: 14px 16px;
-    border-radius: 14px;
+    padding: 18px 20px;
+    border-radius: 18px;
     background: rgba(20, 20, 20, 0.04);
   }
-  .editor-delete-confirm p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.55; color: var(--ink-dim); }
+  .editor-delete-confirm p { margin: 0 0 13px; font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); }
+
+  /* ---------- focal-point drag ----------
+     A roster tile is a tall 1:1.32 crop of whatever was uploaded, which puts a
+     face off-centre far more often than not. Rather than a crop dialog, the
+     photo is dragged inside the frame it will actually appear in. */
+  .is-focal-draggable { cursor: grab; touch-action: none; }
+  .is-focal-draggable.is-dragging-focal { cursor: grabbing; }
+  .focal-hint {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.96);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(15, 15, 12, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: rgba(255, 255, 255, 0.95);
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .focal-hint svg { width: 13px; height: 13px; }
+  .is-focal-draggable:hover .focal-hint { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  /* out of the way while you are actually doing the thing it described */
+  .is-focal-draggable.is-dragging-focal .focal-hint { opacity: 0; }
 
   /* ---------- the "you're looking at one person's knowledge" chip ----------
      Appears on the Browse and Questions floors once someone is picked in
@@ -2535,28 +2805,39 @@
         <h1 id="designersHeading"></h1>
         <p id="designersIntro"></p>
       </div>
-
-      <!-- one studio on screen at a time; the arrows are the only way across,
-           so it never reads as two rosters side by side to be compared -->
-      <div class="studio-pager">
-        <button type="button" class="studio-pager-arrow" id="studioPrevBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <div class="studio-pager-current">
-          <span class="card-dot" id="studioPagerDot"></span>
-          <span class="studio-pager-name" id="studioPagerName"></span>
-          <span class="studio-pager-you" id="studioPagerYou"></span>
-        </div>
-        <button type="button" class="studio-pager-arrow" id="studioNextBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-        <!-- only rendered visible on your own studio (see canEditRoster) -->
-        <button type="button" class="roster-edit-toggle" id="rosterEditToggle" style="display:none;"></button>
-      </div>
     </div>
 
     <div class="designers-stage-wrap">
+      <!-- One studio on screen at a time; the arrows are the only way across,
+           so it never reads as two rosters side by side to be compared. They
+           live inside the stage rather than the whole surface so "vertically
+           centred" means centred on the card row, not on a viewport whose top
+           half is taken up by the heading. -->
+      <button type="button" class="studio-nav studio-nav-prev" id="studioPrevBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button type="button" class="studio-nav studio-nav-next" id="studioNextBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+
       <div class="designers-stage" id="designersStage"></div>
+    </div>
+
+    <!-- The studio caption sits under the faces it names, not above them: you
+         look at the people first, then read whose they are. -->
+    <div class="studio-bar">
+      <div class="studio-pager-current">
+        <span class="studio-pager-mark" id="studioPagerMark"></span>
+        <span class="studio-pager-name" id="studioPagerName"></span>
+        <span class="studio-pager-you" id="studioPagerYou"></span>
+      </div>
+      <!-- only rendered visible on your own studio (see canEditRoster) -->
+      <button type="button" class="roster-edit-toggle" id="rosterEditToggle" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20h4l10.5-10.5a2 2 0 0 0-2.8-2.8L5 17.2z"/><path d="M13.5 6.5l4 4"/>
+        </svg>
+        <span id="rosterEditLabel"></span>
+      </button>
     </div>
 
     <!-- ---------- add / edit one person ---------- -->
@@ -2565,29 +2846,44 @@
       <div class="designer-editor-card" role="dialog" aria-modal="true">
         <h3 id="designerEditorTitle"></h3>
 
-        <div class="editor-photo-row">
-          <div class="editor-photo-zone" id="editorPhotoZone" role="button" tabindex="0">
-            <span class="editor-photo-fallback" id="editorPhotoFallback"></span>
-          </div>
-          <div class="editor-photo-side">
+        <!-- two columns: the photo is the biggest decision on this form, so it
+             gets its own half instead of a thumbnail wedged above the fields -->
+        <div class="editor-body">
+          <div class="editor-photo-col">
             <div class="editor-photo-label" id="editorPhotoLabel"></div>
+            <!-- doubles as the crop control once a photo is in — see
+                 refreshEditorPhoto, which adds .is-focal-draggable -->
+            <div class="editor-photo-zone" id="editorPhotoZone" role="button" tabindex="0">
+              <span class="editor-photo-fallback" id="editorPhotoFallback"></span>
+              <span class="focal-hint" id="editorPhotoDragHint" style="display:none;"></span>
+            </div>
             <p class="editor-photo-hint" id="editorPhotoHint"></p>
             <div class="editor-photo-actions">
               <button type="button" class="btn-ghost-sm" id="editorPhotoPickBtn"></button>
               <button type="button" class="btn-ghost-sm" id="editorPhotoRemoveBtn" style="display:none;"></button>
             </div>
           </div>
+
+          <div class="editor-form-col">
+            <div class="editor-field">
+              <div class="editor-field-label" id="editorNameLabel"></div>
+              <input type="text" id="editorNameInput" autocomplete="off" />
+            </div>
+            <div class="editor-field">
+              <div class="editor-field-label" id="editorRoleLabel"></div>
+              <input type="text" id="editorRoleInput" autocomplete="off" />
+            </div>
+
+            <!-- Populated from DESIGNER_LINK_KINDS so adding a kind needs no
+                 markup change. Every one is optional; blanks are simply never
+                 rendered on the card back. -->
+            <div class="editor-links">
+              <div class="editor-field-label" id="editorLinksLabel"></div>
+              <div class="editor-links-grid" id="editorLinksGrid"></div>
+            </div>
+          </div>
         </div>
         <input type="file" id="editorPhotoInput" accept="image/*" style="display:none;" />
-
-        <div class="editor-field">
-          <div class="editor-field-label" id="editorNameLabel"></div>
-          <input type="text" id="editorNameInput" autocomplete="off" />
-        </div>
-        <div class="editor-field">
-          <div class="editor-field-label" id="editorRoleLabel"></div>
-          <input type="text" id="editorRoleInput" autocomplete="off" />
-        </div>
 
         <div class="editor-actions">
           <button type="button" class="delete-link editor-delete-link" id="editorDeleteBtn" style="display:none;">
@@ -2994,7 +3290,7 @@ const TRANSLATIONS = {
       deleteConfirmButton: 'Delete',
       designers: {
         heading: 'Designers',
-        intro: "The people weaving this together, one studio at a time. Deliberately not a ranking — just who's here and what they do.",
+        intro: 'Woven together, studio by studio.',
         prevStudio: 'Previous studio',
         nextStudio: 'Next studio',
         yourStudio: 'Your studio',
@@ -3015,6 +3311,17 @@ const TRANSLATIONS = {
         namePlaceholder: 'Full name',
         roleLabel: 'Role',
         rolePlaceholder: 'e.g. Motion Designer',
+        linksLabel: 'Links — all optional',
+        linkPlaceholders: {
+          email: 'name@studio.com',
+          website: 'yourportfolio.com',
+          behance: 'behance.net/yourname',
+          vimeo: 'vimeo.com/yourname',
+          instagram: 'instagram.com/yourname',
+        },
+        noLinks: 'No links shared yet.',
+        seeTheirKnowledge: 'See what they shared',
+        photoDragHint: 'Drag to position',
         save: 'Save',
         cancel: 'Cancel',
         deletePerson: 'Remove from roster',
@@ -3187,7 +3494,7 @@ const TRANSLATIONS = {
       deleteConfirmButton: '삭제',
       designers: {
         heading: '디자이너',
-        intro: '이 지식을 함께 짜고 있는 사람들을 스튜디오별로 봅니다. 순위는 없습니다 — 누가 있고 무슨 일을 하는지만.',
+        intro: '스튜디오마다, 함께 짜여집니다.',
         prevStudio: '이전 스튜디오',
         nextStudio: '다음 스튜디오',
         yourStudio: '내 스튜디오',
@@ -3208,6 +3515,17 @@ const TRANSLATIONS = {
         namePlaceholder: '이름을 입력하세요',
         roleLabel: '직업',
         rolePlaceholder: '예: 모션 디자이너',
+        linksLabel: '링크 — 모두 선택',
+        linkPlaceholders: {
+          email: 'name@studio.com',
+          website: 'yourportfolio.com',
+          behance: 'behance.net/yourname',
+          vimeo: 'vimeo.com/yourname',
+          instagram: 'instagram.com/yourname',
+        },
+        noLinks: '아직 공유한 링크가 없어요.',
+        seeTheirKnowledge: '이 사람이 공유한 지식 보기',
+        photoDragHint: '드래그해서 위치 조절',
         save: '저장',
         cancel: '취소',
         deletePerson: '목록에서 제거',
@@ -3380,7 +3698,7 @@ const TRANSLATIONS = {
       deleteConfirmButton: 'Löschen',
       designers: {
         heading: 'Designer',
-        intro: 'Die Menschen, die das hier zusammenweben — ein Studio nach dem anderen. Bewusst keine Rangliste, nur wer da ist und was er macht.',
+        intro: 'Studio für Studio zusammengewebt.',
         prevStudio: 'Vorheriges Studio',
         nextStudio: 'Nächstes Studio',
         yourStudio: 'Dein Studio',
@@ -3401,6 +3719,17 @@ const TRANSLATIONS = {
         namePlaceholder: 'Vollständiger Name',
         roleLabel: 'Rolle',
         rolePlaceholder: 'z. B. Motion Designer',
+        linksLabel: 'Links — alle optional',
+        linkPlaceholders: {
+          email: 'name@studio.com',
+          website: 'yourportfolio.com',
+          behance: 'behance.net/yourname',
+          vimeo: 'vimeo.com/yourname',
+          instagram: 'instagram.com/yourname',
+        },
+        noLinks: 'Noch keine Links geteilt.',
+        seeTheirKnowledge: 'Zeig, was sie geteilt haben',
+        photoDragHint: 'Zum Ausrichten ziehen',
         save: 'Speichern',
         cancel: 'Abbrechen',
         deletePerson: 'Aus der Liste entfernen',
@@ -3573,7 +3902,7 @@ const TRANSLATIONS = {
       deleteConfirmButton: 'Sil',
       designers: {
         heading: 'Tasarımcılar',
-        intro: 'Bunu birlikte dokuyan insanlar — her seferinde bir stüdyo. Bilinçli olarak bir sıralama değil, sadece kim var ve ne yapıyor.',
+        intro: 'Stüdyo stüdyo, birlikte dokundu.',
         prevStudio: 'Önceki stüdyo',
         nextStudio: 'Sonraki stüdyo',
         yourStudio: 'Senin stüdyon',
@@ -3594,6 +3923,17 @@ const TRANSLATIONS = {
         namePlaceholder: 'Ad soyad',
         roleLabel: 'Rol',
         rolePlaceholder: 'örn. Motion Tasarımcısı',
+        linksLabel: 'Bağlantılar — hepsi isteğe bağlı',
+        linkPlaceholders: {
+          email: 'name@studio.com',
+          website: 'yourportfolio.com',
+          behance: 'behance.net/yourname',
+          vimeo: 'vimeo.com/yourname',
+          instagram: 'instagram.com/yourname',
+        },
+        noLinks: 'Henüz paylaşılan bağlantı yok.',
+        seeTheirKnowledge: 'Paylaştıklarını gör',
+        photoDragHint: 'Konumlandırmak için sürükle',
         save: 'Kaydet',
         cancel: 'Vazgeç',
         deletePerson: 'Listeden kaldır',
@@ -3737,8 +4077,10 @@ function formatRelativeTime(lang, value, unit) {
 // `enabled` flag on loom_lobby.html's STUDIOS array. Paxie's collaboration
 // isn't confirmed yet, so it stays off here too.
 const STUDIOS = {
-  doubleu: { name: 'DoubleU', color: '#378ADD', enabled: true },
-  whow: { name: 'Whow', color: '#D85A30', enabled: true },
+  // `logo` is probed before it is used (see buildStudioMark) — a studio with no
+  // file on disk falls back to its colour dot rather than a broken tile.
+  doubleu: { name: 'DoubleU', color: '#378ADD', enabled: true, logo: 'assets/doubleu-logo.png' },
+  whow: { name: 'Whow', color: '#D85A30', enabled: true, logo: 'assets/whow-logo.png' },
   paxie: { name: 'Paxie', color: '#1D9E75', enabled: false },
 };
 
@@ -3826,14 +4168,55 @@ const MENU_ITEMS = [
    on anything a studio typed is free text kept exactly as written (there's
    no machine translation in this prototype). renderDesigners prefers `role`.
    ====================================================================== */
+/* `links` is how to reach a person, and every one of the five kinds is
+   optional — a card back renders only what someone actually filled in, so a
+   roster where nobody has a Behance never shows an empty Behance row.
+   `photoPos` is the focal point of their portrait as {x, y} percentages; see
+   makeFocalDraggable for why a face is so rarely in the middle of a 1:1.4 crop. */
 const DEFAULT_DESIGNERS = [
-  { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null },
-  { id: 'du-haeun', studio: 'doubleu', name: 'Haeun Lee', roleKey: 'motionDesigner', photo: null },
-  { id: 'du-minji', studio: 'doubleu', name: 'Minji Yoon', roleKey: 'brandDesigner', photo: null },
-  { id: 'wh-lena', studio: 'whow', name: 'Lena Fischer', roleKey: 'uxDesigner', photo: null },
-  { id: 'wh-jonas', studio: 'whow', name: 'Jonas Weber', roleKey: 'artDirector', photo: null },
-  { id: 'wh-mira', studio: 'whow', name: 'Mira Keller', roleKey: 'uiDesigner', photo: null },
+  { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null, photoPos: null,
+    links: { email: 'doyoon.kim@doubleugames.com', website: 'https://doyoonkim.design' } },
+  { id: 'du-haeun', studio: 'doubleu', name: 'Haeun Lee', roleKey: 'motionDesigner', photo: null, photoPos: null,
+    links: { email: 'haeun.lee@doubleugames.com', vimeo: 'vimeo.com/haeunlee', instagram: 'instagram.com/haeun.motion' } },
+  { id: 'du-minji', studio: 'doubleu', name: 'Minji Yoon', roleKey: 'brandDesigner', photo: null, photoPos: null,
+    links: { email: 'minji.yoon@doubleugames.com', behance: 'behance.net/minjiyoon' } },
+  { id: 'wh-lena', studio: 'whow', name: 'Lena Fischer', roleKey: 'uxDesigner', photo: null, photoPos: null,
+    links: { email: 'lena.fischer@whow.com', website: 'https://lenafischer.de', behance: 'behance.net/lenafischer' } },
+  { id: 'wh-jonas', studio: 'whow', name: 'Jonas Weber', roleKey: 'artDirector', photo: null, photoPos: null,
+    links: { email: 'jonas.weber@whow.com', instagram: 'instagram.com/jonas.ad' } },
+  { id: 'wh-mira', studio: 'whow', name: 'Mira Keller', roleKey: 'uiDesigner', photo: null, photoPos: null,
+    links: {} },
 ];
+
+/* The five kinds, in the order they appear on a card back and in the editor.
+   Adding a sixth needs an entry here and a placeholder string per language —
+   no markup and no save-path change (see renderEditorLinkRows/readEditorLinks). */
+const DESIGNER_LINK_KINDS = [
+  { key: 'email', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>` },
+  { key: 'website', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>` },
+  { key: 'behance', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h5a3 3 0 0 1 0 6H4zM4 12h5.5a3 3 0 0 1 0 6H4z"/><path d="M14.5 15.5h6a3 3 0 1 0-6-1.2v1.2a3 3 0 0 0 5.2 2"/></svg>` },
+  { key: 'vimeo', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg>` },
+  { key: 'instagram', icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.4"/><circle cx="16.8" cy="7.2" r="1" fill="currentColor" stroke="none"/></svg>` },
+];
+
+function designerLinkHref(kind, value) {
+  if (kind === 'email') return 'mailto:' + value;
+  return /^https?:\/\//i.test(value) ? value : 'https://' + value;
+}
+
+// The address for an email, otherwise the bare host+path — so a pasted
+// "https://behance.net/x" doesn't shout its protocol on the card.
+function designerLinkText(kind, value) {
+  if (kind === 'email') return value;
+  return value.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+}
+
+function designerLinkEntries(person) {
+  const links = (person && person.links) || {};
+  return DESIGNER_LINK_KINDS
+    .map((k) => ({ kind: k.key, icon: k.icon, value: (links[k.key] || '').trim() }))
+    .filter((entry) => entry.value);
+}
 
 const DESIGNERS_STORAGE_KEY = 'loom_designers_v1';
 
@@ -4861,6 +5244,10 @@ function renderQuestions() {
    ====================================================================== */
 const DESIGNER_PENCIL_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14.5 6.5l3 3"/></svg>`;
 const DESIGNER_PLUS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`;
+// four-way move arrows — the hint on a draggable photo
+const FOCAL_MOVE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 3v18M3 12h18"/><path d="M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5"/>
+  <path d="M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></svg>`;
 
 function designerInitials(name) {
   return (name || '')
@@ -4898,17 +5285,115 @@ function currentRosterStudio() {
   return keys[Math.min(rosterStudioIndex, keys.length - 1)];
 }
 
+/* ---------- focal point ----------
+   Every portrait here is a `background-size: cover` fill of a tall 1:1.32 box,
+   so whatever doesn't fit gets cropped, and the crop is centred by default.
+   That is wrong roughly as often as it is right — a face in the upper third of
+   a photo, a subject off to one side. Rather than a crop dialog, the photo is
+   dragged inside the frame it will actually appear in, and the resulting
+   {x, y} percentage pair rides along with it onto the card. */
+const DEFAULT_FOCAL = { x: 50, y: 50 };
+
+function normalizeFocal(pos) {
+  if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') return Object.assign({}, DEFAULT_FOCAL);
+  return { x: Math.max(0, Math.min(100, pos.x)), y: Math.max(0, Math.min(100, pos.y)) };
+}
+
+function focalPointCss(pos) {
+  const p = normalizeFocal(pos);
+  return p.x + '% ' + p.y + '%';
+}
+
+/* Turns an element into a drag surface for a focal point. Pointer Events (not
+   mouse events) so a trackpad, a mouse and a touch screen all take the same
+   path, with capture so the drag survives the pointer leaving the frame —
+   which it will, constantly, on a box this size.
+
+   The mapping is 1:1 with the frame, not with the image: dragging all the way
+   across sweeps the full 0–100% range. The true overflow depends on the photo's
+   aspect ratio, which would have to be measured per image for a "physically
+   correct" ratio — and the correct-feeling result is the one where a small
+   nudge is a small nudge regardless of what was uploaded. */
+function makeFocalDraggable(el, getPos, onChange) {
+  if (!el || el.dataset.focalBound === '1') return;
+  el.dataset.focalBound = '1';
+
+  let dragging = false;
+  let moved = false;
+  let startX = 0, startY = 0, startPos = null, rect = null;
+
+  el.addEventListener('pointerdown', (e) => {
+    if (!el.classList.contains('is-focal-draggable')) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    startPos = normalizeFocal(getPos());
+    rect = el.getBoundingClientRect();
+    el.classList.add('is-dragging-focal');
+    el.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    // Dragging the picture right reveals more of its left edge, and
+    // background-position counts from the left — so the percentage falls as the
+    // pointer rises. Inverting this gives a control that fights the hand.
+    const dx = ((e.clientX - startX) / Math.max(1, rect.width)) * 100;
+    const dy = ((e.clientY - startY) / Math.max(1, rect.height)) * 100;
+    if (Math.abs(e.clientX - startX) > 3 || Math.abs(e.clientY - startY) > 3) moved = true;
+    onChange(normalizeFocal({ x: startPos.x - dx, y: startPos.y - dy }));
+  });
+
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('is-dragging-focal');
+    if (e && e.pointerId !== undefined && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    // A drag ends with a click on the same element. This one is also a button
+    // that opens a file picker, so letting it through would pop the picker
+    // every time you finish nudging the photo.
+    if (moved) {
+      el.dataset.focalJustDragged = '1';
+      setTimeout(() => { delete el.dataset.focalJustDragged; }, 0);
+    }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+/* ---------- one card, two faces ----------
+   Front: the portrait, with the name and role on a bar across the foot.
+   Back: how to reach them, and the one control on this screen that navigates.
+
+   The card is not itself a link. Clicking a face does nothing — you have to aim
+   at "See what they shared". A whole-card click meant every attempt to read
+   somebody's email address was a navigation away from the roster. */
 function buildDesignerCard(person, studio) {
+  const editable = rosterEditMode && canEditRoster(person.studio);
+
   const card = document.createElement('div');
-  card.className = 'designer-card' + (selectedAuthor === person.name ? ' is-active' : '');
+  card.className = 'designer-card' + (selectedAuthor === person.name ? ' is-active' : '') + (editable ? ' is-editing' : '');
   card.dataset.designerId = person.id;
   card.style.setProperty('--studio-color', studio.color);
   card.style.setProperty('--studio-tint', hexToRgba(studio.color, 0.12));
 
+  const inner = document.createElement('div');
+  inner.className = 'designer-card-inner';
+
+  // ---- front ----
+  const front = document.createElement('div');
+  front.className = 'designer-face designer-face-front';
+
   const photo = document.createElement('div');
   photo.className = 'designer-photo' + (person.photo ? ' has-photo' : '');
   photo.textContent = designerInitials(person.name);
-  if (person.photo) photo.style.backgroundImage = `url("${person.photo}")`;
+  if (person.photo) {
+    photo.style.backgroundImage = `url("${person.photo}")`;
+    photo.style.backgroundPosition = focalPointCss(person.photoPos);
+  }
 
   const text = document.createElement('div');
   text.className = 'designer-card-text';
@@ -4921,34 +5406,134 @@ function buildDesignerCard(person, studio) {
   text.appendChild(nameEl);
   text.appendChild(roleEl);
 
-  card.appendChild(photo);
-  card.appendChild(text);
+  front.appendChild(photo);
+  front.appendChild(text);
 
-  if (rosterEditMode && canEditRoster(person.studio)) {
+  // ---- back ----
+  const back = document.createElement('div');
+  back.className = 'designer-face designer-face-back';
+
+  const backHead = document.createElement('div');
+  backHead.className = 'designer-back-head';
+  const backName = document.createElement('div');
+  backName.className = 'designer-name';
+  backName.textContent = person.name;
+  const backRole = document.createElement('div');
+  backRole.className = 'designer-role';
+  backRole.textContent = designerRole(person);
+  backHead.appendChild(backName);
+  backHead.appendChild(backRole);
+  back.appendChild(backHead);
+
+  const entries = designerLinkEntries(person);
+  if (entries.length) {
+    const list = document.createElement('div');
+    list.className = 'designer-links';
+    entries.forEach((entry) => {
+      const a = document.createElement('a');
+      a.className = 'designer-link';
+      a.href = designerLinkHref(entry.kind, entry.value);
+      if (entry.kind !== 'email') { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      a.innerHTML = `<span class="designer-link-icon">${entry.icon}</span><span class="designer-link-text"></span>`;
+      // textContent: an address someone typed is not markup
+      a.querySelector('.designer-link-text').textContent = designerLinkText(entry.kind, entry.value);
+      a.title = entry.value;
+      list.appendChild(a);
+    });
+    back.appendChild(list);
+  } else {
+    const none = document.createElement('p');
+    none.className = 'designer-links-empty';
+    none.textContent = t().designers.noLinks;
+    back.appendChild(none);
+  }
+
+  const seeBtn = document.createElement('button');
+  seeBtn.type = 'button';
+  seeBtn.className = 'designer-see-work';
+  seeBtn.textContent = t().designers.seeTheirKnowledge;
+  seeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    focusDesigner(person);
+  });
+  back.appendChild(seeBtn);
+
+  inner.appendChild(front);
+  inner.appendChild(back);
+  card.appendChild(inner);
+
+  if (editable) {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'designer-edit-btn';
     editBtn.innerHTML = DESIGNER_PENCIL_ICON;
     editBtn.setAttribute('aria-label', t().designers.editPerson(person.name));
     editBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // the card underneath is the "show their work" target
+      e.stopPropagation();
       openDesignerEditor(person);
     });
     card.appendChild(editBtn);
+    // In edit mode the card is an object you're arranging, not something to
+    // read — the whole surface opens the editor and it never flips.
+    card.addEventListener('click', () => openDesignerEditor(person));
   }
 
-  card.addEventListener('click', () => {
-    // In edit mode the card is a thing you're arranging, not a link — jumping
-    // to the feed mid-edit would throw the studio out of what they're doing.
-    if (rosterEditMode && canEditRoster(person.studio)) { openDesignerEditor(person); return; }
-    focusDesigner(person);
-  });
   return card;
+}
+
+/* ---------- sizing the row ----------
+   A card's width follows from its height (aspect-ratio: 1/1.4), so the row has
+   to be sized against whichever of the two constraints bites first: the height
+   the surface can spare, or the width the panel can spare once every tile and
+   the gaps between them are counted. How many tiles there are is only known at
+   render time — turning edit mode on adds one — which is why this is script and
+   not CSS. */
+const ROSTER_CARD_RATIO = 1.4;   // height / width
+const ROSTER_MIN_H = 260;
+const ROSTER_MAX_VH = 0.65;      // "60–65% of the viewport" — the top of that
+
+function sizeAllRosters(animate) {
+  const viewport = document.getElementById('designersViewport');
+  const head = viewport.querySelector('.designers-head');
+  if (!viewport.clientHeight || !head) return;
+  // The studio caption sits below the cards, so it is a second fixed block
+  // competing for the same height — miss it and the row is sized as if it owned
+  // everything under the heading, and the caption gets pushed off screen.
+  const caption = viewport.querySelector('.studio-bar');
+  const chromeH = head.offsetHeight + (caption ? caption.offsetHeight : 0);
+
+  document.querySelectorAll('#designersStage .designers-panel').forEach((panel) => {
+    const roster = panel.querySelector('.designer-roster');
+    if (!roster) return;
+    const tiles = roster.querySelectorAll('.designer-card, .designer-add-card').length;
+    // A hidden surface (display:none) measures as zero — leave the last good
+    // height in place and let enterDesignersMode re-run this once it's shown.
+    if (!tiles || !panel.clientWidth) return;
+
+    const panelStyle = getComputedStyle(panel);
+    const availW = panel.clientWidth - parseFloat(panelStyle.paddingLeft) - parseFloat(panelStyle.paddingRight);
+    const availH = viewport.clientHeight - chromeH
+      - parseFloat(panelStyle.paddingTop) - parseFloat(panelStyle.paddingBottom);
+    const gap = parseFloat(getComputedStyle(roster).columnGap) || 0;
+
+    const widthBound = ((availW - gap * (tiles - 1)) / tiles) * ROSTER_CARD_RATIO;
+    const height = Math.max(ROSTER_MIN_H, Math.min(availH, widthBound, window.innerHeight * ROSTER_MAX_VH));
+
+    if (!animate) {
+      roster.style.transition = 'none';
+      roster.style.height = Math.floor(height) + 'px';
+      void roster.offsetHeight; // land it before re-arming the transition
+      roster.style.transition = '';
+    } else {
+      roster.style.height = Math.floor(height) + 'px';
+    }
+  });
 }
 
 function renderDesigners() {
   const strings = t().designers;
   const stage = document.getElementById('designersStage');
+  const viewport = document.getElementById('designersViewport');
   const keys = rosterStudioKeys();
   if (rosterStudioIndex > keys.length - 1) rosterStudioIndex = 0;
 
@@ -4957,7 +5542,8 @@ function renderDesigners() {
   document.getElementById('designersCloseBtn').setAttribute('aria-label', strings.closeAria);
   document.getElementById('studioPrevBtn').setAttribute('aria-label', strings.prevStudio);
   document.getElementById('studioNextBtn').setAttribute('aria-label', strings.nextStudio);
-  document.querySelector('.studio-pager').classList.toggle('is-single', keys.length < 2);
+  viewport.classList.toggle('is-single-studio', keys.length < 2);
+  viewport.classList.toggle('is-editing', rosterEditMode);
 
   stage.innerHTML = '';
   keys.forEach((studioKey) => {
@@ -4979,6 +5565,8 @@ function renderDesigners() {
       roster.appendChild(empty);
     }
 
+    // Nothing editable is rendered at all on someone else's studio — not
+    // disabled, not hidden: absent.
     if (rosterEditMode && canEditRoster(studioKey)) {
       const add = document.createElement('button');
       add.type = 'button';
@@ -4993,13 +5581,13 @@ function renderDesigners() {
   });
 
   applyRosterStudio(false);
+  sizeAllRosters(false);
 }
 
-// Paints the header for whichever studio is on screen and slides the stage to
-// it. `animate` is false on a full re-render so rebuilding the roster (an
-// edit, a language switch) doesn't replay the slide.
+// Paints the caption for whichever studio is on screen and slides the stage to
+// it. `animate` is false on a full re-render so rebuilding the roster (an edit,
+// a language switch) doesn't replay the slide.
 function applyRosterStudio(animate) {
-  const keys = rosterStudioKeys();
   const studioKey = currentRosterStudio();
   const studio = STUDIOS[studioKey];
   const strings = t().designers;
@@ -5007,37 +5595,71 @@ function applyRosterStudio(animate) {
   const stage = document.getElementById('designersStage');
   stage.style.transition = animate ? '' : 'none';
   // -100% per studio, not -100/n%: a percentage translate resolves against the
-  // element's own border box, and the stage's box is one panel wide (the
-  // panels are `flex: 0 0 100%` and overflow it) — so one panel *is* 100%.
+  // element's own border box, and the stage's box is one panel wide (the panels
+  // are `flex: 0 0 100%` and overflow it) — so one panel *is* 100%.
   stage.style.transform = `translate3d(${-rosterStudioIndex * 100}%, 0, 0)`;
   if (!animate) {
     void stage.offsetWidth; // land the jump before re-arming the transition
     stage.style.transition = '';
   }
 
-  document.getElementById('studioPagerDot').style.background = studio.color;
+  buildStudioMark(document.getElementById('studioPagerMark'), studio);
   document.getElementById('studioPagerName').textContent = studio.name;
   document.getElementById('studioPagerYou').textContent = canEditRoster(studioKey) ? strings.yourStudio : '';
   const current = document.querySelector('.studio-pager-current');
   current.style.setProperty('--studio-tint', hexToRgba(studio.color, 0.1));
   current.style.setProperty('--studio-color', studio.color);
 
-  // Edit only exists on your own studio. Someone else's roster is something
-  // you read; it shouldn't even show a control you can't use.
+  // Edit only exists on your own studio. Someone else's roster is something you
+  // read; it shouldn't even show a control you can't use.
   const toggle = document.getElementById('rosterEditToggle');
   const editable = canEditRoster(studioKey);
   toggle.style.display = editable ? '' : 'none';
   toggle.classList.toggle('is-on', editable && rosterEditMode);
-  toggle.textContent = rosterEditMode ? strings.editDone : strings.edit;
+  document.getElementById('rosterEditLabel').textContent = rosterEditMode ? strings.editDone : strings.edit;
 }
+
+/* The studio's logo, or a coloured dot when there isn't one on disk. Probed the
+   same way card art is (see applyCardMedia): the dot is painted first and the
+   image only replaces it once it has actually loaded, so a studio added without
+   a logo file degrades instead of showing a broken tile. */
+function buildStudioMark(el, studio) {
+  if (!el) return;
+  el.style.setProperty('--studio-color', studio.color);
+  el.style.setProperty('--studio-tint', hexToRgba(studio.color, 0.12));
+  el.style.backgroundImage = '';
+  el.innerHTML = '<span class="studio-mark-dot"></span>';
+  if (!studio.logo) return;
+  const probe = new Image();
+  probe.onload = () => {
+    el.style.backgroundImage = `url("${studio.logo}")`;
+    el.innerHTML = '';
+  };
+  probe.onerror = () => { /* no file for this studio — the dot stays */ };
+  probe.src = studio.logo;
+}
+
+/* True while the stage is sliding. Set here rather than read off the element,
+   because a transitionend on a transform that is also being re-triggered is not
+   something to build a lock out of. */
+let rosterSlideAnimating = false;
+let rosterSlideTimer = null;
+const ROSTER_SLIDE_MS = 720; // matches .designers-stage's transition duration
 
 function goToRosterStudio(index) {
   const keys = rosterStudioKeys();
+  // A single studio has nowhere to go; wrapping would slide back to itself.
+  if (keys.length < 2) return;
   const next = ((index % keys.length) + keys.length) % keys.length;
   if (next === rosterStudioIndex) return;
   rosterStudioIndex = next;
-  // Leaving your own studio drops you out of edit mode — otherwise you'd
-  // arrive somewhere you can't edit with the toggle still reading "on".
+
+  rosterSlideAnimating = true;
+  clearTimeout(rosterSlideTimer);
+  rosterSlideTimer = setTimeout(() => { rosterSlideAnimating = false; }, ROSTER_SLIDE_MS);
+
+  // Leaving your own studio drops you out of edit mode — otherwise you'd arrive
+  // somewhere you can't edit with the toggle still reading "on".
   if (rosterEditMode && !canEditRoster(currentRosterStudio())) {
     rosterEditMode = false;
     renderDesigners();
@@ -5050,6 +5672,7 @@ function goToRosterStudio(index) {
 function toggleRosterEditMode() {
   rosterEditMode = !rosterEditMode;
   renderDesigners();
+  sizeAllRosters(true); // the Add tile changes the tile count, so the row resizes
 }
 
 /* ---- add / edit one person ---------------------------------------------
@@ -5063,6 +5686,44 @@ const DESIGNER_PHOTO_QUALITY = 0.8;
 
 let editingDesignerId = null;   // null while adding
 let editorPhotoUrl = null;
+// The focal point of the photo being edited — see makeFocalDraggable.
+let editorPhotoPos = Object.assign({}, DEFAULT_FOCAL);
+
+// One row per link kind, created from DESIGNER_LINK_KINDS rather than written
+// out in the markup — a new kind then needs no HTML and no save-path change.
+function renderEditorLinkRows() {
+  const grid = document.getElementById('editorLinksGrid');
+  if (!grid || grid.childElementCount) return; // built once; values are set per open
+  DESIGNER_LINK_KINDS.forEach((kind) => {
+    const row = document.createElement('div');
+    row.className = 'editor-link-row';
+    row.innerHTML = `<span class="editor-link-row-icon">${kind.icon}</span>`;
+    const input = document.createElement('input');
+    input.type = kind.key === 'email' ? 'email' : 'url';
+    input.id = 'editorLink_' + kind.key;
+    input.autocomplete = 'off';
+    row.appendChild(input);
+    grid.appendChild(row);
+  });
+}
+
+function readEditorLinks() {
+  const out = {};
+  DESIGNER_LINK_KINDS.forEach((kind) => {
+    const el = document.getElementById('editorLink_' + kind.key);
+    const value = el ? el.value.trim() : '';
+    if (value) out[kind.key] = value; // blanks are dropped, not stored empty
+  });
+  return out;
+}
+
+function fillEditorLinks(person) {
+  const links = (person && person.links) || {};
+  DESIGNER_LINK_KINDS.forEach((kind) => {
+    const el = document.getElementById('editorLink_' + kind.key);
+    if (el) el.value = links[kind.key] || '';
+  });
+}
 
 function openDesignerEditor(person) {
   const studioKey = currentRosterStudio();
@@ -5071,12 +5732,15 @@ function openDesignerEditor(person) {
 
   editingDesignerId = person ? person.id : null;
   editorPhotoUrl = person ? (person.photo || null) : null;
+  editorPhotoPos = normalizeFocal(person && person.photoPos);
 
   document.getElementById('designerEditorTitle').textContent = person ? strings.editTitle : strings.addTitle;
   document.getElementById('editorNameInput').value = person ? person.name : '';
   document.getElementById('editorRoleInput').value = person ? designerRole(person) : '';
   document.getElementById('editorDeleteBtn').style.display = person ? '' : 'none';
   document.getElementById('editorDeleteConfirm').style.display = 'none';
+  renderEditorLinkRows();
+  fillEditorLinks(person);
 
   const zone = document.getElementById('editorPhotoZone');
   zone.style.setProperty('--studio-color', STUDIOS[studioKey].color);
@@ -5092,6 +5756,7 @@ function closeDesignerEditor() {
   document.getElementById('designerEditor').style.display = 'none';
   editingDesignerId = null;
   editorPhotoUrl = null;
+  editorPhotoPos = Object.assign({}, DEFAULT_FOCAL);
 }
 
 function refreshEditorPhoto() {
@@ -5101,13 +5766,20 @@ function refreshEditorPhoto() {
   fallback.textContent = designerInitials(document.getElementById('editorNameInput').value);
   if (editorPhotoUrl) {
     zone.style.backgroundImage = `url("${editorPhotoUrl}")`;
+    zone.style.backgroundPosition = focalPointCss(editorPhotoPos);
     zone.classList.add('has-photo');
+    zone.classList.add('is-focal-draggable');
     removeBtn.style.display = '';
   } else {
     zone.style.backgroundImage = '';
+    zone.style.backgroundPosition = '';
     zone.classList.remove('has-photo');
+    zone.classList.remove('is-focal-draggable');
     removeBtn.style.display = 'none';
   }
+  // the hint only makes sense once there is a photo under it
+  const hint = document.getElementById('editorPhotoDragHint');
+  if (hint) hint.style.display = editorPhotoUrl ? '' : 'none';
 }
 
 function refreshEditorSaveState() {
@@ -5121,6 +5793,7 @@ function handleDesignerPhotoFile(file) {
   resizeImageToDataUrl(file, DESIGNER_PHOTO_MAX_DIM, DESIGNER_PHOTO_QUALITY)
     .then((dataUrl) => {
       editorPhotoUrl = dataUrl;
+      editorPhotoPos = Object.assign({}, DEFAULT_FOCAL); // new photo, new crop
       refreshEditorPhoto();
     })
     .catch((err) => {
@@ -5146,6 +5819,8 @@ function saveDesignerFromEditor() {
       person.role = role;
       delete person.roleKey;
       person.photo = editorPhotoUrl;
+      person.photoPos = editorPhotoUrl ? Object.assign({}, editorPhotoPos) : null;
+      person.links = readEditorLinks();
     }
   } else {
     designerRoster.push({
@@ -5154,6 +5829,8 @@ function saveDesignerFromEditor() {
       name,
       role,
       photo: editorPhotoUrl,
+      photoPos: editorPhotoUrl ? Object.assign({}, editorPhotoPos) : null,
+      links: readEditorLinks(),
     });
   }
 
@@ -5185,6 +5862,18 @@ function refreshDesignerEditorText() {
   document.getElementById('editorNameInput').placeholder = strings.namePlaceholder;
   document.getElementById('editorRoleLabel').textContent = strings.roleLabel;
   document.getElementById('editorRoleInput').placeholder = strings.rolePlaceholder;
+  const linksLabel = document.getElementById('editorLinksLabel');
+  if (linksLabel) linksLabel.textContent = strings.linksLabel;
+  renderEditorLinkRows();
+  DESIGNER_LINK_KINDS.forEach((kind) => {
+    const el = document.getElementById('editorLink_' + kind.key);
+    if (el) el.placeholder = strings.linkPlaceholders[kind.key] || '';
+  });
+  const dragHint = document.getElementById('editorPhotoDragHint');
+  if (dragHint) {
+    dragHint.innerHTML = FOCAL_MOVE_ICON + '<span></span>';
+    dragHint.querySelector('span').textContent = strings.photoDragHint;
+  }
   document.getElementById('editorCancelBtn').textContent = strings.cancel;
   document.getElementById('editorSaveLabel').textContent = strings.save;
   document.getElementById('editorDeleteLabel').textContent = strings.deletePerson;
@@ -5236,6 +5925,26 @@ function initDesigners() {
   document.getElementById('studioPrevBtn').addEventListener('click', () => goToRosterStudio(rosterStudioIndex - 1));
   document.getElementById('studioNextBtn').addEventListener('click', () => goToRosterStudio(rosterStudioIndex + 1));
   document.getElementById('rosterEditToggle').addEventListener('click', toggleRosterEditMode);
+  window.addEventListener('resize', () => sizeAllRosters(false));
+
+  /* Wheel down = next studio, wheel up = previous. The rest of this app moves
+     between screens on the wheel (see initFeedWheelSnap), so arriving here and
+     finding the wheel dead reads as the page having stopped responding. The
+     motion is goToRosterStudio's own — the same 0.72s ease the arrows use — and
+     input during it is swallowed, so a fast trackpad flick still travels
+     exactly one studio rather than stacking up.
+
+     preventDefault stops the surface itself from scrolling, which is also what
+     keeps a scrollbar from appearing mid-transition. */
+  const viewport = document.getElementById('designersViewport');
+  viewport.addEventListener('wheel', (e) => {
+    if (!isDesignersMode) return;
+    if (e.target.closest && e.target.closest('.designer-editor')) return; // the editor scrolls itself
+    if (e.deltaY === 0) return;
+    e.preventDefault();
+    if (rosterSlideAnimating) return;
+    goToRosterStudio(rosterStudioIndex + (e.deltaY > 0 ? 1 : -1));
+  }, { passive: false });
 
   ['authorChipBrowse', 'authorChipQuestions'].forEach((id) => {
     const chip = document.getElementById(id);
@@ -5245,10 +5954,22 @@ function initDesigners() {
   // ---- editor wiring ----
   const zone = document.getElementById('editorPhotoZone');
   const fileInput = document.getElementById('editorPhotoInput');
-  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('click', () => {
+    if (zone.dataset.focalJustDragged) return; // that click was the end of a drag
+    fileInput.click();
+  });
   zone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
   });
+  // once a photo is in, the tile is also the crop control
+  makeFocalDraggable(
+    zone,
+    () => editorPhotoPos,
+    (pos) => {
+      editorPhotoPos = pos;
+      zone.style.backgroundPosition = focalPointCss(pos);
+    }
+  );
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('is-dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('is-dragover'));
   zone.addEventListener('drop', (e) => {
@@ -5263,6 +5984,7 @@ function initDesigners() {
   document.getElementById('editorPhotoPickBtn').addEventListener('click', () => fileInput.click());
   document.getElementById('editorPhotoRemoveBtn').addEventListener('click', () => {
     editorPhotoUrl = null;
+    editorPhotoPos = Object.assign({}, DEFAULT_FOCAL);
     refreshEditorPhoto();
   });
 
@@ -7170,6 +7892,7 @@ function enterDesignersMode() {
     gallery.style.display = 'none';
     gallery.classList.remove('mode-fade-out');
     designers.style.display = 'flex';
+    sizeAllRosters(false); // renderDesigners ran while hidden, so it measured zero
     designers.classList.add('mode-fade-out'); // reuse as this element's own "not yet visible" state
     void designers.offsetWidth;               // force reflow so the fade-in actually transitions
     designers.classList.remove('mode-fade-out');
