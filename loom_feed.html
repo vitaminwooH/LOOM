@@ -1119,6 +1119,26 @@
     margin-block: auto;
   }
 
+  /* the marker that explains why a card is at the front of floor 3 */
+  .asked-to-badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+  }
+  /* addressed to you specifically: the one thing on this floor waiting on you */
+  .asked-to-badge.is-mine {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: #ffffff;
+  }
+
   .question-card {
     position: relative;
     display: flex;
@@ -1367,6 +1387,37 @@
   }
   .expanded-pane-response .expanded-pane-inner { max-width: 520px; }
 
+  /* ---------- reactions ----------
+     Rows, not a row of chips: each is a different sentence rather than three
+     strengths of one, and reading them down the column makes that plain.
+     Nothing here carries a number — see the note above REACTION_KINDS. */
+  .reaction-list { display: flex; flex-direction: column; gap: 8px; }
+  .reaction-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink-dim);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+  .reaction-row:hover { border-color: var(--border-strong); color: var(--ink); transform: translateY(-1px); }
+  .reaction-row.is-mine { border-color: var(--ink); color: var(--ink); background: rgba(20, 20, 20, 0.035); }
+  .reaction-icon { flex-shrink: 0; display: flex; color: inherit; }
+  .reaction-icon svg { width: 17px; height: 17px; }
+  .reaction-label { flex: 1; min-width: 0; }
+  /* who reacted, as their studio dots. Two studios, so "who" fits in full and
+     there is never a "+3 others" to click through. */
+  .reaction-who { flex-shrink: 0; display: flex; gap: 4px; }
+  .reaction-who .card-dot { width: 8px; height: 8px; box-shadow: 0 0 0 1.5px #ffffff; }
+
   /* Below this both columns would be too narrow to read, so the response side
      goes under the body and the whole thing becomes one scroller again. */
   @media (max-width: 1080px) {
@@ -1379,6 +1430,15 @@
     }
     .expanded-pane-inner, .expanded-pane-response .expanded-pane-inner { max-width: 720px; }
   }
+
+  /* Quieter than the original timestamp beside it: that a card was corrected
+     is worth knowing, but it is not the headline. */
+  .edited-stamp {
+    font-size: 11.5px;
+    font-style: italic;
+    color: var(--ink-faint);
+  }
+  .edited-stamp::before { content: '· '; font-style: normal; }
 
   .expanded-meta {
     display: flex;
@@ -1714,22 +1774,6 @@
     color: var(--studio-color, var(--ink-dim));
   }
   .brief-updated { font-size: 11px; color: var(--ink-faint); transition: opacity 0.2s ease; }
-  .brief-confirm-btn {
-    flex-shrink: 0;
-    padding: 7px 14px;
-    border-radius: 999px;
-    border: 1.5px solid var(--border-strong);
-    background: transparent;
-    color: var(--ink-dim);
-    font-family: 'Inter', sans-serif;
-    font-size: 11.5px;
-    font-weight: 650;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  }
-  .brief-confirm-btn:hover { border-color: var(--ink); color: var(--ink); }
-  .brief-confirm-btn.is-confirmed { background: var(--ink); border-color: var(--ink); color: #ffffff; }
 
   .brief-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 22px; transition: opacity 0.25s ease; }
   .brief-body.is-updating { opacity: 0.45; }
@@ -1751,7 +1795,13 @@
   /* narrow modal: the brief collapses behind a tab instead of sitting
      side-by-side — a container query so this is about the MODAL's own
      width, not the browser window's. */
-  @container question-detail (max-width: 720px) {
+  /* 1080px, matching the knowledge detail's own stacking point — this was 720
+     when the question detail was a modal sized to ~86% of the window, so the
+     container only ever got that narrow on a small screen. Fullscreen, the
+     container IS the window, and at 900px the brief was down to 340px of
+     bulleted text beside a 560px conversation: two columns too narrow to be
+     two columns. */
+  @container question-detail (max-width: 1080px) {
     .question-tabs { display: flex; }
     .question-panes { grid-template-columns: 1fr; }
     .question-pane-conversation { border-right: none; }
@@ -2458,27 +2508,301 @@
   .share-viewport .step.is-out-reverse { opacity: 0; transform: translateY(9px) scale(0.993); pointer-events: none; }
   .share-viewport .step.is-pre-in-reverse { opacity: 0; transform: translateY(-9px) scale(0.993); }
 
-  /* ---------- STEP 1 — compose ---------- */
-  .compose-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 48px max(6vw, 28px) 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .compose-inner { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 24px; }
+  /* ---------- STEP 1 — compose ----------
+     One screen, no scrolling. This used to be a single column in a scroller,
+     which meant that by the time you were writing the last field, the title
+     and the type you had picked were both off the top of the window — and
+     there was nowhere to show you what you were actually making.
 
-  .compose-intro h1 {
+     Everything is sized off the viewport instead. The head and the footer take
+     what they need, .compose-body takes the rest, and the textareas inside it
+     share whatever that leaves. min-height on the textareas is the floor: they
+     never get so short that a sentence is cut off, even if that means the
+     window has to be a reasonable size. */
+  .step-compose { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+  /* 64px of top padding, not 34: the hamburger and the back arrow are fixed at
+     y=24 and this heading is the first thing under them. */
+  .compose-head { flex-shrink: 0; padding: 64px max(4vw, 26px) 0; }
+  .compose-head h1 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    font-size: 40px;
+    font-size: clamp(28px, 3vw, 38px);
     letter-spacing: -0.01em;
-    margin: 0 0 12px;
+    margin: 0 0 6px;
     color: var(--ink);
   }
-  .compose-intro p { margin: 0; max-width: 540px; font-size: 14.5px; line-height: 1.72; color: var(--ink-dim); }
+  .compose-head p { margin: 0; max-width: 620px; font-size: 13.5px; line-height: 1.6; color: var(--ink-dim); }
+  /* a short window spends its height on the fields, not on the preamble */
+  @media (max-height: 840px) {
+    .compose-head { padding-top: 56px; }
+    .compose-head p { display: none; }
+  }
+
+  .compose-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 67fr) minmax(320px, 33fr);
+    gap: clamp(24px, 2.6vw, 44px);
+    padding: 22px max(4vw, 26px) 0;
+  }
+
+  .compose-left { min-height: 0; display: flex; flex-direction: column; gap: 16px; }
+  .compose-right { min-height: 0; display: flex; flex-direction: column; gap: 16px; }
+
+  /* the per-type fields share the leftover height between them */
+  /* The invariant here is: the page never scrolls, and a textarea is never
+     shorter than 104px. Those two can conflict — four fields at their floor
+     need more height than a 768px window has left after the heading, title,
+     type picker and footer — so the field stack, and only the field stack,
+     scrolls when it has to. The preview, the type picker and the submit button
+     never move, which is the part that actually mattered: you always see what
+     you are making and how to finish it.
+
+     At a comfortable window size there is nothing to scroll and this is inert. */
+  .compose-fields {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .compose-fields .field { flex: 1 1 auto; min-height: 0; }
+  .compose-fields textarea {
+    flex: 1 1 auto;
+    min-height: clamp(104px, 12vh, 132px);
+    resize: none;
+  }
+
+  .field-type .type-picker, .field-asked-to .asked-to-picker { margin-top: 2px; }
+
+  /* ---------- who a question is addressed to ----------
+     Everything here is asked of somebody, and "everyone" is a real answer
+     rather than the absence of one — so it is a choice with a default, not a
+     checkbox you can leave alone. */
+  .asked-to-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .asked-to-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .asked-to-pill:hover { border-color: var(--border-strong); color: var(--ink); }
+  .asked-to-pill.is-active { background: var(--ink); border-color: var(--ink); color: #ffffff; }
+  .asked-to-pill .card-dot { width: 7px; height: 7px; box-shadow: none; }
+
+  /* ---------- the preview column ---------- */
+  .preview-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .preview-pane-label {
+    flex-shrink: 0;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+  .preview-card-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+
+  /* Deliberately the same card-media / card-scrim / card-content pieces the
+     real poster uses, at whatever size this column happens to be — so the
+     preview cannot drift away from the thing it is previewing. */
+  .preview-card {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-resting);
+  }
+  .preview-card .card-content {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 20px 20px 22px;
+    z-index: 2;
+  }
+  .preview-card .card-meta { margin-bottom: 10px; font-size: 11.5px; }
+  .preview-card .card-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.3;
+    color: #ffffff;
+  }
+  .preview-card .card-title:empty::after {
+    content: attr(data-placeholder);
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 500;
+  }
+
+  /* Only the field you are in right now. Showing the whole body would make
+     this a second, smaller copy of the form you are already looking at; the
+     point is to answer "how does what I am typing read on a card". */
+  .preview-focus {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .preview-focus.is-swapping { opacity: 0; transform: translateY(6px); }
+  .preview-focus-label {
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.62);
+    margin-bottom: 6px;
+  }
+  .preview-focus-text {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.9);
+    /* the line breaks they typed are part of what they wrote */
+    white-space: pre-wrap;
+    /* the card is short; past a few lines this is a teaser, not the text */
+    display: -webkit-box;
+    -webkit-line-clamp: 7;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .preview-focus-text:empty::after {
+    content: attr(data-placeholder);
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  .preview-media { position: absolute; inset: 0; }
+  .preview-media.has-image { cursor: grab; }
+  .preview-media.is-dragging { cursor: grabbing; }
+  .preview-drag-hint {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 3;
+    display: none;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+  }
+  .preview-card.has-image .preview-drag-hint { display: block; }
+
+  /* ---------- image + attachments, side by side under the preview ----------
+     Each takes only the height it needs. No thumbnail on the image side: the
+     picture is already the entire background of the preview above it, and a
+     second small copy of it would just be a second small copy of it. */
+  .compose-attach-row {
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding-bottom: 4px;
+  }
+  .compose-attach-col { min-width: 0; }
+  .file-slot { display: flex; flex-direction: column; gap: 7px; }
+  .file-slot-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 12px;
+    background: rgba(20, 20, 20, 0.015);
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+  .file-slot-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .file-slot-btn:hover { border-color: var(--ink-dim); color: var(--ink-dim); background: rgba(20, 20, 20, 0.03); }
+  .file-slot.is-dragover .file-slot-btn { border-color: var(--ink); background: rgba(20, 20, 20, 0.045); color: var(--ink-dim); }
+  .file-slot-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #ffffff;
+  }
+  .file-slot-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-slot-remove {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .file-slot-remove svg { width: 13px; height: 13px; }
+  .file-slot-remove:hover { background: rgba(20, 20, 20, 0.07); color: var(--ink); }
+
+  /* the attachment list lives inside its slot now, so it has its own cap
+     rather than pushing the footer off the screen */
+  #attachmentZone .attachment-list { max-height: 108px; overflow-y: auto; margin-top: 0; }
+
+  /* A four-field type needs about 530px for its boxes, and a 768px-tall window
+     has about 440 to give once the heading, title, type picker and footer have
+     taken theirs. Something has to give, and it is not the 104px floor — a
+     textarea you cannot read two lines in is worse than a short scroll.
+
+     So the field stack scrolls, and only the field stack. The preview, the type
+     picker and the submit button stay where they are, which is the part that
+     actually mattered about not scrolling: you never lose sight of what you are
+     making or how to finish it. */
+  /* a short window spends what it has on the fields */
+  @media (max-height: 900px) {
+    .compose-head h1 { font-size: clamp(24px, 2.4vw, 30px); }
+    .compose-body { padding-top: 16px; }
+  }
+
+  /* Under this the two panes are too narrow to be two panes: the preview goes
+     under the writing and the whole composer becomes one scroller again —
+     which is the one case where scrolling beats clipping. */
+  @media (max-width: 1080px) {
+    .compose-body {
+      grid-template-columns: minmax(0, 1fr);
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
+    .compose-fields .field { flex: 0 0 auto; }
+    .preview-card { min-height: 340px; }
+  }
 
   .field { display: flex; flex-direction: column; }
   .field-label {
@@ -2530,8 +2854,9 @@
 
   .share-viewport textarea {
     width: 100%;
-    min-height: 80px;
-    resize: vertical;
+    /* min-height and resize belong to .compose-fields textarea, which is where
+       the per-field sizing is decided. They were here too, at equal
+       specificity and later in the file, so they quietly won. */
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 14px 16px;
@@ -2728,8 +3053,44 @@
   .attachment-link:hover { border-color: var(--border-strong); background: rgba(20, 20, 20, 0.02); }
   .qd-attachments:not(:empty) { margin-top: 10px; }
 
-  .compose-footer { flex-shrink: 0; padding: 18px max(6vw, 28px) 22px; border-top: 1px solid var(--border); background: var(--surface); }
-  .compose-footer-inner { max-width: 720px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+  /* the extra right padding is the language switcher's lane: it is fixed in
+     that corner on every screen, and the submit button was landing on it */
+  /* the "what exists now" block on the completion screen */
+  .weave-state {
+    margin: 22px auto 26px;
+    padding: 18px 22px;
+    max-width: 420px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(20, 20, 20, 0.02);
+    text-align: left;
+  }
+  .weave-state-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .weave-state-row + .weave-state-row { margin-top: 8px; }
+  .weave-state-mark {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .weave-state-note {
+    margin: 14px 0 0;
+    padding-top: 13px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-faint);
+  }
+
+  .compose-footer { flex-shrink: 0; padding: 14px max(6vw, 92px) 18px 14px; padding-left: max(4vw, 26px); border-top: 1px solid var(--border); background: var(--surface); }
+  .compose-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
   .compose-hint { font-size: 12.5px; color: var(--ink-faint); }
 
   /* ---------- shared buttons (compose + weave) ---------- */
@@ -3088,74 +3449,102 @@
     </button>
 
     <div class="step step-compose" id="stepCompose">
-      <div class="compose-scroll">
-        <div class="compose-inner">
-          <div class="compose-intro">
-            <h1 id="composeHeading"></h1>
-            <p id="composeIntro"></p>
-          </div>
+      <div class="compose-head">
+        <h1 id="composeHeading"></h1>
+        <p id="composeIntro"></p>
+      </div>
 
+      <div class="compose-body">
+
+        <!-- LEFT — what you write. The fields under the type picker are built
+             by renderComposeFields() from the type you chose, so an experiment
+             is asked about its method and a project about its constraints. -->
+        <div class="compose-left">
           <div class="field field-title">
             <input id="titleInput" type="text" autocomplete="off" />
           </div>
 
-          <div class="field">
+          <div class="field field-type">
             <div class="field-label" id="typeQuestionLabel"></div>
             <div class="type-picker" id="typePicker"></div>
           </div>
 
-          <div class="field" id="problemField">
-            <div class="field-label" id="problemFieldLabel"></div>
-            <textarea id="problemInput"></textarea>
+          <!-- Questions only: everything here is addressed to somebody, and
+               "everyone" is a real answer rather than the absence of one. -->
+          <div class="field field-asked-to" id="askedToField" style="display:none;">
+            <div class="field-label" id="askedToLabel"></div>
+            <div class="asked-to-picker" id="askedToPicker"></div>
           </div>
 
-          <div class="field" id="triedField">
-            <div class="field-label" id="triedFieldLabel"></div>
-            <textarea id="triedInput"></textarea>
-          </div>
+          <div class="compose-fields" id="composeFields"></div>
+        </div>
 
-          <div class="field" id="resultField">
-            <div class="field-label" id="resultFieldLabel"></div>
-            <textarea id="resultInput"></textarea>
-          </div>
-
-          <div class="field">
-            <div class="field-label" id="tagsFieldLabel"></div>
-            <div class="tag-input-wrap" id="tagWrap">
-              <input id="tagInput" type="text" autocomplete="off" />
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="field-label"><span id="imageFieldLabel"></span> <span class="optional" id="imageOptionalLabel"></span></div>
-            <div class="upload-dropzone" id="uploadZone" role="button" tabindex="0">
-              <span class="upload-dropzone-default" id="uploadDropzoneDefault">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
-                </svg>
-                <span id="uploadHintLabel"></span>
-              </span>
-              <div class="upload-preview-media" id="uploadPreviewMedia"></div>
-              <div class="upload-preview-actions" id="uploadPreviewActions">
-                <button type="button" class="upload-action-btn" id="uploadReplaceBtn"></button>
-                <button type="button" class="upload-action-btn upload-action-btn-remove" id="uploadRemoveBtn"></button>
+        <!-- RIGHT — what it will look like, and the two things you attach to
+             it. The preview takes the height; image and attachments take only
+             what they need, side by side. -->
+        <div class="compose-right">
+          <div class="preview-pane">
+            <div class="preview-pane-label" id="previewLabel"></div>
+            <div class="preview-card-wrap">
+              <div class="preview-card" id="previewCard">
+                <div class="card-media preview-media" id="previewMedia">
+                  <span class="card-media-icon" id="previewMediaIcon"></span>
+                </div>
+                <div class="card-scrim"></div>
+                <div class="card-content">
+                  <div class="card-meta">
+                    <span class="card-dot" id="previewDot"></span>
+                    <span class="card-studio" id="previewStudio"></span>
+                    <span class="card-type" id="previewType"></span>
+                  </div>
+                  <div class="card-title" id="previewTitle"></div>
+                  <!-- only the field you are in right now, not the whole body:
+                       see setPreviewFocus() -->
+                  <div class="preview-focus" id="previewFocus">
+                    <div class="preview-focus-label" id="previewFocusLabel"></div>
+                    <p class="preview-focus-text" id="previewFocusText"></p>
+                  </div>
+                </div>
+                <div class="preview-drag-hint" id="previewDragHint"></div>
               </div>
             </div>
-            <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
           </div>
 
-          <div class="field">
-            <div class="field-label"><span id="attachmentsFieldLabel"></span> <span class="optional" id="attachmentsOptionalLabel"></span></div>
-            <div class="upload-dropzone attachment-dropzone" id="attachmentZone" role="button" tabindex="0">
-              <span class="upload-dropzone-default">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M15 3v4h4"/>
-                </svg>
-                <span id="attachmentHintLabel"></span>
-              </span>
+          <div class="compose-attach-row">
+            <div class="field compose-attach-col">
+              <div class="field-label"><span id="imageFieldLabel"></span> <span class="optional" id="imageOptionalLabel"></span></div>
+              <!-- no thumbnail here on purpose: the image is already the whole
+                   background of the preview two inches above this -->
+              <div class="file-slot" id="imageSlot">
+                <button type="button" class="file-slot-btn" id="uploadZone">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+                  </svg>
+                  <span id="uploadHintLabel"></span>
+                </button>
+                <div class="file-slot-item" id="imageChosen" style="display:none;">
+                  <span class="file-slot-name" id="imageFileName"></span>
+                  <button type="button" class="file-slot-remove" id="uploadRemoveBtn" aria-label="Remove">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  </button>
+                </div>
+              </div>
+              <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
             </div>
-            <input type="file" id="attachmentFileInput" multiple style="display:none;" />
-            <div class="attachment-list" id="attachmentList"></div>
+
+            <div class="field compose-attach-col">
+              <div class="field-label"><span id="attachmentsFieldLabel"></span> <span class="optional" id="attachmentsOptionalLabel"></span></div>
+              <div class="file-slot" id="attachmentZone">
+                <button type="button" class="file-slot-btn" id="attachmentPickBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M15 3v4h4"/>
+                  </svg>
+                  <span id="attachmentHintLabel"></span>
+                </button>
+                <div class="attachment-list" id="attachmentList"></div>
+              </div>
+              <input type="file" id="attachmentFileInput" multiple style="display:none;" />
+            </div>
           </div>
         </div>
       </div>
@@ -3180,6 +3569,24 @@
         <div class="weave-confirm-inner">
           <h2 id="weaveDoneTitle"></h2>
           <p id="weaveCount"></p>
+
+          <!-- What actually exists now. "127 pieces are connected" is a number
+               about the network; this is about the thing the reader just wrote,
+               which is what they are standing here wondering about. Starting at
+               nothing is the honest state and saying so plainly is kinder than
+               implying something already happened. -->
+          <div class="weave-state" id="weaveState">
+            <div class="weave-state-row">
+              <span class="weave-state-mark" id="weaveStateReactMark"></span>
+              <span id="weaveStateReactions"></span>
+            </div>
+            <div class="weave-state-row">
+              <span class="weave-state-mark" id="weaveStateApplyMark"></span>
+              <span id="weaveStateApplied"></span>
+            </div>
+            <p class="weave-state-note" id="weaveStateNote"></p>
+          </div>
+
           <div class="weave-actions">
             <button type="button" class="btn-ghost" id="seeFullWeaveBtn"></button>
             <button type="button" class="btn-ghost" id="shareAnotherBtn"></button>
@@ -3216,25 +3623,19 @@
           <span id="expandedAuthor"></span>
           <span class="sep">·</span>
           <span id="expandedTime"></span>
+          <!-- only present once something has actually been changed: see
+               renderEditedStamp -->
+          <span id="expandedEdited" class="edited-stamp" style="display:none;"></span>
           <span id="expandedStatusBadge"></span>
           <span id="expandedLangBadge" class="lang-pending-badge" style="display:none;"></span>
         </div>
         <h2 class="expanded-title reveal-on-open" id="expandedTitle"></h2>
 
-        <div class="reveal-on-open">
-          <div class="expanded-section">
-            <div class="label" id="labelProblem"></div>
-            <p id="expandedProblem"></p>
-          </div>
-          <div class="expanded-section">
-            <div class="label" id="labelTried"></div>
-            <p id="expandedTried"></p>
-          </div>
-          <div class="expanded-section" id="resultSection">
-            <div class="label" id="labelResult"></div>
-            <p id="expandedResult"></p>
-          </div>
-        </div>
+        <!-- Built by renderBodySections(): which headings appear, and in what
+             order, is a property of the card's type (see FIELD_SETS), and a
+             field the author left empty renders no heading at all rather than
+             an empty one. -->
+        <div class="reveal-on-open" id="expandedBodySections"></div>
 
         <div class="expanded-section reveal-on-open" id="attachmentsSection" style="display:none;">
           <div class="label" id="labelAttachments"></div>
@@ -3274,6 +3675,14 @@
          legibly different kinds of thing without a wall down the middle. -->
     <div class="expanded-pane expanded-pane-response" id="expandedResponsePane">
       <div class="expanded-pane-inner">
+        <!-- Above the lineage on purpose: a reaction is the small thing a
+             reader can give back immediately, and applying it is the large
+             thing that may follow. -->
+        <div class="expanded-section reveal-on-open">
+          <div class="label" id="labelReactions"></div>
+          <div class="reaction-list" id="reactionList"></div>
+        </div>
+
         <div class="expanded-section reveal-on-open">
           <div class="label" id="labelApplied"></div>
           <div class="lineage-list-wrap" id="lineageListWrap"></div>
@@ -3330,7 +3739,6 @@
             <span class="brief-ai-label" id="briefAiLabel"></span>
             <span class="brief-updated" id="briefUpdated"></span>
           </div>
-          <button type="button" class="brief-confirm-btn" id="briefConfirmBtn"></button>
         </div>
         <div class="brief-body" id="briefBody"></div>
       </div>
@@ -3428,6 +3836,39 @@ const TRANSLATIONS = {
       types: { project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
       menu: { share: 'New knowledge', browse: 'Browse everything', question: 'Questions', designers: 'Designers', tools: 'Tools' },
+      // What each kind of card is asked, and the example that shows the kind
+      // of answer that is actually useful to another studio.
+      fields: {
+        project: {
+          made: { label: 'What we made', placeholder: 'The thing itself — a flow, a screen, a system. One or two sentences.' },
+          constraints: { label: 'Constraints we had', placeholder: 'Deadline, platform, team size, legal, an engine limit — whatever shaped the decision.' },
+          solved: { label: 'How we solved it', placeholder: 'The approach you landed on, and what you tried first that did not work.' },
+          borrow: { label: "What we'd do differently", placeholder: "What you'd change next time, and the part another studio could lift straight out." },
+        },
+        experiment: {
+          goal: { label: 'What we wanted to find out', placeholder: 'The question, and what you expected the answer to be.' },
+          method: { label: 'How we tested it', placeholder: 'Cohorts, how long, what you measured, what you held constant.' },
+          happened: { label: 'What happened', placeholder: 'The numbers, including the ones that went the wrong way.' },
+          learned: { label: 'What we learned', placeholder: "What you now believe, and what you'd test differently." },
+        },
+        question: {
+          blocked: { label: "What's blocking us", placeholder: 'Where you are stuck, concretely enough that someone could recognise it.' },
+          triedSoFar: { label: "What we've tried so far", placeholder: "So nobody suggests what you've already ruled out." },
+        },
+      },
+      imageChosenFallback: 'Image attached',
+      previewLabel: 'Live preview',
+      previewTitlePlaceholder: 'Your title will appear here',
+      previewEmptyField: 'Whatever you type in that field shows up here.',
+      previewDragHint: 'Drag to reposition',
+      editedAt: (when) => `Edited ${when}`,
+      askedTo: {
+        label: 'Who are you asking?',
+        everyone: 'Everyone',
+        studioPrefix: 'Just',
+        addressed: (studio) => `Asked to ${studio}`,
+        addressedYou: 'Asked to your studio',
+      },
       menuToolsAside: 'Coming soon',
       toolsComingSoon: 'Tools — coming soon',
       sectionProblem: 'Problem',
@@ -3463,10 +3904,13 @@ const TRANSLATIONS = {
         nextAction: 'Next action',
         status: 'Status',
         notEnoughYet: 'Not enough discussion yet to summarize.',
-        confirmButton: 'Confirm',
-        confirmedLabel: '✓ Confirmed',
-        confirmedBy: (name) => `Confirmed by ${name}`,
         alsoNoted: 'Also touched on the latest reply.',
+      },
+      reactions: {
+        label: 'What came back',
+        useful: 'Useful to us',
+        sameHere: "We've been here too",
+        changedMind: 'Changed how we were going to do it',
       },
       appliedLabel: 'Where it spread',
       appliedCount: (n) => (n === 0 ? 'Not yet applied elsewhere' : `Applied by ${n} studio${n > 1 ? 's' : ''}`),
@@ -3483,6 +3927,9 @@ const TRANSLATIONS = {
       shareButton: 'Share knowledge',
       backToNetwork: 'Back to the network',
       justNow: 'Just now',
+      // the same moment mid-sentence, where a capital reads as a typo
+      // ("Edited Just now"). Only English needs the distinction.
+      justNowInline: 'just now',
       deleteLink: 'Delete this card',
       editLink: 'Edit',
       editHeading: 'Edit what you shared',
@@ -3490,6 +3937,7 @@ const TRANSLATIONS = {
       editSubmit: 'Save changes',
       editSaved: 'Your changes are saved.',
       deleteConfirmText: 'Delete this piece of knowledge? Studios that applied it may be affected.',
+      deleteConfirmWithAnswers: (n) => `Delete this question? The ${n} answer${n > 1 ? 's' : ''} under it will be deleted too.`,
       deleteCancel: 'Cancel',
       deleteConfirmButton: 'Delete',
       designers: {
@@ -3574,6 +4022,11 @@ const TRANSLATIONS = {
         weaveCaption: 'Finding where this belongs…',
         weaveDoneTitle: 'Your approach is now part of the weave.',
         weaveDoneCount: '127 pieces of knowledge are now connected.',
+        weaveState: {
+          reactions: (n) => (n === 0 ? 'No reactions yet' : `${n} kind${n > 1 ? 's' : ''} of reaction so far`),
+          applied: (n) => (n === 0 ? 'Not applied anywhere yet' : `Applied by ${n} studio${n > 1 ? 's' : ''}`),
+          note: 'Both are meant to be empty right now. Open it from Browse whenever you want to see which studios it reached.',
+        },
         seeFullWeave: 'See the full weave',
         shareAnother: 'Share another',
         done: 'Done',
@@ -3638,6 +4091,37 @@ const TRANSLATIONS = {
       types: { project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
       menu: { share: '새 지식 공유', browse: '전체 둘러보기', question: '질문', designers: '디자이너', tools: '툴' },
+      fields: {
+        project: {
+          made: { label: '무엇을 만들었나', placeholder: '만든 것 자체 — 플로우, 화면, 시스템. 한두 문장으로.' },
+          constraints: { label: '어떤 제약이 있었나', placeholder: '기한, 플랫폼, 인원, 법무, 엔진 한계 — 판단을 좌우한 조건.' },
+          solved: { label: '어떻게 풀었나', placeholder: '결국 택한 방식과, 먼저 시도했지만 안 됐던 것.' },
+          borrow: { label: '다시 한다면 무엇을 바꿀까', placeholder: '다음엔 다르게 할 부분과, 다른 스튜디오가 그대로 가져다 쓸 수 있는 부분.' },
+        },
+        experiment: {
+          goal: { label: '무엇을 알고 싶었나', placeholder: '질문과, 답이 이럴 거라고 예상했던 것.' },
+          method: { label: '어떻게 테스트했나', placeholder: '집단, 기간, 측정한 지표, 고정한 조건.' },
+          happened: { label: '무슨 일이 일어났나', placeholder: '숫자 — 예상과 반대로 간 것까지.' },
+          learned: { label: '무엇을 배웠나', placeholder: '지금 믿게 된 것과, 다음엔 다르게 볼 부분.' },
+        },
+        question: {
+          blocked: { label: '무엇이 막혀 있나', placeholder: '어디서 막혔는지, 남이 알아볼 만큼 구체적으로.' },
+          triedSoFar: { label: '지금까지 무엇을 해봤나', placeholder: '이미 걸러낸 걸 다시 제안받지 않도록.' },
+        },
+      },
+      imageChosenFallback: '이미지 첨부됨',
+      previewLabel: '실시간 미리보기',
+      previewTitlePlaceholder: '제목이 여기 표시됩니다',
+      previewEmptyField: '그 칸에 쓰는 내용이 여기 보입니다.',
+      previewDragHint: '드래그해서 위치 조절',
+      editedAt: (when) => `${when} 수정됨`,
+      askedTo: {
+        label: '누구에게 묻나요?',
+        everyone: '모두에게',
+        studioPrefix: '',
+        addressed: (studio) => `${studio}에게 묻는 질문`,
+        addressedYou: '우리 스튜디오에게 온 질문',
+      },
       menuToolsAside: '준비 중',
       toolsComingSoon: '툴 — 곧 제공됩니다',
       sectionProblem: '문제',
@@ -3673,10 +4157,13 @@ const TRANSLATIONS = {
         nextAction: '다음 행동',
         status: '상태',
         notEnoughYet: '아직 요약할 만큼 대화가 쌓이지 않았어요.',
-        confirmButton: '확인',
-        confirmedLabel: '✓ 확인됨',
-        confirmedBy: (name) => `${name}가 확인함`,
         alsoNoted: '가장 최근 답글도 반영했습니다.',
+      },
+      reactions: {
+        label: '돌아온 반응',
+        useful: '우리에게 도움이 됩니다',
+        sameHere: '우리도 겪은 일이에요',
+        changedMind: '가려던 방향을 바꿨어요',
       },
       appliedLabel: '적용된 곳',
       appliedCount: (n) => (n === 0 ? '아직 다른 스튜디오에 적용되지 않음' : `${n}개 스튜디오에서 적용함`),
@@ -3693,6 +4180,7 @@ const TRANSLATIONS = {
       shareButton: '지식 공유하기',
       backToNetwork: '신경망으로 돌아가기',
       justNow: '방금 전',
+      justNowInline: '방금 전',
       deleteLink: '이 카드 삭제',
       editLink: '수정',
       editHeading: '공유한 내용 수정',
@@ -3700,6 +4188,7 @@ const TRANSLATIONS = {
       editSubmit: '수정 저장',
       editSaved: '수정한 내용을 저장했어요.',
       deleteConfirmText: '이 지식을 삭제하시겠어요? 연결된 지식들도 영향을 받을 수 있어요.',
+      deleteConfirmWithAnswers: (n) => `이 질문을 삭제할까요? 달린 답변 ${n}개가 함께 삭제됩니다.`,
       deleteCancel: '취소',
       deleteConfirmButton: '삭제',
       designers: {
@@ -3784,6 +4273,11 @@ const TRANSLATIONS = {
         weaveCaption: '어디에 속할지 찾는 중…',
         weaveDoneTitle: '당신의 경험이 이제 망의 일부가 되었습니다.',
         weaveDoneCount: '127개의 지식이 지금 서로 연결되어 있습니다.',
+        weaveState: {
+          reactions: (n) => (n === 0 ? '아직 반응 없음' : `지금까지 반응 ${n}종`),
+          applied: (n) => (n === 0 ? '아직 적용한 곳 없음' : `${n}개 스튜디오에서 적용`),
+          note: '지금은 둘 다 비어 있는 게 정상이에요. 어느 스튜디오에 닿았는지는 언제든 둘러보기에서 열어 확인할 수 있어요.',
+        },
         seeFullWeave: '전체 망 보기',
         shareAnother: '또 공유하기',
         done: '완료',
@@ -3848,6 +4342,37 @@ const TRANSLATIONS = {
       types: { project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
       menu: { share: 'Neues Wissen', browse: 'Alles durchsehen', question: 'Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      fields: {
+        project: {
+          made: { label: 'Was wir gebaut haben', placeholder: 'Die Sache selbst — ein Flow, ein Screen, ein System. Ein oder zwei Sätze.' },
+          constraints: { label: 'Unsere Einschränkungen', placeholder: 'Deadline, Plattform, Teamgröße, Recht, ein Engine-Limit — was die Entscheidung geprägt hat.' },
+          solved: { label: 'Wie wir es gelöst haben', placeholder: 'Der Weg, den ihr genommen habt, und was zuerst nicht funktioniert hat.' },
+          borrow: { label: 'Was wir anders machen würden', placeholder: 'Was ihr beim nächsten Mal ändern würdet, und was ein anderes Studio direkt übernehmen kann.' },
+        },
+        experiment: {
+          goal: { label: 'Was wir herausfinden wollten', placeholder: 'Die Frage, und was ihr als Antwort erwartet habt.' },
+          method: { label: 'Wie wir getestet haben', placeholder: 'Kohorten, Dauer, was gemessen wurde, was konstant blieb.' },
+          happened: { label: 'Was passiert ist', placeholder: 'Die Zahlen — auch die, die in die falsche Richtung gingen.' },
+          learned: { label: 'Was wir gelernt haben', placeholder: 'Was ihr jetzt glaubt, und was ihr anders testen würdet.' },
+        },
+        question: {
+          blocked: { label: 'Was uns blockiert', placeholder: 'Wo ihr hängt — konkret genug, dass jemand es wiedererkennt.' },
+          triedSoFar: { label: 'Was wir schon versucht haben', placeholder: 'Damit niemand vorschlägt, was ihr längst ausgeschlossen habt.' },
+        },
+      },
+      imageChosenFallback: 'Bild angehängt',
+      previewLabel: 'Live-Vorschau',
+      previewTitlePlaceholder: 'Dein Titel erscheint hier',
+      previewEmptyField: 'Was du in dieses Feld schreibst, steht hier.',
+      previewDragHint: 'Zum Verschieben ziehen',
+      editedAt: (when) => `Bearbeitet ${when}`,
+      askedTo: {
+        label: 'Wen fragst du?',
+        everyone: 'Alle',
+        studioPrefix: 'Nur',
+        addressed: (studio) => `Frage an ${studio}`,
+        addressedYou: 'Frage an dein Studio',
+      },
       menuToolsAside: 'Demnächst',
       toolsComingSoon: 'Werkzeuge — demnächst',
       sectionProblem: 'Problem',
@@ -3883,10 +4408,13 @@ const TRANSLATIONS = {
         nextAction: 'Nächster Schritt',
         status: 'Status',
         notEnoughYet: 'Noch nicht genug Austausch, um es zusammenzufassen.',
-        confirmButton: 'Bestätigen',
-        confirmedLabel: '✓ Bestätigt',
-        confirmedBy: (name) => `Bestätigt von ${name}`,
         alsoNoted: 'Berücksichtigt auch die neueste Antwort.',
+      },
+      reactions: {
+        label: 'Was zurückkam',
+        useful: 'Für uns nützlich',
+        sameHere: 'Kennen wir auch',
+        changedMind: 'Hat unseren Plan geändert',
       },
       appliedLabel: 'Wo es übernommen wurde',
       appliedCount: (n) => (n === 0 ? 'Noch von keinem Studio übernommen' : `Von ${n} Studio${n > 1 ? 's' : ''} übernommen`),
@@ -3903,6 +4431,7 @@ const TRANSLATIONS = {
       shareButton: 'Wissen teilen',
       backToNetwork: 'Zurück zum Netzwerk',
       justNow: 'Gerade eben',
+      justNowInline: 'gerade eben',
       deleteLink: 'Diese Karte löschen',
       editLink: 'Bearbeiten',
       editHeading: 'Geteiltes bearbeiten',
@@ -3910,6 +4439,7 @@ const TRANSLATIONS = {
       editSubmit: 'Änderungen speichern',
       editSaved: 'Deine Änderungen sind gespeichert.',
       deleteConfirmText: 'Dieses Wissen löschen? Studios, die es übernommen haben, könnten davon betroffen sein.',
+      deleteConfirmWithAnswers: (n) => `Diese Frage löschen? Die ${n} ${n > 1 ? 'Antworten' : 'Antwort'} darunter ${n > 1 ? 'werden' : 'wird'} mit gelöscht.`,
       deleteCancel: 'Abbrechen',
       deleteConfirmButton: 'Löschen',
       designers: {
@@ -3994,6 +4524,11 @@ const TRANSLATIONS = {
         weaveCaption: 'Suche, wohin das gehört…',
         weaveDoneTitle: 'Dein Ansatz ist jetzt Teil des Netzes.',
         weaveDoneCount: '127 Wissenseinträge sind jetzt miteinander verbunden.',
+        weaveState: {
+          reactions: (n) => (n === 0 ? 'Noch keine Reaktionen' : `Bisher ${n} ${n > 1 ? 'Arten' : 'Art'} von Reaktion`),
+          applied: (n) => (n === 0 ? 'Noch nirgends übernommen' : `Von ${n} ${n > 1 ? 'Studios' : 'Studio'} übernommen`),
+          note: 'Dass beides gerade leer ist, ist richtig so. Öffne es jederzeit aus „Alles durchsehen", um zu sehen, welche Studios es erreicht hat.',
+        },
         seeFullWeave: 'Das ganze Netz ansehen',
         shareAnother: 'Noch etwas teilen',
         done: 'Fertig',
@@ -4058,6 +4593,37 @@ const TRANSLATIONS = {
       types: { project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
       menu: { share: 'Yeni bilgi', browse: 'Hepsine göz at', question: 'Sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      fields: {
+        project: {
+          made: { label: 'Ne yaptık', placeholder: 'İşin kendisi — bir akış, bir ekran, bir sistem. Bir iki cümle.' },
+          constraints: { label: 'Hangi kısıtlar vardı', placeholder: 'Teslim tarihi, platform, ekip büyüklüğü, hukuk, bir motor sınırı — kararı şekillendiren ne varsa.' },
+          solved: { label: 'Nasıl çözdük', placeholder: 'Sonunda seçtiğiniz yol ve önce denediğiniz ama işlemeyen şey.' },
+          borrow: { label: 'Neyi farklı yapardık', placeholder: 'Bir dahaki sefere neyi değiştirirdiniz ve başka bir stüdyonun doğrudan alabileceği kısım.' },
+        },
+        experiment: {
+          goal: { label: 'Neyi öğrenmek istedik', placeholder: 'Soru ve cevabın ne olacağını beklediğiniz.' },
+          method: { label: 'Nasıl test ettik', placeholder: 'Gruplar, süre, ölçtükleriniz, sabit tuttuklarınız.' },
+          happened: { label: 'Ne oldu', placeholder: 'Sayılar — ters yöne gidenler dahil.' },
+          learned: { label: 'Ne öğrendik', placeholder: 'Artık neye inanıyorsunuz ve neyi farklı test ederdiniz.' },
+        },
+        question: {
+          blocked: { label: 'Bizi ne engelliyor', placeholder: 'Nerede takıldığınız — birinin tanıyabileceği kadar somut.' },
+          triedSoFar: { label: 'Şimdiye kadar ne denedik', placeholder: 'Kimse çoktan elediğinizi önermesin.' },
+        },
+      },
+      imageChosenFallback: 'Görsel eklendi',
+      previewLabel: 'Canlı önizleme',
+      previewTitlePlaceholder: 'Başlığınız burada görünecek',
+      previewEmptyField: 'O alana yazdığınız burada görünür.',
+      previewDragHint: 'Konumlandırmak için sürükleyin',
+      editedAt: (when) => `${when} düzenlendi`,
+      askedTo: {
+        label: 'Kime soruyorsunuz?',
+        everyone: 'Herkese',
+        studioPrefix: 'Sadece',
+        addressed: (studio) => `${studio} stüdyosuna soruldu`,
+        addressedYou: 'Stüdyonuza soruldu',
+      },
       menuToolsAside: 'Yakında',
       toolsComingSoon: 'Araçlar — yakında',
       sectionProblem: 'Sorun',
@@ -4093,10 +4659,13 @@ const TRANSLATIONS = {
         nextAction: 'Sonraki adım',
         status: 'Durum',
         notEnoughYet: 'Özetlemek için henüz yeterli konuşma yok.',
-        confirmButton: 'Onayla',
-        confirmedLabel: '✓ Onaylandı',
-        confirmedBy: (name) => `${name} tarafından onaylandı`,
         alsoNoted: 'En son yanıt da dikkate alındı.',
+      },
+      reactions: {
+        label: 'Geri gelenler',
+        useful: 'Bize faydalı',
+        sameHere: 'Biz de yaşadık',
+        changedMind: 'Planımızı değiştirdi',
       },
       appliedLabel: 'Nerede uygulandı',
       appliedCount: (n) => (n === 0 ? 'Henüz başka stüdyo tarafından uygulanmadı' : `${n} stüdyo tarafından uygulandı`),
@@ -4113,6 +4682,7 @@ const TRANSLATIONS = {
       shareButton: 'Bilgi paylaş',
       backToNetwork: 'Ağa geri dön',
       justNow: 'Az önce',
+      justNowInline: 'az önce',
       deleteLink: 'Bu kartı sil',
       editLink: 'Düzenle',
       editHeading: 'Paylaştığınızı düzenleyin',
@@ -4120,6 +4690,7 @@ const TRANSLATIONS = {
       editSubmit: 'Değişiklikleri kaydet',
       editSaved: 'Değişiklikleriniz kaydedildi.',
       deleteConfirmText: 'Bu bilgiyi silmek istiyor musun? Bunu uygulayan stüdyolar bundan etkilenebilir.',
+      deleteConfirmWithAnswers: (n) => `Bu soru silinsin mi? Altındaki ${n} yanıt da silinecek.`,
       deleteCancel: 'Vazgeç',
       deleteConfirmButton: 'Sil',
       designers: {
@@ -4204,6 +4775,11 @@ const TRANSLATIONS = {
         weaveCaption: 'Nereye ait olduğu bulunuyor…',
         weaveDoneTitle: 'Yaklaşımın artık ağın bir parçası.',
         weaveDoneCount: '127 bilgi parçası şu anda birbirine bağlı.',
+        weaveState: {
+          reactions: (n) => (n === 0 ? 'Henüz tepki yok' : `Şimdiye kadar ${n} tür tepki`),
+          applied: (n) => (n === 0 ? 'Henüz hiçbir yerde uygulanmadı' : `${n} stüdyo uyguladı`),
+          note: 'Şu anda ikisinin de boş olması normal. Hangi stüdyolara ulaştığını görmek için istediğiniz zaman "Hepsine göz at" içinden açın.',
+        },
         seeFullWeave: 'Tüm ağı gör',
         shareAnother: 'Başka bir şey paylaş',
         done: 'Bitti',
@@ -4271,11 +4847,14 @@ function ct(index) { return TRANSLATIONS[currentLang].cards[index]; }
 // pluralization rules) that each gets its own small formatter instead of
 // forcing everything through one interpolation pattern.
 const TIME_UNIT_FORMS = {
-  en: { day: ['day', 'days'], week: ['week', 'weeks'], month: ['month', 'months'] },
-  de: { day: ['Tag', 'Tagen'], week: ['Woche', 'Wochen'], month: ['Monat', 'Monaten'] },
+  en: { minute: ['minute', 'minutes'], hour: ['hour', 'hours'], day: ['day', 'days'], week: ['week', 'weeks'], month: ['month', 'months'] },
+  de: { minute: ['Minute', 'Minuten'], hour: ['Stunde', 'Stunden'], day: ['Tag', 'Tagen'], week: ['Woche', 'Wochen'], month: ['Monat', 'Monaten'] },
 };
-const TIME_UNIT_WORDS_KO = { day: '일', week: '주', month: '개월' };
-const TIME_UNIT_WORDS_TR = { day: 'gün', week: 'hafta', month: 'ay' };
+// minute/hour joined the list when edits started carrying a timestamp — a
+// card's age is measured in days, but a correction made while you are looking
+// at it is not.
+const TIME_UNIT_WORDS_KO = { minute: '분', hour: '시간', day: '일', week: '주', month: '개월' };
+const TIME_UNIT_WORDS_TR = { minute: 'dakika', hour: 'saat', day: 'gün', week: 'hafta', month: 'ay' };
 
 function formatRelativeTime(lang, value, unit) {
   if (lang === 'ko') return `${value}${TIME_UNIT_WORDS_KO[unit]} 전`;
@@ -4305,6 +4884,13 @@ const STUDIOS = {
   whow: { name: 'Whow', color: '#D85A30', enabled: true, logo: 'assets/whow-logo.png' },
   paxie: { name: 'Paxie', color: '#1D9E75', enabled: false },
 };
+
+// The studios that actually exist in this build, in declaration order.
+// Paxie is in STUDIOS but disabled, and three places were each writing their
+// own filter over Object.keys to leave it out.
+function enabledStudioKeys() {
+  return Object.keys(STUDIOS).filter(isStudioEnabled);
+}
 
 function isStudioEnabled(key) {
   return !!(STUDIOS[key] && STUDIOS[key].enabled);
@@ -4624,6 +5210,50 @@ const FILTER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 // be *created* the moment a studio hits "We applied this too" on another
 // card, or explicitly links a new post to the one that inspired it. Here
 // they're seeded so the network has some shape to show off from day one.
+/* ======================================================================
+   Per-type body fields
+   ----------------------------------------------------------------------
+   Which questions each kind of card is asked, and in what order. Keyed by
+   name rather than position, so adding a field to one type can't shift
+   another type's content into the wrong heading.
+
+   The seed cards predate this and carry the old three slots. Rather than
+   relabel prose that was not written for the new headings — "92% of new
+   players never opened the payment screen" is not an answer to "what we made"
+   — LEGACY_FIELD_MAP points each type's fields at whichever old slot actually
+   says that thing, and leaves the rest empty. An empty field renders no
+   section at all, so a seed project shows three headings and a newly written
+   one shows four. See bodyValue().
+   ====================================================================== */
+const FIELD_SETS = {
+  project: ['made', 'constraints', 'solved', 'borrow'],
+  experiment: ['goal', 'method', 'happened', 'learned'],
+  question: ['blocked', 'triedSoFar'],
+};
+
+const LEGACY_FIELD_MAP = {
+  project: { constraints: 'problem', solved: 'tried', borrow: 'result' },
+  experiment: { goal: 'problem', method: 'tried', happened: 'result' },
+  question: { blocked: 'problem', triedSoFar: 'tried' },
+};
+
+function fieldsFor(type) {
+  return FIELD_SETS[type] || FIELD_SETS.project;
+}
+
+// The text of one field on one card, whichever era the card comes from.
+function bodyValue(text, type, key) {
+  if (!text) return '';
+  if (typeof text[key] === 'string' && text[key].length) return text[key];
+  const legacy = (LEGACY_FIELD_MAP[type] || {})[key];
+  return (legacy && text[legacy]) || '';
+}
+
+function fieldStrings(type, key) {
+  const set = t().fields[type] || t().fields.project;
+  return set[key] || { label: key, placeholder: '' };
+}
+
 const CARDS = [
   { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: 'assets/card-first-payment-reward.jpg', relatedTo: [], derivedFrom: null },
   { id: 'c2', studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 5, timeUnit: 'day', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: null },
@@ -4644,7 +5274,7 @@ const CARDS = [
   { id: 'c11', studio: 'whow', type: 'project', author: 'Lena Fischer', timeValue: 5, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: [], derivedFrom: null },
   { id: 'c12', studio: 'paxie', type: 'experiment', author: 'Yuna Choi', timeValue: 6, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c11'], derivedFrom: null },
   { id: 'c13', studio: 'doubleu', type: 'experiment', author: 'Minji Yoon', timeValue: 2, timeUnit: 'month', appliedBy: ['whow', 'paxie'], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c14', studio: 'whow', type: 'question', author: 'Tobias Lang', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion', conversation: [
+  { id: 'c14', studio: 'whow', type: 'question', author: 'Tobias Lang', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion', askedTo: 'doubleu', conversation: [
     { author: 'Tobias Lang', studio: 'whow', timeValue: 4, timeUnit: 'day' },
     { author: 'Jonas Weber', studio: 'whow', timeValue: 3, timeUnit: 'day' },
     { author: 'Doyoon Kim', studio: 'doubleu', timeValue: 3, timeUnit: 'day' },
@@ -4688,10 +5318,87 @@ let sharedCards = loadSharedCards();
 // knowledge first, then the seed CARDS. `staticIndex` lets static entries
 // still look their copy up in TRANSLATIONS[lang] as the language changes;
 // shared entries carry their own fixed `text` instead.
+/* ======================================================================
+   Edits to seed cards
+   ----------------------------------------------------------------------
+   CARDS is a constant and its copy lives in TRANSLATIONS, four times over.
+   Rather than move all of that into storage, an edit to a seed card is stored
+   as an overlay keyed by the card's id and merged in at build time. The seed
+   stays exactly what a browser with empty storage sees, and "reset it" is
+   still one line in the console.
+
+   Only your own studio's cards. Not a security boundary — anything in this
+   file is editable by anyone who opens devtools — but the same rule the
+   Designers roster uses, so the app is at least consistent about whose things
+   are whose.
+
+   TODO(backend): a real service checks the signed-in account against the
+   card's studio server-side, and there is no such thing as a "seed" card —
+   they are all just rows.
+   ====================================================================== */
+const SEED_EDITS_STORAGE_KEY = 'loom_seed_edits_v1';
+
+function loadSeedEdits() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEED_EDITS_STORAGE_KEY));
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch (err) {
+    console.error('[Loom feed] could not read seed edits:', err);
+  }
+  return {};
+}
+
+/* Declared here, immediately above buildAllCards, and not further down with the
+   rest of the edit code: ALL_CARDS is built during script evaluation and
+   buildAllCards reaches straight into this map. A `let` declared below that
+   point is still in its temporal dead zone when it is read, which is a
+   ReferenceError rather than an undefined. */
+let seedEdits = loadSeedEdits();
+function seedEditsMap() { return seedEdits; }
+
+/* Whether the reader is allowed to edit a card at all.
+
+   Shared cards: yes, they wrote them this session.
+   Seed cards: only their own studio's — "남의 것엔 안 보임" reads as other
+   studios', and a studio's own back catalogue is theirs to correct. */
+function canEditCard(data) {
+  if (!data) return false;
+  if (data.isShared) return true;
+  return data.studio === MY_STUDIO_KEY;
+}
+
+// A seed card's edit is a patch, not a replacement: only the keys the author
+// actually changed are stored, so a seed card that later gains a field in the
+// source picks it up instead of being frozen at whatever was saved.
+function applySeedEdit(card) {
+  const patch = seedEditsMap()[card.id];
+  if (!patch) return card;
+  return Object.assign({}, card, patch, {
+    text: Object.assign({}, card.text, patch.text || {}),
+  });
+}
+
+function saveSeedEdit(id, patch) {
+  const map = seedEditsMap();
+  const previous = map[id];
+  map[id] = patch;
+  if (safeSetItem(SEED_EDITS_STORAGE_KEY, JSON.stringify(map)).ok) {
+    logStorageUsage('seed edit saved');
+    return true;
+  }
+  // safeSetItem restored storage; put memory back in step with it.
+  if (previous === undefined) delete map[id];
+  else map[id] = previous;
+  return false;
+}
+
 function buildAllCards() {
   return [
     ...sharedCards.map((c) => ({ ...c, isShared: true })),
-    ...CARDS.map((c, i) => ({ ...c, isShared: false, staticIndex: i })),
+    // The seed card's own translated copy is folded in here so an edit has
+    // something to patch — before this, `text` only existed on shared cards and
+    // was looked up per-language at render time (see cardText).
+    ...CARDS.map((c, i) => applySeedEdit({ ...c, isShared: false, staticIndex: i, text: ct(i) })),
   ].filter((c) => isStudioEnabled(c.studio));
 }
 let ALL_CARDS = buildAllCards();
@@ -4702,16 +5409,35 @@ let ALL_CARDS = buildAllCards();
 // `entry.sourceLang` vs. the viewer's `currentLang`) and cache the result
 // per target language; until then, renderLangPendingBadge() is what tells
 // the reader they're looking at the original text, not a translation.
+/* Both kinds of card carry their own `text` now (buildAllCards folds the
+   translated seed copy in), so this is a straight read — but a seed card that
+   has NOT been edited must still follow the language switcher, and its stored
+   text was captured in whatever language was active when ALL_CARDS was built.
+   Falling back to ct() for those keeps the switcher working. */
 function cardText(entry) {
-  return entry.isShared ? entry.text : ct(entry.staticIndex);
+  if (entry.isShared) return entry.text;
+  if (seedEditsMap()[entry.id]) return entry.text; // an edit is in one language on purpose
+  return ct(entry.staticIndex);
 }
 
-// item 9 — "Original (<language>) · Auto-translation pending", shown
-// whenever a shared card's original language differs from the UI's current
-// language. Static seed cards are always pre-translated (see TRANSLATIONS),
-// so this only ever applies to what someone actually wrote in this session.
+/* "Original (<language>) · Auto-translation pending", shown whenever a card's
+   original language differs from the one being read in.
+
+   TODO(translation): there is no machine translation here and this label is
+   the honest version of that. A real implementation sends the card's fields to
+   a translation API on save (not on read — translating on every language
+   switch would mean paying for the same sentence repeatedly and getting
+   slightly different wording each time), stores the result per language
+   alongside `sourceLang`, and shows this badge only while that request is
+   still outstanding. Until then the reader gets the author's own words, which
+   is better than a silent gap.
+
+   Seed cards are pre-translated in TRANSLATIONS, so this only applies to what
+   somebody actually wrote — including an edited seed card, whose new text
+   exists only in the language it was typed in. */
 function langPendingText(data) {
-  if (!data.isShared || !data.sourceLang || data.sourceLang === currentLang) return '';
+  const authored = data.isShared || !!seedEditsMap()[data.id];
+  if (!authored || !data.sourceLang || data.sourceLang === currentLang) return '';
   const lang = LANGUAGES.find((l) => l.code === data.sourceLang);
   return t().originalPending(lang ? lang.label : data.sourceLang);
 }
@@ -4913,7 +5639,11 @@ function mediaGradient(color) {
 // load before switching — a broken/missing path silently keeps the fallback
 // visual instead of showing a blank box, so dropping files into assets/
 // later "just works" without any code change.
-function applyCardMedia(mediaEl, imagePath, color) {
+function applyCardMedia(mediaEl, imagePath, color, focal) {
+  // Set before the probe resolves: background-position is harmless on the
+  // gradient fallback, and setting it here means it is already right on the
+  // frame the image first paints.
+  mediaEl.style.backgroundPosition = focal ? focalPointCss(focal) : '';
   mediaEl.style.setProperty('--card-bloom', mediaGradient(color));
   mediaEl.classList.remove('has-image');
   mediaEl.style.removeProperty('--card-img');
@@ -5406,7 +6136,7 @@ function renderDiscover() {
     renderHeroTitle(slide.querySelector('.card-title'), text.title);
     slide.addEventListener('click', () => openCard(slide));
     slidesWrap.appendChild(slide);
-    applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color);
+    applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
   });
 
   renderHeroDots();
@@ -5516,7 +6246,7 @@ function buildPosterCard(data, index) {
     </div>
   `;
   card.addEventListener('click', () => openCard(card));
-  applyCardMedia(card.querySelector('.card-media'), data.image, studio.color);
+  applyCardMedia(card.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
   return card;
 }
 
@@ -5584,12 +6314,42 @@ function applyBrowseFilters() {
    out in a plain wrapping grid rather than the Browse poster track: these
    are meant to be read and answered, not skimmed like a gallery.
    ====================================================================== */
+/* Newest first, except that anything addressed to your studio jumps the queue.
+   A question aimed at you specifically is the one thing on this floor that is
+   waiting on *you*; leaving it in date order means it scrolls away behind
+   general questions nobody in particular has to answer.
+
+   Resolved questions sink below the rest regardless — they are here as a record
+   of what was settled, not as something still needing attention. */
+function askedToMe(data) {
+  return data.askedTo && data.askedTo !== 'all' && data.askedTo === MY_STUDIO_KEY;
+}
+
+function questionSortRank(data) {
+  if (data.status === 'resolved') return 2;
+  return askedToMe(data) ? 0 : 1;
+}
+
 function questionIndices() {
   return ALL_CARDS
     .map((_, i) => i)
     .filter((i) => isOpenQuestion(ALL_CARDS[i]))
     .filter((i) => !selectedAuthor || ALL_CARDS[i].author === selectedAuthor)
-    .sort((a, b) => daysAgoOf(ALL_CARDS[a]) - daysAgoOf(ALL_CARDS[b]));
+    .sort((a, b) => {
+      const rank = questionSortRank(ALL_CARDS[a]) - questionSortRank(ALL_CARDS[b]);
+      if (rank !== 0) return rank;
+      return daysAgoOf(ALL_CARDS[a]) - daysAgoOf(ALL_CARDS[b]);
+    });
+}
+
+/* Who a question was addressed to, when that is anyone in particular. Silent
+   for questions asked of everyone — "asked to everyone" on every card is a
+   label that says nothing. */
+function askedToBadgeHTML(data) {
+  if (!data.askedTo || data.askedTo === 'all') return '';
+  const mine = askedToMe(data);
+  const label = mine ? t().askedTo.addressedYou : t().askedTo.addressed(STUDIOS[data.askedTo].name);
+  return `<div class="asked-to-badge${mine ? ' is-mine' : ''}">${label}</div>`;
 }
 
 function buildQuestionCard(data, index) {
@@ -5611,6 +6371,7 @@ function buildQuestionCard(data, index) {
         <span class="question-card-time">${timeText}</span>
       </div>
       <div class="question-card-title">${text.title}</div>
+      ${askedToBadgeHTML(data)}
       ${langPendingBadgeHTML(data)}
     </div>
     <div class="question-card-footer">
@@ -6891,24 +7652,18 @@ function populateExpanded(data, index) {
   expandedMedia.classList.toggle('is-open-question', false);
   expandedCard.style.setProperty('--studio-color', studio.color);
   expandedMedia.innerHTML = `<span class="card-media-icon" style="color:${studio.color}">${ICONS[data.type]}</span><span class="card-media-badge">${ICONS[data.type]}</span>`;
-  applyCardMedia(expandedMedia, data.image, studio.color);
+  applyCardMedia(expandedMedia, data.image, studio.color, data.imageFocal);
 
   document.getElementById('expandedDot').style.background = studio.color;
   document.getElementById('expandedStudioName').textContent = studio.name;
   document.getElementById('expandedAuthor').textContent = data.author;
   document.getElementById('expandedTime').textContent = data.justNow ? t().justNow : formatRelativeTime(currentLang, data.timeValue, data.timeUnit);
+  renderEditedStamp(document.getElementById('expandedEdited'), data);
   document.getElementById('expandedStatusBadge').innerHTML = statusBadgeHTML(data);
   document.getElementById('expandedTitle').textContent = text.title;
-  document.getElementById('labelProblem').textContent = t().sectionProblem;
-  document.getElementById('expandedProblem').textContent = text.problem;
-  document.getElementById('labelTried').textContent = t().sectionTried;
-  document.getElementById('expandedTried').textContent = text.tried;
-  // Resolved-status Questions never actually take this path (they render
-  // via the two-pane detail above) — this branch is only ever "not a
-  // Question", so the Result section always applies here.
-  document.getElementById('resultSection').style.display = '';
-  document.getElementById('labelResult').textContent = t().sectionResult;
-  document.getElementById('expandedResult').textContent = text.result;
+  renderBodySections(document.getElementById('expandedBodySections'), data, text);
+  document.getElementById('labelReactions').textContent = t().reactions.label;
+  renderReactions(document.getElementById('reactionList'), data.id);
   document.getElementById('labelApplied').textContent = t().appliedLabel;
   document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(data).length);
   renderLineageList(data);
@@ -6930,10 +7685,214 @@ function populateExpanded(data, index) {
   // the stand-in for "mine" — a real backend would check the signed-in
   // user (or their studio) against the card's author, server-side, rather
   // than trust a flag the client could flip.
+  /* Edit is offered on anything this studio owns, including its own seed
+     cards. Delete is not: removing a card the whole network may have applied
+     is a different weight of action from fixing a sentence in it, and only
+     something written this session can be taken back. */
   const deleteRow = document.getElementById('expandedDeleteRow');
   resetDeleteConfirm();
-  deleteRow.style.display = data.isShared ? 'flex' : 'none';
-  deleteRow.dataset.cardId = data.isShared ? data.id : '';
+  const editable = canEditCard(data);
+  deleteRow.style.display = editable ? 'flex' : 'none';
+  deleteRow.dataset.cardId = editable ? data.id : '';
+  document.getElementById('deleteCardBtn').style.display = data.isShared ? 'flex' : 'none';
+}
+
+/* One card's body, as the headings its own type asks for. textContent on the
+   paragraph (never innerHTML — this is somebody's prose), and the CSS carries
+   white-space: pre-wrap so the line breaks they typed survive. */
+/* ======================================================================
+   Reactions
+   ----------------------------------------------------------------------
+   Three, and no counters anywhere. A count turns "somebody found this useful"
+   into "this scored 14", and a wall of cards with numbers on them is a ranking
+   of the studios that wrote them — which is the one thing this app is not for
+   (see the note above DESIGNERS). What comes back instead is which studios
+   reacted and how, shown as their dots: information about who you reached,
+   with nothing to be top of.
+
+   Each kind is a different thing to say, not three strengths of the same
+   thing: "this is useful to us", "we have been here too", "this changed how we
+   were going to do it".
+
+   TODO(backend): a real service records the reacting *account*, server-side.
+   Here it is your studio, and there is nothing stopping the same reader
+   toggling it twice — which is fine when the display has no arithmetic in it.
+   ====================================================================== */
+const REACTION_KINDS = ['useful', 'sameHere', 'changedMind'];
+
+const REACTION_ICONS = {
+  useful: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21V10l4-7a2 2 0 0 1 3 2l-1 5h4a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 16.6 21H9Z"/><path d="M9 10H5v11h4"/></svg>',
+  sameHere: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M15.5 20a4.6 4.6 0 0 1 5.5-4.5"/></svg>',
+  changedMind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 8 0 0 1 13.7-5.6L20 7"/><path d="M20 4v3.5h-3.5"/><path d="M20 14a8 8 0 0 1-13.7 5.6L4 17"/><path d="M4 20v-3.5h3.5"/></svg>',
+};
+
+// Seeded so the app does not open on a wall of zeroes — the same job the
+// sample conversations do. Keyed by card id; a card not listed simply has none.
+const SEED_REACTIONS = {
+  c1: { useful: ['whow'], changedMind: ['whow'] },
+  c2: { useful: ['doubleu'], sameHere: ['doubleu'] },
+  c5: { useful: ['doubleu'] },
+  c9: { sameHere: ['doubleu', 'whow'] },
+  c13: { useful: ['whow'], sameHere: ['whow'] },
+};
+
+const REACTIONS_STORAGE_KEY = 'loom_reactions_v1';
+
+function loadReactions() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(REACTIONS_STORAGE_KEY));
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch (err) {
+    console.error('[Loom feed] could not read reactions:', err);
+  }
+  // A deep-ish copy: the seed must not become the live object, or "reset by
+  // clearing storage" would come back with whatever the reader had done.
+  const out = {};
+  Object.keys(SEED_REACTIONS).forEach((id) => {
+    out[id] = {};
+    Object.keys(SEED_REACTIONS[id]).forEach((k) => { out[id][k] = SEED_REACTIONS[id][k].slice(); });
+  });
+  return out;
+}
+
+let cardReactions = loadReactions();
+
+function reactionsFor(cardId) {
+  return cardReactions[cardId] || {};
+}
+
+function studiosWhoReacted(cardId, kind) {
+  return (reactionsFor(cardId)[kind] || []).filter(isStudioEnabled);
+}
+
+function hasReacted(cardId, kind) {
+  return studiosWhoReacted(cardId, kind).indexOf(MY_STUDIO_KEY) > -1;
+}
+
+function toggleReaction(cardId, kind) {
+  if (!cardReactions[cardId]) cardReactions[cardId] = {};
+  const list = cardReactions[cardId][kind] || (cardReactions[cardId][kind] = []);
+  const at = list.indexOf(MY_STUDIO_KEY);
+  if (at > -1) list.splice(at, 1);
+  else list.push(MY_STUDIO_KEY);
+
+  if (!safeSetItem(REACTIONS_STORAGE_KEY, JSON.stringify(cardReactions)).ok) {
+    // safeSetItem has already put the previous value back in storage, so undo
+    // the in-memory change too rather than showing a state that won't survive.
+    if (at > -1) list.push(MY_STUDIO_KEY);
+    else list.splice(list.indexOf(MY_STUDIO_KEY), 1);
+    showToast(t().share.storageFailed);
+    return false;
+  }
+  return true;
+}
+
+/* One row per kind: the mark, what it says, and the dots of the studios who
+   said it. No number — the dots ARE the report, and there are two studios, so
+   "who" is short enough to show in full. */
+function renderReactions(wrap, cardId) {
+  wrap.innerHTML = '';
+  const strings = t().reactions;
+
+  REACTION_KINDS.forEach((kind) => {
+    const who = studiosWhoReacted(cardId, kind);
+    const mine = hasReacted(cardId, kind);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reaction-row' + (mine ? ' is-mine' : '');
+    btn.dataset.kind = kind;
+    btn.setAttribute('aria-pressed', mine ? 'true' : 'false');
+
+    const icon = document.createElement('span');
+    icon.className = 'reaction-icon';
+    icon.innerHTML = REACTION_ICONS[kind];
+
+    const label = document.createElement('span');
+    label.className = 'reaction-label';
+    label.textContent = strings[kind];
+
+    const dots = document.createElement('span');
+    dots.className = 'reaction-who';
+    who.forEach((key) => {
+      const dot = document.createElement('span');
+      dot.className = 'card-dot';
+      dot.style.background = STUDIOS[key].color;
+      dot.title = STUDIOS[key].name;
+      dots.appendChild(dot);
+    });
+
+    btn.appendChild(icon);
+    btn.appendChild(label);
+    btn.appendChild(dots);
+
+    btn.addEventListener('click', () => {
+      if (toggleReaction(cardId, kind)) renderReactions(wrap, cardId);
+    });
+
+    wrap.appendChild(btn);
+  });
+}
+
+// How many kinds anyone has reacted with — for the "what exists now" line on
+// the completion screen, which is the one place a total is the honest answer
+// ("nothing has come back yet").
+function totalReactionKinds(cardId) {
+  return REACTION_KINDS.filter((k) => studiosWhoReacted(cardId, k).length).length;
+}
+
+/* "Edited 4 minutes ago", from the absolute stamp written at save time. Absent
+   entirely on a card nobody has changed — an "edited: never" line is noise. */
+function renderEditedStamp(el, data) {
+  if (!el) return;
+  if (!data.editedAt) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.textContent = t().editedAt(relativeFromStamp(data.editedAt));
+}
+
+// Minutes/hours/days since an absolute timestamp, in the reader's language.
+// Reuses formatRelativeTime so an edit is phrased the same way a card's age is.
+function relativeFromStamp(stamp) {
+  const secs = Math.max(0, Math.round((Date.now() - stamp) / 1000));
+  if (secs < 60) return t().justNowInline;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return formatRelativeTime(currentLang, mins, 'minute');
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return formatRelativeTime(currentLang, hours, 'hour');
+  return formatRelativeTime(currentLang, Math.round(hours / 24), 'day');
+}
+
+/* How many replies would go with a question if it were deleted — the opening
+   post is the question itself, so it does not count as an answer. */
+function answerCountOf(data) {
+  if (!isOpenQuestion(data)) return 0;
+  // getConversationMessages, not data.conversation: replies posted in this
+  // session live in sessionExtraMessages until there is a backend, and a
+  // warning that ignores the three answers you can see on screen is worse
+  // than no warning.
+  return Math.max(0, getConversationMessages(data).length - 1);
+}
+
+function renderBodySections(wrap, data, text) {
+  wrap.innerHTML = '';
+  fieldsFor(data.type).forEach((key) => {
+    const value = bodyValue(text, data.type, key);
+    if (!value) return; // a heading with nothing under it is worse than no heading
+
+    const section = document.createElement('div');
+    section.className = 'expanded-section';
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = fieldStrings(data.type, key).label;
+
+    const p = document.createElement('p');
+    p.textContent = value;
+
+    section.appendChild(label);
+    section.appendChild(p);
+    wrap.appendChild(section);
+  });
 }
 
 function resetDeleteConfirm() {
@@ -6986,13 +7945,15 @@ function renderConversation(data) {
 function renderBrief(data) {
   const brief = getConversationBrief(data);
   const body = document.getElementById('briefBody');
-  const confirmBtn = document.getElementById('briefConfirmBtn');
   const s = t().brief;
 
+  /* No Confirm button. Asking a reader to sign off on a summary they did not
+     write turns a convenience into a small piece of unpaid review work, and an
+     unconfirmed brief then reads as untrustworthy rather than simply recent.
+     The header says what it is and when it last changed; that is the whole
+     claim being made. */
   document.getElementById('briefAiLabel').textContent = s.aiGenerated;
-  document.getElementById('briefUpdated').textContent = s.lastUpdated(2); // sample-fixed "2 min ago" — see item 5's note on this being fake
-  confirmBtn.classList.remove('is-confirmed');
-  confirmBtn.textContent = s.confirmButton;
+  document.getElementById('briefUpdated').textContent = s.lastUpdated(2); // sample-fixed — see the TODO on getConversationBrief
 
   if (!brief) {
     body.innerHTML = `<p class="brief-empty">${s.notEnoughYet}</p>`;
@@ -7055,8 +8016,6 @@ function simulateSummaryUpdate() {
       li.textContent = s.alsoNoted;
       keyIdeasList.appendChild(li);
     }
-    document.getElementById('briefConfirmBtn').classList.remove('is-confirmed');
-    document.getElementById('briefConfirmBtn').textContent = s.confirmButton;
   }, 900);
 }
 
@@ -7089,16 +8048,13 @@ function initQuestionDetail() {
     simulateSummaryUpdate();
   });
 
-  document.getElementById('briefConfirmBtn').addEventListener('click', function () {
-    this.classList.add('is-confirmed');
-    this.textContent = t().brief.confirmedLabel;
-    document.getElementById('briefUpdated').textContent = t().brief.confirmedBy(STUDIOS[MY_STUDIO_KEY].name);
-  });
-
   document.getElementById('qdDeleteBtn').addEventListener('click', function () {
     const id = this.dataset.cardId;
     if (!id) return;
-    if (window.confirm(t().deleteConfirmText)) confirmDeleteCard(id);
+    const card = ALL_CARDS.find((c) => c.id === id);
+    const answers = card ? answerCountOf(card) : 0;
+    const text = answers > 0 ? t().deleteConfirmWithAnswers(answers) : t().deleteConfirmText;
+    if (window.confirm(text)) confirmDeleteCard(id);
   });
 }
 
@@ -7227,6 +8183,14 @@ function initDeleteCard() {
   document.getElementById('deleteCardBtn').addEventListener('click', () => {
     document.getElementById('deleteCardBtn').style.display = 'none';
     document.getElementById('deleteConfirmBox').style.display = 'flex';
+    // Deleting a question takes the conversation under it with it, and the
+    // people who answered are not the person deleting. Say how many, so it is
+    // a decision rather than a surprise.
+    const id = document.getElementById('expandedDeleteRow').dataset.cardId;
+    const card = ALL_CARDS.find((c) => c.id === id);
+    const answers = card ? answerCountOf(card) : 0;
+    document.getElementById('deleteConfirmText').textContent =
+      answers > 0 ? t().deleteConfirmWithAnswers(answers) : t().deleteConfirmText;
   });
   document.getElementById('deleteCancelBtn').addEventListener('click', resetDeleteConfirm);
   document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
@@ -7294,7 +8258,10 @@ function deleteSharedCardById(id) {
    ====================================================================== */
 let isShareMode = false;
 let selectedType = 'project';
-const tags = [];
+// Questions only. 'all' is a real answer — "I don't know who knows this" — not
+// the absence of one, which is why it is a pill like the others rather than a
+// blank default.
+let selectedAskedTo = 'all';
 
 function renderTypePicker() {
   const wrap = document.getElementById('typePicker');
@@ -7304,59 +8271,105 @@ function renderTypePicker() {
     btn.className = 'type-pill' + (key === selectedType ? ' is-active' : '');
     btn.dataset.type = key;
     btn.innerHTML = `${ICONS[key]}<span class="type-pill-label">${t().types[key]}</span>`;
+    btn.addEventListener('click', () => setComposeType(key));
+    wrap.appendChild(btn);
+  });
+  renderAskedToPicker();
+  renderComposeFields();
+}
+
+/* Changing the type changes which questions you are asked, so the fields are
+   rebuilt — but anything already typed into a field the new type also has is
+   kept. Switching project -> experiment to fix a mislabelled card should not
+   silently empty three paragraphs. */
+function setComposeType(key) {
+  if (key === selectedType) return;
+  const carried = readComposeFields();
+  selectedType = key;
+  document.querySelectorAll('#typePicker .type-pill').forEach((b) =>
+    b.classList.toggle('is-active', b.dataset.type === selectedType));
+  renderComposeFields(carried);
+  updateComposeChrome();
+  refreshPreview();
+}
+
+function renderAskedToPicker() {
+  const wrap = document.getElementById('askedToPicker');
+  wrap.innerHTML = '';
+  const s = t().askedTo;
+  const options = [{ key: 'all', label: s.everyone, color: null }].concat(
+    enabledStudioKeys().map((k) => ({
+      key: k,
+      label: [s.studioPrefix, STUDIOS[k].name].filter(Boolean).join(' '),
+      color: STUDIOS[k].color,
+    })));
+
+  options.forEach((opt) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'asked-to-pill' + (opt.key === selectedAskedTo ? ' is-active' : '');
+    btn.dataset.value = opt.key;
+    if (opt.color) {
+      const dot = document.createElement('span');
+      dot.className = 'card-dot';
+      dot.style.background = opt.color;
+      btn.appendChild(dot);
+    }
+    btn.appendChild(document.createTextNode(opt.label));
     btn.addEventListener('click', () => {
-      selectedType = key;
-      wrap.querySelectorAll('.type-pill').forEach((b) => b.classList.toggle('is-active', b.dataset.type === selectedType));
-      updateComposeFieldsForType();
+      selectedAskedTo = opt.key;
+      wrap.querySelectorAll('.asked-to-pill').forEach((b) =>
+        b.classList.toggle('is-active', b.dataset.value === selectedAskedTo));
     });
     wrap.appendChild(btn);
   });
-  updateComposeFieldsForType();
 }
 
-// A Question has no result yet — the compose form asks for what's
-// blocking you and what you've tried so far instead of problem/tried/result.
-function updateComposeFieldsForType() {
-  const isOpenQ = selectedType === 'question';
-  const s = t().share;
+/* The body fields, as the chosen type asks them. `carried` is an optional
+   {key: value} map from a previous type, so a field both types share keeps
+   what was in it. */
+function renderComposeFields(carried) {
+  const wrap = document.getElementById('composeFields');
+  wrap.innerHTML = '';
 
-  document.getElementById('resultField').style.display = isOpenQ ? 'none' : '';
+  fieldsFor(selectedType).forEach((key) => {
+    const strings = fieldStrings(selectedType, key);
 
-  const problemLabels = isOpenQ ? s.openQuestion.blockedLabel : s.problemLabel;
-  const problemPlaceholder = isOpenQ ? s.openQuestion.blockedPlaceholder : s.problemPlaceholder;
-  const triedLabels = isOpenQ ? s.openQuestion.triedLabel : s.triedLabel;
-  const triedPlaceholder = isOpenQ ? s.openQuestion.triedPlaceholder : s.triedPlaceholder;
+    const field = document.createElement('div');
+    field.className = 'field';
 
-  document.getElementById('problemFieldLabel').textContent = problemLabels;
-  document.getElementById('problemInput').placeholder = problemPlaceholder;
-  document.getElementById('triedFieldLabel').textContent = triedLabels;
-  document.getElementById('triedInput').placeholder = triedPlaceholder;
-}
+    const label = document.createElement('div');
+    label.className = 'field-label';
+    label.textContent = strings.label;
 
-function initTagInput() {
-  const input = document.getElementById('tagInput');
-  const wrap = document.getElementById('tagWrap');
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const value = input.value.trim();
-    if (!value) return;
-    tags.push(value);
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    chip.innerHTML = `<span>${value}</span>`;
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.textContent = '✕';
-    removeBtn.addEventListener('click', () => {
-      const idx = tags.indexOf(value);
-      if (idx > -1) tags.splice(idx, 1);
-      chip.remove();
-    });
-    chip.appendChild(removeBtn);
-    wrap.insertBefore(chip, input);
-    input.value = '';
+    const area = document.createElement('textarea');
+    area.id = 'field_' + key;
+    area.dataset.fieldKey = key;
+    area.placeholder = strings.placeholder;
+    if (carried && carried[key]) area.value = carried[key];
+
+    // The preview follows the caret, so every field has to say when it has it.
+    area.addEventListener('focus', () => setPreviewFocus(key));
+    area.addEventListener('input', refreshPreview);
+
+    field.appendChild(label);
+    field.appendChild(area);
+    wrap.appendChild(field);
   });
+}
+
+// Everything currently typed, keyed by field name.
+function readComposeFields() {
+  const out = {};
+  document.querySelectorAll('#composeFields textarea').forEach((el) => {
+    out[el.dataset.fieldKey] = el.value;
+  });
+  return out;
+}
+
+// Which parts of the form the chosen type actually uses.
+function updateComposeChrome() {
+  document.getElementById('askedToField').style.display = selectedType === 'question' ? '' : 'none';
 }
 
 // The composed card's image, if any — a data: URL (not a blob: object URL)
@@ -7365,16 +8378,26 @@ function initTagInput() {
 // that created them. No real upload happens anywhere — this is the whole
 // pipeline for a prototype with no backend.
 let selectedImageUrl = null;
+let selectedImageName = '';
+/* Where the image sits inside its frame, as an object-position pair, set by
+   dragging the preview. Stored on the card so the poster, the cover banner and
+   the detail all crop it the same way the author chose — a face centred in the
+   preview that slides out of frame on the banner is worse than no control at
+   all. */
+let selectedImageFocal = { x: 50, y: 50 };
 
-function setUploadPreview(url) {
-  const zone = document.getElementById('uploadZone');
-  const media = document.getElementById('uploadPreviewMedia');
+// No thumbnail: the picture is the whole background of the preview card just
+// above this, so all this slot has to say is which file is loaded.
+function setUploadPreview(url, fileName) {
+  const chosen = document.getElementById('imageChosen');
+  const pickBtn = document.getElementById('uploadZone');
   if (url) {
-    media.style.backgroundImage = `url("${url}")`;
-    zone.classList.add('has-preview');
+    document.getElementById('imageFileName').textContent = fileName || selectedImageName || t().imageChosenFallback;
+    chosen.style.display = 'flex';
+    pickBtn.style.display = 'none';
   } else {
-    media.style.backgroundImage = '';
-    zone.classList.remove('has-preview');
+    chosen.style.display = 'none';
+    pickBtn.style.display = 'flex';
   }
 }
 
@@ -7443,7 +8466,10 @@ function handleImageFile(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) return;
   resizeImageToDataUrl(file).then((dataUrl) => {
     selectedImageUrl = dataUrl;
-    setUploadPreview(selectedImageUrl);
+    selectedImageName = file.name || '';
+    selectedImageFocal = { x: 50, y: 50 }; // a new picture starts centred
+    setUploadPreview(selectedImageUrl, selectedImageName);
+    refreshPreview();
   }).catch((err) => {
     // A failed read/decode (corrupt file, unsupported format) shouldn't leave
     // the zone stuck looking however it happened to look mid-attempt.
@@ -7454,47 +8480,41 @@ function handleImageFile(file) {
   });
 }
 
+/* The image slot is two states of one small control: a pick button, or the
+   name of the file you picked with an ✕ next to it. There is no thumbnail and
+   no Replace — removing puts the pick button straight back, which is the same
+   two clicks Replace was, with one less thing on screen. Drops land anywhere on
+   the slot, in either state. */
 function initUploadStub() {
-  const zone = document.getElementById('uploadZone');
+  const slot = document.getElementById('imageSlot');
+  const pickBtn = document.getElementById('uploadZone');
   const fileInput = document.getElementById('imageFileInput');
 
-  // Clicking anywhere on the zone opens the native file picker — except a
-  // click on the Replace/Remove row, which handles itself (see below). The
-  // zone is a plain div (not a <button>) precisely so it can contain those
-  // two real buttons without nesting interactive elements.
-  zone.addEventListener('click', (e) => {
-    if (e.target.closest('.upload-preview-actions')) return;
-    fileInput.click();
-  });
-  zone.addEventListener('keydown', (e) => {
-    if (e.target !== zone) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-  });
+  pickBtn.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', () => {
     handleImageFile(fileInput.files && fileInput.files[0]);
     fileInput.value = ''; // so choosing the same file again still fires 'change'
   });
 
-  zone.addEventListener('dragover', (e) => {
+  slot.addEventListener('dragover', (e) => {
     e.preventDefault(); // required for 'drop' to fire at all
-    zone.classList.add('is-dragover');
+    slot.classList.add('is-dragover');
   });
-  zone.addEventListener('dragleave', () => zone.classList.remove('is-dragover'));
-  zone.addEventListener('drop', (e) => {
+  slot.addEventListener('dragleave', () => slot.classList.remove('is-dragover'));
+  slot.addEventListener('drop', (e) => {
     e.preventDefault();
-    zone.classList.remove('is-dragover');
+    slot.classList.remove('is-dragover');
     handleImageFile(e.dataTransfer.files && e.dataTransfer.files[0]);
   });
 
-  document.getElementById('uploadReplaceBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    fileInput.click();
-  });
   document.getElementById('uploadRemoveBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     selectedImageUrl = null;
+    selectedImageName = '';
+    selectedImageFocal = { x: 50, y: 50 };
     setUploadPreview(null);
+    refreshPreview();
   });
 }
 
@@ -7552,10 +8572,9 @@ function initAttachmentUpload() {
   const zone = document.getElementById('attachmentZone');
   const fileInput = document.getElementById('attachmentFileInput');
 
-  zone.addEventListener('click', () => fileInput.click());
-  zone.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-  });
+  // the button, not the whole slot — the slot also holds the file list, and
+  // clicking a listed file's remove button should not reopen the picker
+  document.getElementById('attachmentPickBtn').addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', () => {
     handleAttachmentFiles(fileInput.files);
@@ -7594,12 +8613,147 @@ function renderAttachmentsInto(wrapEl, data) {
   });
 }
 
-function initSubmitGate() {
-  const titleInput = document.getElementById('titleInput');
-  const submitBtn = document.getElementById('submitBtn');
-  titleInput.addEventListener('input', () => {
-    submitBtn.disabled = titleInput.value.trim().length === 0;
+/* A title is the whole gate: it is the one thing every card needs and the one
+   thing no field set can be missing. Bound on the container rather than the
+   input itself, because the body fields are torn down and rebuilt whenever the
+   type or the language changes and a listener on a replaced element goes with
+   it. */
+/* ======================================================================
+   Live preview
+   ----------------------------------------------------------------------
+   The same .card-media / .card-scrim / .card-content pieces a real poster is
+   made of, at whatever size the right column happens to be — not a separate
+   "preview" component that would drift away from the thing it previews the
+   first time either changed.
+
+   It shows the title, the type and the studio always, and then ONLY the field
+   the caret is in. Showing the whole body would make this a second, smaller
+   copy of the form already filling the left two-thirds of the screen; the
+   question a preview answers is "how does the sentence I am typing right now
+   read on a card", and that question has one field in it.
+   ====================================================================== */
+let previewFocusKey = null;
+
+function setPreviewFocus(key) {
+  if (!key || key === previewFocusKey) return;
+  const box = document.getElementById('previewFocus');
+  if (!box) return;
+
+  // Out, swap, back in — a hard cut between two paragraphs of somebody's own
+  // writing reads as a glitch rather than as a change of subject.
+  box.classList.add('is-swapping');
+  window.setTimeout(() => {
+    previewFocusKey = key;
+    paintPreviewFocus();
+    box.classList.remove('is-swapping');
+  }, 180);
+}
+
+function paintPreviewFocus() {
+  const key = previewFocusKey || fieldsFor(selectedType)[0];
+  const strings = fieldStrings(selectedType, key);
+  const area = document.getElementById('field_' + key);
+
+  document.getElementById('previewFocusLabel').textContent = strings.label;
+  const textEl = document.getElementById('previewFocusText');
+  // textContent, never innerHTML: this is the author's own prose going onto a
+  // surface. The CSS carries white-space: pre-wrap, so their line breaks show.
+  textEl.textContent = area ? area.value : '';
+  textEl.dataset.placeholder = t().previewEmptyField;
+}
+
+function refreshPreview() {
+  const card = document.getElementById('previewCard');
+  if (!card) return;
+
+  const studio = STUDIOS[MY_STUDIO_KEY];
+  const title = document.getElementById('titleInput');
+
+  document.getElementById('previewDot').style.background = studio.color;
+  document.getElementById('previewStudio').textContent = studio.name;
+  document.getElementById('previewType').textContent = t().types[selectedType];
+
+  const titleEl = document.getElementById('previewTitle');
+  titleEl.textContent = title ? title.value.trim() : '';
+  titleEl.dataset.placeholder = t().previewTitlePlaceholder;
+
+  const icon = document.getElementById('previewMediaIcon');
+  icon.innerHTML = ICONS[selectedType];
+  icon.style.color = studio.color;
+
+  const media = document.getElementById('previewMedia');
+  applyCardMedia(media, selectedImageUrl, studio.color, selectedImageFocal);
+  card.classList.toggle('has-image', !!selectedImageUrl);
+  media.classList.toggle('has-image-draggable', !!selectedImageUrl);
+
+  // If the caret has never been in a field, show the first one — an empty
+  // preview body on a fresh form says nothing about what the preview is for.
+  if (!previewFocusKey) previewFocusKey = fieldsFor(selectedType)[0];
+  paintPreviewFocus();
+}
+
+/* Dragging the preview moves the image inside its frame, and that position is
+   stored on the card. A poster, the cover banner and the detail hero are three
+   different aspect ratios: a face centred in one slides out of frame in
+   another, and "upload it again, cropped differently" is not a fix. Pointer
+   Events with capture, so a drag that leaves the element still tracks. */
+function initPreviewImageDrag() {
+  const media = document.getElementById('previewMedia');
+  if (!media) return;
+
+  let dragging = false;
+  let startX = 0, startY = 0, startPos = null;
+
+  media.addEventListener('pointerdown', (e) => {
+    if (!selectedImageUrl) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startPos = Object.assign({}, selectedImageFocal);
+    media.setPointerCapture(e.pointerId);
+    media.classList.add('is-dragging');
   });
+
+  media.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const r = media.getBoundingClientRect();
+    // 1:1 against the frame: dragging halfway across the box moves the crop
+    // halfway across its travel, which is the only mapping that feels like
+    // moving the picture rather than nudging a slider.
+    const dx = ((e.clientX - startX) / Math.max(1, r.width)) * 100;
+    const dy = ((e.clientY - startY) / Math.max(1, r.height)) * 100;
+    selectedImageFocal = {
+      x: Math.max(0, Math.min(100, startPos.x - dx)),
+      y: Math.max(0, Math.min(100, startPos.y - dy)),
+    };
+    media.style.backgroundPosition = focalPointCss(selectedImageFocal);
+  });
+
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    media.classList.remove('is-dragging');
+    if (e.pointerId !== undefined && media.hasPointerCapture(e.pointerId)) {
+      media.releasePointerCapture(e.pointerId);
+    }
+  };
+  media.addEventListener('pointerup', end);
+  media.addEventListener('pointercancel', end);
+}
+
+function initSubmitGate() {
+  const step = document.getElementById('stepCompose');
+  step.addEventListener('input', updateSubmitGate);
+  const title = document.getElementById('titleInput');
+  title.addEventListener('input', refreshPreview);
+  // the title is always shown, so focusing it leaves the body panel on
+  // whatever field was last edited rather than blanking it
+  title.addEventListener('focus', () => setPreviewFocus(fieldsFor(selectedType)[0]));
+}
+
+function updateSubmitGate() {
+  const title = document.getElementById('titleInput');
+  document.getElementById('submitBtn').disabled = !title || title.value.trim().length === 0;
 }
 
 /* ---- STEP 1 <-> STEP 2/3, in place, no reload ---- */
@@ -7663,29 +8817,29 @@ function goToComposeStep() {
 function resetComposeForm() {
   const titleInput = document.getElementById('titleInput');
   const submitBtn = document.getElementById('submitBtn');
-  const tagWrap = document.getElementById('tagWrap');
+
 
   titleInput.value = '';
-  document.getElementById('problemInput').value = '';
-  document.getElementById('triedInput').value = '';
-  document.getElementById('resultInput').value = '';
-
-  tags.length = 0;
-  tagWrap.querySelectorAll('.tag-chip').forEach((chip) => chip.remove());
-
   selectedType = 'project';
+  selectedAskedTo = 'all';
   document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.type === selectedType);
   });
-  updateComposeFieldsForType();
+  renderAskedToPicker();
+  renderComposeFields();
+  updateComposeChrome();
 
-  submitBtn.disabled = true;
+  updateSubmitGate();
 
   selectedImageUrl = null;
+  selectedImageName = '';
+  selectedImageFocal = { x: 50, y: 50 };
   setUploadPreview(null);
 
   attachedFiles = [];
   renderAttachmentList();
+  setPreviewFocus(fieldsFor(selectedType)[0]);
+  refreshPreview();
 
   // Compose is a persistent, hidden-not-recreated element (see enterShareMode/
   // goToComposeStep, both of which call this) — without resetting scrollTop
@@ -7716,30 +8870,37 @@ function prefillComposeFrom(card) {
   const text = card.text || {};
   const title = text.title || '';
   document.getElementById('titleInput').value = title;
-  document.getElementById('problemInput').value = text.problem || '';
-  document.getElementById('triedInput').value = text.tried || '';
-  document.getElementById('resultInput').value = text.result || '';
 
   selectedType = card.type || 'project';
+  selectedAskedTo = card.askedTo || 'all';
   document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.type === selectedType);
   });
-  updateComposeFieldsForType();
+  renderAskedToPicker();
+
+  // bodyValue, not text[key] — a seed card being edited still carries the old
+  // three slots, and the form has to load what is actually in it.
+  const values = {};
+  fieldsFor(selectedType).forEach((key) => { values[key] = bodyValue(text, selectedType, key); });
+  renderComposeFields(values);
+  updateComposeChrome();
 
   selectedImageUrl = card.image || null;
+  selectedImageName = card.imageName || '';
+  selectedImageFocal = Object.assign({ x: 50, y: 50 }, card.imageFocal || {});
   setUploadPreview(selectedImageUrl);
 
   attachedFiles = (card.attachments || []).slice();
   renderAttachmentList();
+  setPreviewFocus(fieldsFor(selectedType)[0]);
+  refreshPreview();
 
-  // resetComposeForm disabled it; the gate is "there is a title" either way
-  // (see initSubmitGate), and an existing card always has one.
-  document.getElementById('submitBtn').disabled = title.trim().length === 0;
+  updateSubmitGate(); // an existing card always has a title, but say so once
 }
 
 function enterEditMode(cardId) {
-  const card = sharedCards.find((c) => c.id === cardId);
-  if (!card) return;
+  const card = sharedCards.find((c) => c.id === cardId) || ALL_CARDS.find((c) => c.id === cardId);
+  if (!card || !canEditCard(card)) return;
   editingCardId = cardId;
 
   // Close the detail first, then open Share — two surfaces can't both hold the
@@ -7770,26 +8931,61 @@ function applyEditModeLabels() {
 // Writes the edited fields back onto the card already in the gallery, in place,
 // so its position and everything attached to it survive the edit.
 function commitCardEdit() {
-  const card = sharedCards.find((c) => c.id === editingCardId);
+  const id = editingCardId;
   editingCardId = null;
-  if (!card) return;
+  if (!id) return;
 
-  const isOpenQ = selectedType === 'question';
   const title = document.getElementById('titleInput').value.trim();
-  const problem = document.getElementById('problemInput').value.trim();
-  const tried = document.getElementById('triedInput').value.trim();
-  // A Question has no result — the hidden field's stale value never ships.
-  const result = isOpenQ ? '' : document.getElementById('resultInput').value.trim();
+  const body = readComposeFields();
+
+  const card = sharedCards.find((c) => c.id === id);
+  if (!card) { commitSeedCardEdit(id, title, body); return; }
 
   card.type = selectedType;
+  card.askedTo = selectedType === 'question' ? selectedAskedTo : undefined;
   card.image = selectedImageUrl;
+  card.imageName = selectedImageName;
+  card.imageFocal = Object.assign({}, selectedImageFocal);
   card.attachments = attachedFiles.slice();
   card.sourceLang = currentLang;
-  card.text = { title, summary: truncateForSummary(result || tried || problem || title, 100), problem, tried, result };
+  // The moment it last changed, so a reader can tell a correction from the
+  // original — see renderEditedStamp.
+  card.editedAt = nowStamp();
+  card.text = Object.assign({ title, summary: composeSummary(title, body) }, body);
 
   if (writeSharedCards(sharedCards)) showToast(t().editSaved);
   else showToast(t().share.storageFailed);
 
+  rebuildAllSurfaces();
+}
+
+// Same edit, stored as a patch over the seed instead of in place — see the
+// note above SEED_EDITS_STORAGE_KEY.
+function commitSeedCardEdit(id, title, body) {
+  const original = ALL_CARDS.find((c) => c.id === id);
+  if (!original) return;
+
+  const patch = {
+    type: selectedType,
+    image: selectedImageUrl,
+    imageName: selectedImageName,
+    imageFocal: Object.assign({}, selectedImageFocal),
+    attachments: attachedFiles.slice(),
+    sourceLang: currentLang,
+    editedAt: nowStamp(),
+    text: Object.assign({ title, summary: composeSummary(title, body) }, body),
+  };
+  if (selectedType === 'question') patch.askedTo = selectedAskedTo;
+
+  if (saveSeedEdit(id, patch)) showToast(t().editSaved);
+  else showToast(t().share.storageFailed);
+
+  rebuildAllSurfaces();
+}
+
+// The three floors all read from ALL_CARDS, so anything that changes a card
+// has to rebuild all three or two of them quietly disagree with the third.
+function rebuildAllSurfaces() {
   ALL_CARDS = buildAllCards();
   renderDiscover();
   renderBrowse();
@@ -7799,6 +8995,24 @@ function commitCardEdit() {
 /* ---- hand the composed card to the gallery itself — no page, no reload ---- */
 // (SHARED_CARDS_STORAGE_KEY is declared up in section 2b, alongside loadSharedCards())
 
+/* An absolute timestamp, so "edited 4 minutes ago" can still be worked out
+   after a reload. Stored as a number rather than a formatted string — the
+   reader may be in a different language by the time they see it. */
+function nowStamp() { return Date.now(); }
+
+/* The one-line summary shown on a card face. Built from the last field with
+   anything in it, working backwards: the end of a piece of knowledge (what we
+   learned, what others can borrow) says more on a poster than its opening
+   problem statement does. */
+function composeSummary(title, body) {
+  const keys = fieldsFor(selectedType);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const v = (body[keys[i]] || '').trim();
+    if (v) return truncateForSummary(v, 100);
+  }
+  return truncateForSummary(title, 100);
+}
+
 function truncateForSummary(text, max) {
   const trimmed = text.trim();
   return trimmed.length > max ? trimmed.slice(0, max - 1).trim() + '…' : trimmed;
@@ -7807,12 +9021,9 @@ function truncateForSummary(text, max) {
 function buildSharedCardEntry() {
   const isOpenQ = selectedType === 'question';
   const title = document.getElementById('titleInput').value.trim();
-  const problem = document.getElementById('problemInput').value.trim();
-  const tried = document.getElementById('triedInput').value.trim();
-  // The result field is hidden (and irrelevant) for a Question — there's no
-  // result yet, that's the whole point — so its stale value never ships.
-  const result = isOpenQ ? '' : document.getElementById('resultInput').value.trim();
-  const summarySource = result || tried || problem || title;
+  // Only the fields this type actually has — renderComposeFields built them,
+  // so a project's "constraints" can't leak into a question.
+  const body = readComposeFields();
   return {
     id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
@@ -7829,12 +9040,19 @@ function buildSharedCardEntry() {
     // A freshly posted Question is always awaiting an answer, and starts
     // its own conversation with just the opening post.
     status: isOpenQ ? 'open' : undefined,
-    conversation: isOpenQ ? [{ author: 'You', studio: MY_STUDIO_KEY, justNow: true, text: problem || title }] : undefined,
+    // Who it is addressed to. Questions aimed at your own studio sort to the
+    // front of floor 3 — see sortQuestionsForMe.
+    askedTo: isOpenQ ? selectedAskedTo : undefined,
+    conversation: isOpenQ
+      ? [{ author: 'You', studio: MY_STUDIO_KEY, justNow: true, text: (body.blocked || title) }]
+      : undefined,
     // Not a real translation — see LANG_PENDING note near renderCardLangBadge.
     sourceLang: currentLang,
     image: selectedImageUrl,
+    imageName: selectedImageName,
+    imageFocal: Object.assign({}, selectedImageFocal),
     attachments: attachedFiles.slice(),
-    text: { title, summary: truncateForSummary(summarySource, 100), problem, tried, result },
+    text: Object.assign({ title, summary: composeSummary(title, body) }, body),
   };
 }
 
@@ -8353,7 +9571,21 @@ function startWeaveSequence() {
   const confirmDelay = Math.max(CONFIG.CONFIRM_MIN_DELAY, lastConnectFinish + CONFIG.CONFIRM_DELAY_AFTER_CONNECT);
 
   setTimeout(() => caption.classList.remove('is-visible'), confirmDelay - 250);
-  setTimeout(() => confirm.classList.add('is-visible'), confirmDelay);
+  setTimeout(() => {
+    paintWeaveState();
+    confirm.classList.add('is-visible');
+  }, confirmDelay);
+}
+
+/* The state of the card that was just shared. It is always zero and zero at
+   this point — the value is in saying so out loud, and in naming where the
+   answer will show up, rather than leaving the reader to wonder whether
+   anything is supposed to have happened yet. */
+function paintWeaveState() {
+  const s = t().share.weaveState;
+  document.getElementById('weaveStateReactions').textContent = s.reactions(0);
+  document.getElementById('weaveStateApplied').textContent = s.applied(0);
+  document.getElementById('weaveStateNote').textContent = s.note;
 }
 
 function initShareAnother() {
@@ -8388,24 +9620,27 @@ function refreshShareText() {
     const label = btn.querySelector('.type-pill-label');
     if (label) label.textContent = t().types[btn.dataset.type];
   });
-  setText('problemFieldLabel', s.problemLabel);
-  const problemInput = document.getElementById('problemInput');
-  if (problemInput) problemInput.placeholder = s.problemPlaceholder;
-  setText('triedFieldLabel', s.triedLabel);
-  const triedInput = document.getElementById('triedInput');
-  if (triedInput) triedInput.placeholder = s.triedPlaceholder;
-  setText('resultFieldLabel', s.resultLabel);
-  const resultInput = document.getElementById('resultInput');
-  if (resultInput) resultInput.placeholder = s.resultPlaceholder;
-  updateComposeFieldsForType(); // may override the problem/tried labels above + hide result for Open Question
-  setText('tagsFieldLabel', s.tagsLabel);
-  const tagInput = document.getElementById('tagInput');
-  if (tagInput) tagInput.placeholder = s.tagsPlaceholder;
+  // The body fields are built per type and carry their own labels and
+  // placeholders (see renderComposeFields), so a language switch re-renders
+  // them rather than writing into ids that only exist for one type. Whatever
+  // is already typed is carried across — switching language mid-sentence must
+  // not empty the form.
+  renderComposeFields(readComposeFields());
+  setText('askedToLabel', t().askedTo.label);
+  renderAskedToPicker();
+  updateComposeChrome();
+
+  setText('previewLabel', t().previewLabel);
+  setText('previewDragHint', t().previewDragHint);
+  refreshPreview();
+
   setText('imageFieldLabel', s.imageLabel);
   setText('imageOptionalLabel', s.imageOptional);
   setText('uploadHintLabel', s.uploadHint);
-  setText('uploadReplaceBtn', s.imageReplace);
-  setText('uploadRemoveBtn', s.imageRemove);
+  // aria-label only — this button's content is an inline SVG, and writing
+  // textContent into it (even the empty string) deletes the mark.
+  const removeBtn = document.getElementById('uploadRemoveBtn');
+  if (removeBtn) removeBtn.setAttribute('aria-label', s.imageRemove);
   setText('attachmentsFieldLabel', s.attachmentsLabel);
   setText('attachmentsOptionalLabel', s.imageOptional);
   setText('attachmentHintLabel', s.attachmentsHint);
@@ -8629,10 +9864,10 @@ safeInit('card expand', initExpandCard);
 safeInit('card delete', initDeleteCard);
 safeInit('question detail', initQuestionDetail);
 safeInit('type picker', renderTypePicker);
-safeInit('tag input', initTagInput);
 safeInit('upload stub', initUploadStub);
 safeInit('attachment upload', initAttachmentUpload);
 safeInit('submit gate', initSubmitGate);
+safeInit('preview drag', initPreviewImageDrag);
 safeInit('submit handler', initSubmit);
 safeInit('weave canvas', initWeaveCanvas);
 safeInit('see full weave stub', initSeeFullWeave);
