@@ -25,6 +25,11 @@
        above them — and that exactness is what makes one wheel tick always land
        on exactly one floor (see initFeedWheelSnap). */
     --floor-h: 100vh;
+    /* Floor 1's lower band, shared by the Update strip and the banner caption
+       that has to stay clear of it. One pair of numbers, used by both, because
+       two independent guesses is how they end up overlapping. */
+    --now-lane-bottom: 62px;
+    --now-lane-height: 76px;
     /* the "scene change" arrival reveal (playArrivalReveal): a hard ease-out
        so each element launches and then settles for a long time, matching the
        floor tween's own character rather than drifting on its own schedule */
@@ -549,6 +554,10 @@
      content that overflows is handled *inside* the floor (a .floor-scroll
      region), never by making the floor itself taller */
   .discover-section, .browse-section, .questions-section {
+    /* relative, so anything absolutely positioned inside a floor anchors to
+       that floor. Without it the Update strip's `bottom` measured from the
+       bottom of the whole three-floor stage and landed 1800px off-screen. */
+    position: relative;
     height: var(--floor-h);
     overflow: hidden;
     display: flex;
@@ -623,7 +632,12 @@
     background: linear-gradient(to top, rgba(8, 8, 8, 0.9) 0%, rgba(8, 8, 8, 0.66) 34%, rgba(8, 8, 8, 0.12) 76%, rgba(8, 8, 8, 0) 100%);
   }
 
-  .hero-slide .card-content { padding: 0 max(5vw, 40px) clamp(76px, 11vh, 120px); max-width: min(1100px, 82%); }
+  /* the bottom padding is the Update strip's lane plus the dots' — the caption
+     stops above both rather than being trusted not to reach them */
+  .hero-slide .card-content {
+    padding: 0 max(5vw, 40px) calc(var(--now-lane-bottom) + var(--now-lane-height) + 26px);
+    max-width: min(1100px, 82%);
+  }
   .hero-slide .card-meta { margin-bottom: clamp(14px, 2.2vh, 26px); }
   .hero-slide .card-studio { font-size: clamp(14px, 1.15vw, 18px); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
   .hero-slide .card-type { font-size: clamp(11px, 0.9vw, 13px); padding: 6px 15px; }
@@ -1410,6 +1424,180 @@
     padding: clamp(26px, 3.6vh, 42px) clamp(22px, 2.2vw, 34px) 60px;
   }
   .expanded-pane-response .expanded-pane-inner { max-width: 520px; }
+
+  /* ======================================================================
+     Now — the Update strip
+     ----------------------------------------------------------------------
+     Pinned to the bottom of the banner, over the darkest part of the scrim,
+     and deliberately small. It is the sound of the place being lived in, not a
+     second headline: the moment this competes with the title above it, floor 1
+     stops being one clean thing.
+     ====================================================================== */
+  .now-strip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* The strip's lane. The banner's own caption reserves exactly this much
+       room below itself (see .hero-slide .card-content), so the title and the
+       strip can never land on each other whatever the window height. */
+    bottom: var(--now-lane-bottom);
+    z-index: 4;
+    padding: 0 max(5vw, 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* the banner behind stays clickable between items */
+  }
+  .now-strip > * { pointer-events: auto; }
+
+  .now-strip-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .now-strip-scroll::-webkit-scrollbar { display: none; }
+
+  .now-item {
+    flex: 0 0 auto;
+    max-width: min(38vw, 420px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: inherit;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.94);
+    cursor: pointer;
+    transition: background 0.24s ease, border-color 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .now-item:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.36); transform: translateY(-1px); }
+  .now-item .card-dot { width: 6px; height: 6px; flex-shrink: 0; box-shadow: none; }
+  .now-item-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now-item-time { flex-shrink: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); }
+  .now-strip-empty { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+
+  /* Whose turn. A sentence and a button, not a banner — the ask has to be
+     small enough that ignoring it costs nothing. */
+  .your-turn { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .your-turn-line { font-size: 12.5px; color: rgba(255, 255, 255, 0.78); }
+  .your-turn-cta {
+    padding: 6px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 999px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.22s ease, border-color 0.22s ease;
+  }
+  .your-turn-cta:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.7); }
+
+  /* On a Question cover the banner is paper, so the strip has to go dark-on-
+     light with it — see the tone system in updateChrome. */
+  .hero-slide.is-open-question ~ .now-strip .now-item,
+  .discover-section.on-light .now-item {
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--ink);
+  }
+  .discover-section.on-light .now-item-time { color: var(--ink-faint); }
+  .discover-section.on-light .now-strip-empty,
+  .discover-section.on-light .your-turn-line { color: var(--ink-dim); }
+  .discover-section.on-light .your-turn-cta { border-color: var(--border-strong); color: var(--ink); }
+  .discover-section.on-light .your-turn-cta:hover { background: rgba(20, 20, 20, 0.06); }
+
+  /* ---------- what came of a card ----------
+     One line, in the quiet colour, under the title. No number in bold and no
+     icon: the moment this looks like a stat it becomes a thing to be top of. */
+  .exchange-trace {
+    margin-top: 9px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .question-card .exchange-trace,
+  .poster-card.is-open-question .exchange-trace { color: var(--ink-faint); }
+
+  /* floor 3's dock line — the one place a count belongs, because it is a
+     count of things waiting on YOU rather than a count of your output */
+  .needs-you-line {
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    padding: 5px 8px;
+    white-space: nowrap;
+  }
+  .needs-you-line.is-wanted { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Share, in Update mode ----------
+     Fewer things on screen, and the one box is bigger. The form should look
+     like less work than the others, because it is. */
+  /* A box the size of what it is asking for. The other types let their fields
+     share the leftover height, which for a single one-line field meant a 540px
+     void under one sentence — a form that looks like it wants an essay, which
+     is the exact thing this type exists to avoid. */
+  .step-compose.is-update .compose-fields { flex: 0 0 auto; }
+  .step-compose.is-update .compose-fields .field { flex: 0 0 auto; }
+  .step-compose.is-update .compose-fields textarea {
+    flex: 0 0 auto;
+    min-height: 92px;
+    max-height: 130px;
+  }
+  .step-compose.is-update .compose-left { gap: 20px; }
+  /* The whole form is a short cluster at the top and then it stops. The link
+     was pushed to the bottom of the column, which left a void in the middle
+     and made the last field look like something you had missed. */
+  .step-compose.is-update .compose-left { justify-content: flex-start; }
+
+  .field-link input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.25s ease;
+  }
+  .field-link input:focus { border-color: var(--border-strong); }
+  .field-link input::placeholder { color: var(--ink-faint); }
+
+  /* a link on an Update's detail */
+  .detail-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 18px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    text-decoration: none;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .detail-link:hover { border-color: var(--border-strong); color: var(--ink); }
+  .detail-link svg { width: 14px; height: 14px; }
+
+  /* ---------- since your last visit ---------- */
+  .for-you-section-label {
+    padding: 10px 14px 6px;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+  .for-you-since-none { margin: 0; padding: 4px 14px 12px; font-size: 12.5px; color: var(--ink-faint); }
 
   /* ======================================================================
      For you — the indicator, its arrival preview, and the panel
@@ -3760,6 +3948,7 @@
     </div>
 
     <div class="floor-dock-group" id="dockQuestions">
+      <span class="needs-you-line" id="needsYouLine"></span>
       <button type="button" class="author-chip" id="authorChipQuestions" style="display:none;">
         <span class="author-chip-avatar" id="authorChipQuestionsAvatar"></span>
         <span class="author-chip-label" id="authorChipQuestionsLabel"></span>
@@ -3792,6 +3981,18 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div class="hero-dots" id="heroDots"></div>
+      </div>
+
+      <!-- Thin, and under the banner rather than over it: this is the sound of
+           the place being lived in, not a second headline competing with the
+           first. -->
+      <div class="now-strip" id="nowStrip">
+        <div class="now-strip-scroll" id="nowStripRow"></div>
+        <p class="now-strip-empty" id="nowStripEmpty"></p>
+        <div class="your-turn">
+          <span class="your-turn-line" id="yourTurnLine"></span>
+          <button type="button" class="your-turn-cta" id="yourTurnCta"></button>
+        </div>
       </div>
     </section>
 
@@ -3956,7 +4157,7 @@
              by renderComposeFields() from the type you chose, so an experiment
              is asked about its method and a project about its constraints. -->
         <div class="compose-left">
-          <div class="field field-title">
+          <div class="field field-title" id="titleField">
             <input id="titleInput" type="text" autocomplete="off" />
           </div>
 
@@ -3973,6 +4174,12 @@
           </div>
 
           <div class="compose-fields" id="composeFields"></div>
+
+          <!-- Updates only: somewhere to look, if there is somewhere to look. -->
+          <div class="field field-link" id="linkField" style="display:none;">
+            <div class="field-label" id="linkFieldLabel"></div>
+            <input id="linkInput" type="url" autocomplete="off" />
+          </div>
         </div>
 
         <!-- RIGHT — what it will look like, and the two things you attach to
@@ -4135,6 +4342,11 @@
 
         <!-- The lightest layer: for when even "same problem here" is more
              than you mean. Separate from the three reactions on the right. -->
+        <a class="detail-link reveal-on-open" id="detailLink" target="_blank" rel="noopener noreferrer" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+          <span id="detailLinkLabel"></span>
+        </a>
+
         <div class="body-emoji reveal-on-open" id="bodyEmojiRow"></div>
 
         <div class="expanded-section reveal-on-open" id="attachmentsSection" style="display:none;">
@@ -4339,12 +4551,53 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Search knowledge',
       filterAll: 'All',
-      types: { project: 'Project', experiment: 'Experiment', question: 'Question' },
+      types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { newest: 'New knowledge', browse: 'Browse everything', question: 'Questions', designers: 'Designers', tools: 'Tools' },
+      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', designers: 'Designers', tools: 'Tools' },
+      // ---- Update: the whole point is that this copy gives permission ----
+      updateType: 'Update',
+      updateMode: {
+        heading: 'What are you up to?',
+        intro: "It doesn't have to be finished. A line about what you're working on, what's interesting, or what's stuck.",
+        submitButton: 'Post it',
+        submitHint: 'One line is enough.',
+        previewPlaceholder: 'Your line will appear here',
+      },
+      linkLabel: 'Link',
+      linkOptional: 'optional',
+      linkPlaceholder: 'figma.com/… or anywhere worth a look',
+      openLink: 'Open link',
+      nowStrip: {
+        empty: 'No updates yet this week.',
+        yourTurnWith: (who, studio) => `${who} at ${studio} just posted. What is ${STUDIOS[MY_STUDIO_KEY].name} up to?`,
+        yourTurnFirst: 'Nobody has posted this week. Go first?',
+        cta: 'Share an update',
+      },
+      // ---- what came of a card. Never a score, never bold. ----
+      trace: {
+        answeredBy: (studio, n) => `${studio} answered ${n} ${n > 1 ? 'times' : 'time'}`,
+        pickedUpBy: (studio) => `${studio} picked this up`,
+        usedIn: (n) => `Used in ${n} ${n > 1 ? 'projects' : 'project'}`,
+        testing: (studio) => `${studio} is testing this`,
+        needsView: (studio) => `${studio}'s view would help here`,
+        resolvedWith: (n) => `Resolved with ${n} ${n > 1 ? 'answers' : 'answer'}`,
+        sameProblem: (studio) => `${studio} has hit this too`,
+      },
+      needsYou: {
+        count: (n) => `${n} ${n > 1 ? 'questions want' : 'question wants'} ${STUDIOS[MY_STUDIO_KEY].name}'s view`,
+        none: 'Nothing is waiting on you right now.',
+        badge: (studio) => `Needs ${studio}'s perspective`,
+      },
+      sinceLastVisit: {
+        title: 'Since your last visit',
+        none: 'Nothing new since you were last here.',
+      },
       // What each kind of card is asked, and the example that shows the kind
       // of answer that is actually useful to another studio.
       fields: {
+        update: {
+          note: { label: 'In one line', placeholder: "Trying a new onboarding flow this week — the first screen is still fighting us." },
+        },
         project: {
           made: { label: 'What we made', placeholder: 'The thing itself — a flow, a screen, a system. One or two sentences.' },
           constraints: { label: 'Constraints we had', placeholder: 'Deadline, platform, team size, legal, an engine limit — whatever shaped the decision.' },
@@ -4618,16 +4871,58 @@ const TRANSLATIONS = {
       { title: 'Should push opt-in prompts appear before or after the first reward?', summary: 'Where you ask changes how the ask feels.', problem: "We couldn't tell whether asking for notification permission before or after a player's first reward moment mattered for opt-in.", tried: 'Ran the same prompt copy in both positions across two matched cohorts for three weeks.', result: 'After-reward placement won by a wide margin. Asking before the first reward reads as a demand; asking after reads as an invitation.' },
       { title: 'July Studio Drop — Whow Games', summary: 'What we built, what failed, and what we learned this month.', problem: 'Monthly progress was scattered across standups and Slack threads, with no single place for the rest of the company to see it.', tried: 'Shipped a new merge-event calendar, tested three onboarding variants, and reworked the daily login rewards.', result: 'The onboarding rework is the clear winner and rolls out company-wide next month. The merge-event calendar underperformed and is getting cut.' },
       { title: 'Creative Relay #01', summary: 'Started by DoubleU Games · Continued by Whow Games.', problem: 'Good half-finished ideas usually die inside one studio instead of getting a second look from another.', tried: 'DoubleU posted a rough concept for a co-op mini-event; Whow Games picked it up and reworked the reward structure around it.', result: "The reworked version is now in Whow's test build — passing it forward again to see how far it travels." },
+      { title: 'Rebuilding the daily-reward screen — the timer is the whole fight', summary: 'Rebuilding the daily-reward screen — the timer is the whole fight', note: 'Rebuilding the daily-reward screen this week. The countdown timer is turning out to be the whole design problem: too prominent and it nags, too quiet and nobody comes back.' },
+      { title: 'Trying a shorter tutorial. Day-2 numbers look odd so far', summary: 'Trying a shorter tutorial. Day-2 numbers look odd so far', note: 'Trying a much shorter tutorial. Day-2 return looks fine but day-3 dropped, so we may just have moved the drop-off rather than removed it. Watching it another week before we say anything.' },
+      { title: 'Our new icon set is 40% smaller after one pass with an optimiser', summary: 'Our new icon set is 40% smaller after one pass with an optimiser', note: 'Ran the whole icon set through an SVG optimiser and it came out 40% smaller with no visible difference. Nothing clever, just nobody had done it.' },
     ],
   },
   ko: {
     ui: {
       searchPlaceholder: '지식 검색',
       filterAll: '전체',
-      types: { project: '프로젝트', experiment: '실험', question: '질문' },
+      types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { newest: '새로 올라온 지식', browse: '전체 둘러보기', question: '질문', designers: '디자이너', tools: '툴' },
+      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', designers: '디자이너', tools: '툴' },
+      updateType: '업데이트',
+      updateMode: {
+        heading: '요즘 뭐 하고 있어요?',
+        intro: '완성되지 않아도 괜찮아요. 지금 하고 있는 걸 짧게 알려주세요.',
+        submitButton: '올리기',
+        submitHint: '한 줄이면 충분해요.',
+        previewPlaceholder: '쓴 한 줄이 여기 보입니다',
+      },
+      linkLabel: '링크',
+      linkOptional: '선택',
+      linkPlaceholder: 'figma.com/… 또는 볼 만한 곳',
+      openLink: '링크 열기',
+      nowStrip: {
+        empty: '이번 주엔 아직 소식이 없어요.',
+        yourTurnWith: (who, studio) => `${studio}의 ${who}가 방금 소식을 남겼어요. ${STUDIOS[MY_STUDIO_KEY].name}는 지금 뭘 하고 있나요?`,
+        yourTurnFirst: '이번 주엔 아직 아무도 남기지 않았어요. 먼저 남겨볼까요?',
+        cta: '업데이트 남기기',
+      },
+      trace: {
+        answeredBy: (studio, n) => `${studio}가 ${n}번 답했어요`,
+        pickedUpBy: (studio) => `${studio}가 이어받았어요`,
+        usedIn: (n) => `${n}개 프로젝트에 쓰였어요`,
+        testing: (studio) => `${studio}가 테스트 중`,
+        needsView: (studio) => `${studio}의 의견이 필요해요`,
+        resolvedWith: (n) => `답변 ${n}개로 해결됨`,
+        sameProblem: (studio) => `${studio}도 같은 일을 겪었어요`,
+      },
+      needsYou: {
+        count: (n) => `${STUDIOS[MY_STUDIO_KEY].name}의 의견이 필요한 질문 ${n}개`,
+        none: '지금 당신을 기다리는 건 없어요.',
+        badge: (studio) => `${studio}의 의견이 필요해요`,
+      },
+      sinceLastVisit: {
+        title: '지난 방문 이후',
+        none: '마지막으로 다녀간 뒤로 새로운 건 없어요.',
+      },
       fields: {
+        update: {
+          note: { label: '한 줄로', placeholder: '이번 주에 새 온보딩 플로우를 시도 중이에요 — 첫 화면이 아직 잘 안 풀려요.' },
+        },
         project: {
           made: { label: '무엇을 만들었나', placeholder: '만든 것 자체 — 플로우, 화면, 시스템. 한두 문장으로.' },
           constraints: { label: '어떤 제약이 있었나', placeholder: '기한, 플랫폼, 인원, 법무, 엔진 한계 — 판단을 좌우한 조건.' },
@@ -4899,16 +5194,58 @@ const TRANSLATIONS = {
       { title: '푸시 알림 동의 요청, 첫 보상 전에 할까 후에 할까?', summary: '언제 묻는지가 어떻게 느껴지는지를 바꿉니다.', problem: '첫 보상 순간 전과 후 중 언제 알림 권한을 요청하는 게 동의율에 영향을 주는지 알 수 없었습니다.', tried: '동일한 문구로 두 위치를 매칭된 두 코호트에 3주간 테스트했습니다.', result: '보상 이후 요청이 큰 차이로 이겼습니다. 첫 보상 전 요청은 요구처럼 느껴지고, 이후 요청은 초대처럼 느껴집니다.' },
       { title: '7월 스튜디오 드롭 — Whow Games', summary: '이번 달 만든 것, 실패한 것, 배운 것.', problem: '매달의 진행 상황이 스탠드업과 슬랙 대화방에 흩어져 있어서, 회사 전체가 한눈에 볼 곳이 없었습니다.', tried: '새 머지 이벤트 캘린더를 출시하고, 온보딩 3가지 버전을 테스트했고, 일일 로그인 보상을 다시 설계했습니다.', result: '온보딩 개편이 확실한 승자로, 다음 달 전사 적용됩니다. 머지 이벤트 캘린더는 성과가 낮아 폐기하기로 했습니다.' },
       { title: '크리에이티브 릴레이 #01', summary: 'DoubleU Games가 시작 · Whow Games가 이어감.', problem: '좋은 아이디어라도 반쯤 완성된 상태에서 한 스튜디오 안에만 머물다 사라지는 경우가 많습니다.', tried: 'DoubleU가 협동 미니 이벤트의 초안 컨셉을 올렸고, Whow Games가 이를 이어받아 보상 구조를 다시 설계했습니다.', result: '다시 설계된 버전이 지금 Whow의 테스트 빌드에 들어가 있습니다 — 이걸 또 다음 스튜디오로 넘겨볼 예정입니다.' },
+      { title: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', summary: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', note: '이번 주에 일일 보상 화면을 다시 만들고 있어요. 카운트다운 타이머가 사실상 디자인 문제 전부예요. 너무 눈에 띄면 잔소리 같고, 너무 조용하면 아무도 안 돌아와요.' },
+      { title: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', summary: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', note: '튜토리얼을 많이 줄여봤어요. 2일차 복귀는 괜찮은데 3일차가 떨어져서, 이탈을 없앤 게 아니라 옮긴 것일 수도 있어요. 일주일 더 보고 얘기하려고요.' },
+      { title: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', summary: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', note: 'SVG 최적화를 아이콘 세트 전체에 한 번 돌렸더니 눈에 띄는 차이 없이 용량이 40% 줄었어요. 대단한 건 아니고, 그냥 아무도 안 해봤던 거예요.' },
     ],
   },
   de: {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
       filterAll: 'Alle',
-      types: { project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
+      types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { newest: 'Neues Wissen', browse: 'Alles durchsehen', question: 'Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      updateType: 'Update',
+      updateMode: {
+        heading: 'Woran arbeitest du gerade?',
+        intro: 'Es muss nicht fertig sein. Eine Zeile darüber, woran du arbeitest, was interessant ist oder wo es hakt.',
+        submitButton: 'Posten',
+        submitHint: 'Eine Zeile reicht.',
+        previewPlaceholder: 'Deine Zeile erscheint hier',
+      },
+      linkLabel: 'Link',
+      linkOptional: 'optional',
+      linkPlaceholder: 'figma.com/… oder wo es sich zu schauen lohnt',
+      openLink: 'Link öffnen',
+      nowStrip: {
+        empty: 'Diese Woche noch keine Updates.',
+        yourTurnWith: (who, studio) => `${who} von ${studio} hat gerade etwas gepostet. Was macht ${STUDIOS[MY_STUDIO_KEY].name} gerade?`,
+        yourTurnFirst: 'Diese Woche hat noch niemand gepostet. Den Anfang machen?',
+        cta: 'Update teilen',
+      },
+      trace: {
+        answeredBy: (studio, n) => `${studio} hat ${n}-mal geantwortet`,
+        pickedUpBy: (studio) => `${studio} hat das aufgegriffen`,
+        usedIn: (n) => `In ${n} ${n > 1 ? 'Projekten' : 'Projekt'} verwendet`,
+        testing: (studio) => `${studio} testet das gerade`,
+        needsView: (studio) => `Die Sicht von ${studio} würde hier helfen`,
+        resolvedWith: (n) => `Mit ${n} ${n > 1 ? 'Antworten' : 'Antwort'} gelöst`,
+        sameProblem: (studio) => `${studio} kennt das auch`,
+      },
+      needsYou: {
+        count: (n) => `${n} ${n > 1 ? 'Fragen warten' : 'Frage wartet'} auf die Sicht von ${STUDIOS[MY_STUDIO_KEY].name}`,
+        none: 'Gerade wartet nichts auf dich.',
+        badge: (studio) => `Braucht die Sicht von ${studio}`,
+      },
+      sinceLastVisit: {
+        title: 'Seit deinem letzten Besuch',
+        none: 'Seit deinem letzten Besuch ist nichts Neues passiert.',
+      },
       fields: {
+        update: {
+          note: { label: 'In einer Zeile', placeholder: 'Diese Woche testen wir einen neuen Onboarding-Flow — der erste Screen macht noch Ärger.' },
+        },
         project: {
           made: { label: 'Was wir gebaut haben', placeholder: 'Die Sache selbst — ein Flow, ein Screen, ein System. Ein oder zwei Sätze.' },
           constraints: { label: 'Unsere Einschränkungen', placeholder: 'Deadline, Plattform, Teamgröße, Recht, ein Engine-Limit — was die Entscheidung geprägt hat.' },
@@ -5180,16 +5517,58 @@ const TRANSLATIONS = {
       { title: 'Sollte die Push-Opt-in-Abfrage vor oder nach der ersten Belohnung kommen?', summary: 'Wann du fragst, verändert, wie sich das Fragen anfühlt.', problem: 'Wir wussten nicht, ob es für die Opt-in-Rate eine Rolle spielt, ob wir vor oder nach dem ersten Belohnungsmoment um die Benachrichtigungserlaubnis bitten.', tried: 'Denselben Abfragetext an beiden Stellen über zwei abgeglichene Kohorten drei Wochen lang getestet.', result: 'Die Platzierung nach der Belohnung gewann deutlich. Vor der ersten Belohnung zu fragen, wirkt wie eine Forderung; danach wie eine Einladung.' },
       { title: 'Studio Drop im Juli — Whow Games', summary: 'Was wir gebaut haben, was gescheitert ist, und was wir diesen Monat gelernt haben.', problem: 'Der monatliche Fortschritt war über Standups und Slack-Threads verstreut, ohne einen Ort, an dem der Rest des Unternehmens ihn sehen konnte.', tried: 'Wir haben einen neuen Merge-Event-Kalender veröffentlicht, drei Onboarding-Varianten getestet und die täglichen Login-Belohnungen überarbeitet.', result: 'Die überarbeitete Onboarding-Version ist der klare Gewinner und geht nächsten Monat unternehmensweit live. Der Merge-Event-Kalender lief schlecht und wird gestrichen.' },
       { title: 'Creative Relay #01', summary: 'Gestartet von DoubleU Games · Fortgeführt von Whow Games.', problem: 'Gute halbfertige Ideen sterben meist innerhalb eines Studios, statt von einem anderen noch einmal aufgegriffen zu werden.', tried: 'DoubleU postete ein grobes Konzept für ein Koop-Mini-Event; Whow Games griff es auf und überarbeitete die Belohnungsstruktur.', result: 'Die überarbeitete Version steckt jetzt in Whows Testbuild — wir geben sie als Nächstes weiter, um zu sehen, wie weit sie kommt.' },
+      { title: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', summary: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', note: 'Wir bauen diese Woche den Daily-Reward-Screen neu. Der Countdown-Timer ist praktisch das gesamte Designproblem: zu präsent und er nervt, zu leise und niemand kommt zurück.' },
+      { title: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', summary: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', note: 'Wir testen ein deutlich kürzeres Tutorial. Tag 2 sieht gut aus, aber Tag 3 ist gefallen — vielleicht haben wir den Absprung nur verschoben statt beseitigt. Wir schauen noch eine Woche zu.' },
+      { title: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', summary: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', note: 'Das ganze Icon-Set einmal durch einen SVG-Optimierer geschickt: 40% kleiner, kein sichtbarer Unterschied. Nichts Cleveres, es hatte nur nie jemand gemacht.' },
     ],
   },
   tr: {
     ui: {
       searchPlaceholder: 'Bilgi ara',
       filterAll: 'Tümü',
-      types: { project: 'Proje', experiment: 'Deney', question: 'Soru' },
+      types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { newest: 'Yeni bilgi', browse: 'Hepsine göz at', question: 'Sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      updateType: 'Güncelleme',
+      updateMode: {
+        heading: 'Şu sıralar ne yapıyorsunuz?',
+        intro: 'Bitmiş olması gerekmiyor. Üzerinde çalıştığınız, ilginç bulduğunuz ya da takıldığınız şeyi bir satırda yazın.',
+        submitButton: 'Paylaş',
+        submitHint: 'Bir satır yeter.',
+        previewPlaceholder: 'Satırınız burada görünecek',
+      },
+      linkLabel: 'Bağlantı',
+      linkOptional: 'isteğe bağlı',
+      linkPlaceholder: 'figma.com/… ya da bakmaya değer bir yer',
+      openLink: 'Bağlantıyı aç',
+      nowStrip: {
+        empty: 'Bu hafta henüz güncelleme yok.',
+        yourTurnWith: (who, studio) => `${studio} stüdyosundan ${who} az önce paylaştı. ${STUDIOS[MY_STUDIO_KEY].name} şu sıralar ne yapıyor?`,
+        yourTurnFirst: 'Bu hafta henüz kimse paylaşmadı. İlk siz olur musunuz?',
+        cta: 'Bir güncelleme paylaş',
+      },
+      trace: {
+        answeredBy: (studio, n) => `${studio} ${n} kez yanıtladı`,
+        pickedUpBy: (studio) => `${studio} bunu devraldı`,
+        usedIn: (n) => `${n} projede kullanıldı`,
+        testing: (studio) => `${studio} bunu deniyor`,
+        needsView: (studio) => `${studio} stüdyosunun görüşü işe yarardı`,
+        resolvedWith: (n) => `${n} yanıtla çözüldü`,
+        sameProblem: (studio) => `${studio} da bunu yaşadı`,
+      },
+      needsYou: {
+        count: (n) => `${n} soru ${STUDIOS[MY_STUDIO_KEY].name} stüdyosunun görüşünü bekliyor`,
+        none: 'Şu anda sizi bekleyen bir şey yok.',
+        badge: (studio) => `${studio} stüdyosunun bakışı gerekiyor`,
+      },
+      sinceLastVisit: {
+        title: 'Son ziyaretinizden bu yana',
+        none: 'Son geldiğinizden beri yeni bir şey yok.',
+      },
       fields: {
+        update: {
+          note: { label: 'Tek satırda', placeholder: 'Bu hafta yeni bir onboarding akışı deniyoruz — ilk ekran hâlâ inat ediyor.' },
+        },
         project: {
           made: { label: 'Ne yaptık', placeholder: 'İşin kendisi — bir akış, bir ekran, bir sistem. Bir iki cümle.' },
           constraints: { label: 'Hangi kısıtlar vardı', placeholder: 'Teslim tarihi, platform, ekip büyüklüğü, hukuk, bir motor sınırı — kararı şekillendiren ne varsa.' },
@@ -5461,6 +5840,9 @@ const TRANSLATIONS = {
       { title: "Push bildirim izni ilk ödülden önce mi sonra mı sorulmalı?", summary: 'Ne zaman sorduğun, sorunun nasıl hissettirdiğini değiştiriyor.', problem: 'Bildirim izni istemenin oyuncunun ilk ödül anından önce mi sonra mı gelmesinin kabul oranını etkileyip etkilemediğini bilemiyorduk.', tried: 'Aynı istem metnini iki konumda, eşleştirilmiş iki kohortta üç hafta test ettik.', result: 'Ödülden sonraki yerleşim büyük farkla kazandı. İlk ödülden önce sormak bir talep gibi hissettiriyor; sonrasında sormak bir davet gibi.' },
       { title: 'Temmuz Studio Drop — Whow Games', summary: 'Bu ay ne yaptık, ne başarısız oldu ve ne öğrendik.', problem: 'Aylık ilerleme standup toplantılarına ve Slack konuşmalarına dağılmıştı; şirketin geri kalanının görebileceği tek bir yer yoktu.', tried: 'Yeni bir birleştirme etkinliği takvimi yayınladık, üç farklı katılım sürecini test ettik ve günlük giriş ödüllerini yeniden tasarladık.', result: 'Katılım süreci yeniden tasarımı açık ara kazanan oldu ve önümüzdeki ay şirket genelinde uygulanacak. Etkinlik takvimi beklenenin altında kaldı ve iptal ediliyor.' },
       { title: 'Creative Relay #01', summary: "DoubleU Games tarafından başlatıldı · Whow Games tarafından sürdürüldü.", problem: 'İyi ama yarım kalmış fikirler genellikle başka bir stüdyo tarafından ele alınmak yerine tek bir stüdyoda kaybolup gidiyor.', tried: "DoubleU, bir kooperatif mini etkinlik için kabaca bir konsept paylaştı; Whow Games bunu devraldı ve ödül yapısını yeniden tasarladı.", result: "Yeniden tasarlanan versiyon şu anda Whow'un test sürümünde — ne kadar ileri gidebileceğini görmek için tekrar başka bir stüdyoya devredilecek." },
+      { title: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', summary: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', note: 'Bu hafta günlük ödül ekranını yeniden yapıyoruz. Geri sayım sayacı aslında tasarım probleminin tamamı: fazla belirgin olursa dırdır gibi, fazla sessiz olursa kimse dönmüyor.' },
+      { title: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', summary: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', note: 'Çok daha kısa bir eğitim deniyoruz. 2. gün dönüş iyi ama 3. gün düştü, yani kopuşu ortadan kaldırmak yerine sadece ötelemiş olabiliriz. Bir hafta daha izleyeceğiz.' },
+      { title: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', summary: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', note: 'Tüm ikon setini bir SVG optimize ediciden geçirdik, gözle görülür fark olmadan %40 küçüldü. Zekice bir şey değil, sadece kimse yapmamıştı.' },
     ],
   },
 };
@@ -5813,6 +6195,8 @@ function canEditRoster(studioKey) {
 }
 
 const ICONS = {
+  update: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.7 8.7 0 0 1-3.8-.9L3 20.6l1.6-4.9A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/></svg>`,
   project: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
     <path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
     <path d="M15 3v4h4"/><path d="M9 12h6M9 15.5h6M9 8.5h3"/></svg>`,
@@ -5856,12 +6240,28 @@ const FILTER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
    one shows four. See bodyValue().
    ====================================================================== */
 const FIELD_SETS = {
+  // One line, and it doubles as the card's title — an Update has no headline
+  // separate from its content, because a sentence that needs a headline is not
+  // an Update. See isUpdate() for everywhere that changes.
+  update: ['note'],
   project: ['made', 'constraints', 'solved', 'borrow'],
   experiment: ['goal', 'method', 'happened', 'learned'],
   question: ['blocked', 'triedSoFar'],
 };
 
+/* The lightest type there is. Everything else in this app asks for a title and
+   three or four paragraphs, which is a form you put off until you have
+   "properly written it up" — and most of what a studio learns never survives
+   that wait. This one asks for a sentence and lets you leave.
+
+   It is deliberately the last type. A fifth would make choosing one a decision
+   in itself, which is the same tax in a different place. */
+function isUpdate(data) {
+  return !!data && data.type === 'update';
+}
+
 const LEGACY_FIELD_MAP = {
+  update: {},
   project: { constraints: 'problem', solved: 'tried', borrow: 'result' },
   experiment: { goal: 'problem', method: 'tried', happened: 'result' },
   question: { blocked: 'problem', triedSoFar: 'tried' },
@@ -5915,6 +6315,12 @@ const CARDS = [
   { id: 'c15', studio: 'doubleu', type: 'question', author: 'Yerin Cho', timeValue: 2, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'resolved' },
   { id: 'c16', studio: 'whow', type: 'project', author: 'Whow Games', timeValue: 6, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
   { id: 'c17', studio: 'doubleu', type: 'project', author: 'DoubleU Games', timeValue: 2, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null },
+  // Updates. Deliberately unfinished-sounding: the strip only works as
+  // permission to post if what is already in it looks like something you could
+  // have written in a minute.
+  { id: 'u1', studio: 'whow', type: 'update', author: 'Bengt Larsson', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'u2', studio: 'doubleu', type: 'update', author: 'Haeun Lee', timeValue: 2, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'u3', studio: 'whow', type: 'update', author: 'Mira Keller', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
 ];
 
 /* ======================================================================
@@ -6162,9 +6568,12 @@ function daysAgoOf(data) {
   return data.justNow ? -1 : data.timeValue * (TIME_UNIT_DAYS[data.timeUnit] || 1);
 }
 
+// The banner is finished knowledge only; what is in flight is the strip below
+// it (see renderNowStrip).
 function computeDiscoverIndices() {
   return ALL_CARDS
     .map((c, i) => i)
+    .filter((i) => !isUpdate(ALL_CARDS[i]))
     .sort((a, b) => daysAgoOf(ALL_CARDS[a]) - daysAgoOf(ALL_CARDS[b]))
     .slice(0, DISCOVER_COUNT);
 }
@@ -6761,6 +7170,7 @@ function renderDiscover() {
           <span class="card-type">${t().types[data.type]}</span>
         </div>
         <div class="card-title"></div>
+        ${exchangeTraceHTML(data)}
         ${hint ? `<div class="card-lineage-hint">↳ ${hint}</div>` : ''}
         ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
       </div>
@@ -6772,6 +7182,7 @@ function renderDiscover() {
     applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
   });
 
+  renderNowStrip();
   renderHeroDots();
   // two frames: one for the closed state to paint, one to release it
   requestAnimationFrame(() => {
@@ -6877,6 +7288,7 @@ function buildPosterCard(data, index) {
         <span class="card-type">${t().types[data.type]}</span>
       </div>
       <div class="card-title">${text.title}</div>
+      ${exchangeTraceHTML(data)}
       ${ownCardStatusHTML(data)}
       ${hint ? `<div class="card-lineage-hint">↳ ${hint}</div>` : ''}
       ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
@@ -6889,8 +7301,13 @@ function buildPosterCard(data, index) {
 
 // Browse (tier 2) is finished knowledge only — Questions have their own
 // tier now (see renderQuestions) and never appear here.
+/* Floor 2 is the finished work. Updates are on floor 1 by design — a
+   one-line "still fighting the first screen" rendered as a 720px poster next
+   to a written-up experiment would flatter neither, and would quietly make
+   people stop posting them. */
 function browseIndices() {
-  return ALL_CARDS.map((_, i) => i).filter((i) => !isOpenQuestion(ALL_CARDS[i]));
+  return ALL_CARDS.map((_, i) => i)
+    .filter((i) => !isOpenQuestion(ALL_CARDS[i]) && !isUpdate(ALL_CARDS[i]));
 }
 
 // The track holds the card set twice back-to-back — two identical halves —
@@ -6985,7 +7402,11 @@ function questionIndices() {
 function askedToBadgeHTML(data) {
   if (!data.askedTo || data.askedTo === 'all') return '';
   const mine = askedToMe(data);
-  const label = mine ? t().askedTo.addressedYou : t().askedTo.addressed(STUDIOS[data.askedTo].name);
+  // "Needs DoubleU's perspective" rather than "Asked to your studio": the
+  // first is a job, the second is a filing category.
+  const label = mine
+    ? t().needsYou.badge(STUDIOS[MY_STUDIO_KEY].name)
+    : t().askedTo.addressed(STUDIOS[data.askedTo].name);
   return `<div class="asked-to-badge${mine ? ' is-mine' : ''}">${label}</div>`;
 }
 
@@ -7008,6 +7429,7 @@ function buildQuestionCard(data, index) {
         <span class="question-card-time">${timeText}</span>
       </div>
       <div class="question-card-title">${text.title}</div>
+      ${exchangeTraceHTML(data)}
       ${askedToBadgeHTML(data)}
       ${langPendingBadgeHTML(data)}
     </div>
@@ -7031,6 +7453,7 @@ function renderQuestions() {
 
   const waitingCount = indices.filter((i) => ALL_CARDS[i].status !== 'resolved').length;
   document.getElementById('questionsCount').textContent = t().questionsCount(waitingCount);
+  renderNeedsYou();
   document.getElementById('questionsEmpty').style.display = indices.length > 0 ? 'none' : 'block';
   grid.style.display = indices.length > 0 ? '' : 'none';
 
@@ -8393,9 +8816,11 @@ function updateChrome() {
   setTone(document.getElementById('notifyBtn'), tone.top);
   setTone(document.getElementById('cornerDock'), tone.bottom);
   setTone(document.getElementById('langBtn'), tone.bottom);
-  // the cover's dots live in that same bottom band
+  // the cover's dots and the Update strip live in that same bottom band
   const dots = document.getElementById('heroDots');
   if (dots) dots.classList.toggle('on-light', tone.bottom === TONE_LIGHT);
+  const discover = document.querySelector('.discover-section');
+  if (discover) discover.classList.toggle('on-light', tone.bottom === TONE_LIGHT);
   document.querySelectorAll('.hero-arrow').forEach((a) => setTone(a, tone.mid));
 }
 
@@ -8496,6 +8921,17 @@ function populateExpanded(data, index) {
   document.getElementById('expandedStatusBadge').innerHTML = statusBadgeHTML(data);
   document.getElementById('expandedTitle').textContent = text.title;
   renderBodySections(document.getElementById('expandedBodySections'), data, text);
+
+  // Updates can carry somewhere to look. rel=noopener because target=_blank
+  // otherwise hands the opened page a live handle on this one.
+  const linkEl = document.getElementById('detailLink');
+  if (data.link) {
+    linkEl.href = data.link;
+    document.getElementById('detailLinkLabel').textContent = t().openLink;
+    linkEl.style.display = '';
+  } else {
+    linkEl.style.display = 'none';
+  }
   applyDetailTone(data);
   renderCardStatus(document.getElementById('cardStatusBlock'), data);
   document.getElementById('labelReactions').textContent = t().reactions.label;
@@ -9228,6 +9664,36 @@ function renderForYouList() {
   markAll.textContent = t().forYou.markAll;
   markAll.style.display = unreadNotifications().length ? '' : 'none';
 
+  /* What happened while you were away, above everything else. Same rows, just
+     gathered under their own heading — the value is in "these are the ones you
+     have not seen", not in a different kind of item. */
+  const since = notificationsSinceLastVisit();
+  if (lastVisitAt) {
+    const label = document.createElement('div');
+    label.className = 'for-you-section-label';
+    label.textContent = t().sinceLastVisit.title;
+    list.appendChild(label);
+
+    if (!since.length) {
+      const none = document.createElement('p');
+      none.className = 'for-you-since-none';
+      none.textContent = t().sinceLastVisit.none;
+      list.appendChild(none);
+    } else {
+      since.forEach((n) => list.appendChild(forYouItemEl(n)));
+    }
+
+    const rest = items.filter((n) => since.indexOf(n) < 0);
+    if (rest.length) {
+      const earlier = document.createElement('div');
+      earlier.className = 'for-you-section-label';
+      earlier.textContent = t().forYou.title;
+      list.appendChild(earlier);
+      rest.forEach((n) => list.appendChild(forYouItemEl(n)));
+    }
+    return;
+  }
+
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'for-you-empty';
@@ -9238,35 +9704,37 @@ function renderForYouList() {
     return;
   }
 
-  items.forEach((n) => {
-    const studio = STUDIOS[n.studio];
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'for-you-item' + (n.read ? '' : ' is-unread');
-    row.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+  items.forEach((n) => list.appendChild(forYouItemEl(n)));
+}
 
-    row.innerHTML = `
-      <span class="for-you-mark"></span>
-      <span class="for-you-body">
-        <span class="for-you-text"></span>
-        <span class="for-you-meta">
-          <span class="card-dot" style="background:${studio ? studio.color : '#999'}"></span>
-          <span>${studio ? studio.name : ''}</span>
-          <span class="sep">·</span>
-          <span>${relativeFromStamp(n.at)}</span>
-        </span>
+function forYouItemEl(n) {
+  const studio = STUDIOS[n.studio];
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'for-you-item' + (n.read ? '' : ' is-unread');
+  row.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+
+  row.innerHTML = `
+    <span class="for-you-mark"></span>
+    <span class="for-you-body">
+      <span class="for-you-text"></span>
+      <span class="for-you-meta">
+        <span class="card-dot" style="background:${studio ? studio.color : '#999'}"></span>
+        <span>${studio ? studio.name : ''}</span>
+        <span class="sep">·</span>
+        <span>${relativeFromStamp(n.at)}</span>
       </span>
-    `;
-    row.querySelector('.for-you-text').textContent = notificationText(n);
+    </span>
+  `;
+  row.querySelector('.for-you-text').textContent = notificationText(n);
 
-    row.addEventListener('click', () => {
-      markNotificationRead(n.id);
-      closeForYou();
-      openCardById(n.cardId);
-    });
-
-    list.appendChild(row);
+  row.addEventListener('click', () => {
+    markNotificationRead(n.id);
+    closeForYou();
+    openCardById(n.cardId);
   });
+
+  return row;
 }
 
 // Opening the thing a notification is about, from wherever you happen to be.
@@ -9474,6 +9942,189 @@ function deliverDemoReaction(cardId) {
   }
   renderDiscover();
   renderBrowse();
+}
+
+/* ======================================================================
+   Now — the Update strip and whose turn it is
+   ----------------------------------------------------------------------
+   The banner stays exactly what it was: one piece of finished knowledge, big
+   and clean. Under it, a thin line of what everybody is *currently* doing.
+
+   The two together are the point of calling this floor Now. A banner alone
+   says "here is something somebody finished", which is admirable and slightly
+   intimidating. A line of half-finished sentences underneath says the place is
+   inhabited, and that posting one of your own is normal rather than a
+   performance.
+
+   The prompt names whoever posted last on purpose. "Whow just posted, what is
+   DoubleU up to?" is a specific person having said something specific; "Share
+   an update!" is a poster on a wall. The moment right after reading somebody
+   else's is the moment you might write one.
+   ====================================================================== */
+const UPDATE_STRIP_MAX = 8;
+
+function updateCards() {
+  return ALL_CARDS
+    .filter(isUpdate)
+    .sort((a, b) => daysAgoOf(a) - daysAgoOf(b))
+    .slice(0, UPDATE_STRIP_MAX);
+}
+
+function renderNowStrip() {
+  const strip = document.getElementById('nowStripRow');
+  if (!strip) return;
+  const items = updateCards();
+
+  strip.innerHTML = '';
+  items.forEach((card) => {
+    const studio = STUDIOS[card.studio];
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'now-item';
+    el.dataset.cardId = card.id;
+    el.dataset.index = String(ALL_CARDS.indexOf(card));
+
+    const line = cardText(card).summary || cardText(card).title || '';
+    el.innerHTML = `
+      <span class="card-dot" style="background:${studio.color}"></span>
+      <span class="now-item-text"></span>
+      <span class="now-item-time">${card.justNow ? t().justNowInline : formatRelativeTime(currentLang, card.timeValue, card.timeUnit)}</span>
+    `;
+    el.querySelector('.now-item-text').textContent = line;
+    el.addEventListener('click', () => openCard(el));
+    strip.appendChild(el);
+  });
+
+  const empty = document.getElementById('nowStripEmpty');
+  empty.textContent = t().nowStrip.empty;
+  empty.style.display = items.length ? 'none' : '';
+
+  renderYourTurn(items);
+}
+
+/* Whose turn it is. Names the most recent poster who is not you — being told
+   "you posted, what are you up to?" is the app talking to itself. */
+function renderYourTurn(items) {
+  const line = document.getElementById('yourTurnLine');
+  const latestOther = items.find((c) => c.studio !== MY_STUDIO_KEY);
+  line.textContent = latestOther
+    ? t().nowStrip.yourTurnWith(latestOther.author, STUDIOS[latestOther.studio].name)
+    : t().nowStrip.yourTurnFirst;
+  document.getElementById('yourTurnCta').textContent = t().nowStrip.cta;
+}
+
+function initNowStrip() {
+  // Straight into Share with Update already chosen. Asking someone who just
+  // decided to post a line to first pick a type out of four is exactly the
+  // friction this type exists to remove.
+  document.getElementById('yourTurnCta').addEventListener('click', () => {
+    enterShareMode();
+    setTimeout(() => setComposeType('update'), CONFIG.MODE_SWAP_MS + 60);
+  });
+}
+
+/* ======================================================================
+   Exchange traces
+   ----------------------------------------------------------------------
+   One plain line per card saying what came of it. Not views, not likes, not a
+   count of anything you could be top of — what somebody else *got* out of it,
+   which is the only argument for posting that survives contact with a busy
+   week.
+
+   A card nothing has happened to gets no line at all. An explicit "0 replies"
+   is a worse thing to publish than silence: it makes the empty state the
+   loudest thing on the card, and it makes the author's next post feel like a
+   gamble.
+   ====================================================================== */
+function exchangeTrace(card) {
+  if (!card) return '';
+  const s = t().trace;
+
+  // ---- questions: the conversation is the whole story ----
+  if (isOpenQuestion(card)) {
+    const answers = answerCountOf(card);
+    if (card.status === 'resolved' && answers) return s.resolvedWith(answers);
+    if (askedToMe(card)) return s.needsView(STUDIOS[MY_STUDIO_KEY].name);
+    if (answers) {
+      // whichever studio has answered most — a name reads better than a total
+      const counts = {};
+      getConversationMessages(card).slice(1).forEach((m) => {
+        if (m.studio) counts[m.studio] = (counts[m.studio] || 0) + 1;
+      });
+      const top = Object.keys(counts).filter(isStudioEnabled)
+        .sort((a, b) => counts[b] - counts[a])[0];
+      if (top) return s.answeredBy(STUDIOS[top].name, counts[top]);
+    }
+    return '';
+  }
+
+  // ---- knowledge: where it went, in order of how much it says ----
+  const applied = visibleAppliedBy(card).filter((k) => k !== MY_STUDIO_KEY);
+  const derived = ALL_CARDS.filter((c) => c.derivedFrom === card.id);
+  const reactions = reactionsOn(card.id).filter((r) => r.studio !== card.studio);
+  const testing = reactions.find((r) => r.kind === 'tryThis');
+  const same = reactions.find((r) => r.kind === 'sameProblem');
+
+  // One piece of work built on this one is a studio, with a name; several is a
+  // count. "DoubleU picked this up" says more than "used in 1 project", and
+  // "used in 1 project" is the kind of sentence that only a counter writes.
+  if (derived.length === 1) return s.pickedUpBy(STUDIOS[derived[0].studio].name);
+  if (derived.length > 1) return s.usedIn(derived.length);
+  if (applied.length > 1) return s.usedIn(applied.length);
+  if (applied.length === 1) return s.pickedUpBy(STUDIOS[applied[0]].name);
+  if (testing) return s.testing(STUDIOS[testing.studio].name);
+  if (same) return s.sameProblem(STUDIOS[same.studio].name);
+  return '';
+}
+
+function exchangeTraceHTML(card) {
+  const line = exchangeTrace(card);
+  return line ? `<div class="exchange-trace">${escapeHtml(line)}</div>` : '';
+}
+
+/* ======================================================================
+   Questions that want your studio
+   ====================================================================== */
+function questionsNeedingMe() {
+  return ALL_CARDS.filter((c) => isOpenQuestion(c) && c.status !== 'resolved' && askedToMe(c));
+}
+
+function renderNeedsYou() {
+  const el = document.getElementById('needsYouLine');
+  if (!el) return;
+  const n = questionsNeedingMe().length;
+  el.textContent = n ? t().needsYou.count(n) : t().needsYou.none;
+  el.classList.toggle('is-wanted', n > 0);
+}
+
+/* ---- since your last visit ----
+   Read once at startup and only then updated, so everything that happened
+   while you were away stays grouped for the whole session. Stamping it on
+   every open would mean the section emptied itself the moment you looked at
+   it, which is the opposite of what it is for.
+
+   TODO(backend): the server knows when a session last ended and can group by
+   that rather than by whatever this browser last wrote. */
+const LAST_VISIT_STORAGE_KEY = 'loom_last_visit';
+
+// Captured before anything else writes to it — see initLastVisit.
+let lastVisitAt = 0;
+
+function initLastVisit() {
+  try {
+    const raw = localStorage.getItem(LAST_VISIT_STORAGE_KEY);
+    lastVisitAt = raw ? Number(raw) || 0 : 0;
+  } catch (err) {
+    lastVisitAt = 0;
+  }
+  safeSetItem(LAST_VISIT_STORAGE_KEY, String(Date.now()));
+}
+
+// Nothing counts as "while you were away" on a first visit — every seeded item
+// would, and "18 things happened" as a welcome is not a welcome.
+function notificationsSinceLastVisit() {
+  if (!lastVisitAt) return [];
+  return sortedNotifications().filter((n) => n.at > lastVisitAt);
 }
 
 function renderBodySections(wrap, data, text) {
@@ -9868,7 +10519,9 @@ let selectedAskedTo = 'all';
 
 function renderTypePicker() {
   const wrap = document.getElementById('typePicker');
-  ['project', 'experiment', 'question'].forEach((key) => {
+  // Update first: it is the one most people should be reaching for, and the
+  // order of a row of pills is a recommendation whether you mean it or not.
+  ['update', 'project', 'experiment', 'question'].forEach((key) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'type-pill' + (key === selectedType ? ' is-active' : '');
@@ -9971,8 +10624,34 @@ function readComposeFields() {
 }
 
 // Which parts of the form the chosen type actually uses.
+/* Which parts of the form the chosen type actually uses. An Update hides the
+   title (its one line is its title) and shows a link box instead — the two
+   things people actually want to attach to "here is what we are doing" are a
+   picture of it and somewhere to look. */
 function updateComposeChrome() {
+  const update = selectedType === 'update';
   document.getElementById('askedToField').style.display = selectedType === 'question' ? '' : 'none';
+  document.getElementById('titleField').style.display = update ? 'none' : '';
+  document.getElementById('linkField').style.display = update ? '' : 'none';
+  document.getElementById('stepCompose').classList.toggle('is-update', update);
+  refreshComposeCopy();
+}
+
+/* The heading and the intro change with the type, because "Share what you
+   learned" over a one-line box is asking for the wrong thing — and the whole
+   point of this type is that the copy has to give people permission to post
+   something unfinished. */
+function refreshComposeCopy() {
+  if (editingCardId) return; // an edit keeps its own wording (applyEditModeLabels)
+  const s = t().share;
+  // t().updateMode, not t().share.updateMode — this copy is about the type, not
+  // about the Share screen, and it sits with the rest of the Update strings.
+  const copy = selectedType === 'update' ? t().updateMode : s;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('composeHeading', copy.heading);
+  setText('composeIntro', copy.intro);
+  setText('submitBtnLabel', copy.submitButton);
+  setText('composeHintLabel', copy.submitHint);
 }
 
 // The composed card's image, if any — a data: URL (not a blob: object URL)
@@ -10276,9 +10955,18 @@ function refreshPreview() {
   document.getElementById('previewStudio').textContent = studio.name;
   document.getElementById('previewType').textContent = t().types[selectedType];
 
+  /* An Update has no title field, so its one line takes the title's place on
+     the card — showing "Your title will appear here" above the same sentence
+     repeated underneath would be previewing a form the reader is not filling
+     in. */
+  const update = selectedType === 'update';
+  const noteEl = document.getElementById('field_note');
   const titleEl = document.getElementById('previewTitle');
-  titleEl.textContent = title ? title.value.trim() : '';
-  titleEl.dataset.placeholder = t().previewTitlePlaceholder;
+  titleEl.textContent = update
+    ? (noteEl ? noteEl.value.trim() : '')
+    : (title ? title.value.trim() : '');
+  titleEl.dataset.placeholder = update ? t().updateMode.previewPlaceholder : t().previewTitlePlaceholder;
+  document.getElementById('previewFocus').style.display = update ? 'none' : '';
 
   const icon = document.getElementById('previewMediaIcon');
   icon.innerHTML = ICONS[selectedType];
@@ -10354,9 +11042,19 @@ function initSubmitGate() {
   title.addEventListener('focus', () => setPreviewFocus(fieldsFor(selectedType)[0]));
 }
 
+/* An Update has no title, so the gate is its one line instead. Same rule
+   either way: there has to be something to read. */
 function updateSubmitGate() {
-  const title = document.getElementById('titleInput');
-  document.getElementById('submitBtn').disabled = !title || title.value.trim().length === 0;
+  const value = selectedType === 'update'
+    ? (document.getElementById('field_note') || {}).value
+    : (document.getElementById('titleInput') || {}).value;
+  document.getElementById('submitBtn').disabled = !value || value.trim().length === 0;
+}
+
+// An Update's one line is its title, its summary and its body at once.
+function composeTitle(body) {
+  if (selectedType === 'update') return truncateForSummary((body.note || '').trim(), 120);
+  return document.getElementById('titleInput').value.trim();
 }
 
 /* ---- STEP 1 <-> STEP 2/3, in place, no reload ---- */
@@ -10423,6 +11121,7 @@ function resetComposeForm() {
 
 
   titleInput.value = '';
+  document.getElementById('linkInput').value = '';
   selectedType = 'project';
   selectedAskedTo = 'all';
   document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
@@ -10488,6 +11187,7 @@ function prefillComposeFrom(card) {
   renderComposeFields(values);
   updateComposeChrome();
 
+  document.getElementById('linkInput').value = card.link || '';
   selectedImageUrl = card.image || null;
   selectedImageName = card.imageName || '';
   selectedImageFocal = Object.assign({ x: 50, y: 50 }, card.imageFocal || {});
@@ -10538,14 +11238,15 @@ function commitCardEdit() {
   editingCardId = null;
   if (!id) return;
 
-  const title = document.getElementById('titleInput').value.trim();
   const body = readComposeFields();
+  const title = composeTitle(body);
 
   const card = sharedCards.find((c) => c.id === id);
   if (!card) { commitSeedCardEdit(id, title, body); return; }
 
   card.type = selectedType;
   card.askedTo = selectedType === 'question' ? selectedAskedTo : undefined;
+  card.link = selectedType === 'update' ? readComposeLink() : undefined;
   card.image = selectedImageUrl;
   card.imageName = selectedImageName;
   card.imageFocal = Object.assign({}, selectedImageFocal);
@@ -10570,6 +11271,7 @@ function commitSeedCardEdit(id, title, body) {
 
   const patch = {
     type: selectedType,
+    link: selectedType === 'update' ? readComposeLink() : undefined,
     image: selectedImageUrl,
     imageName: selectedImageName,
     imageFocal: Object.assign({}, selectedImageFocal),
@@ -10603,11 +11305,23 @@ function rebuildAllSurfaces() {
    reader may be in a different language by the time they see it. */
 function nowStamp() { return Date.now(); }
 
+/* People type "figma.com/…" far more often than they type the scheme, and a
+   link without one resolves against this page and 404s. http/https only —
+   anything else in an href is a way to run something. */
+function readComposeLink() {
+  const raw = (document.getElementById('linkInput').value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return ''; // some other scheme — drop it
+  return 'https://' + raw;
+}
+
 /* The one-line summary shown on a card face. Built from the last field with
    anything in it, working backwards: the end of a piece of knowledge (what we
    learned, what others can borrow) says more on a poster than its opening
    problem statement does. */
 function composeSummary(title, body) {
+  if (selectedType === 'update') return truncateForSummary((body.note || title || '').trim(), 120);
   const keys = fieldsFor(selectedType);
   for (let i = keys.length - 1; i >= 0; i--) {
     const v = (body[keys[i]] || '').trim();
@@ -10623,10 +11337,10 @@ function truncateForSummary(text, max) {
 
 function buildSharedCardEntry() {
   const isOpenQ = selectedType === 'question';
-  const title = document.getElementById('titleInput').value.trim();
   // Only the fields this type actually has — renderComposeFields built them,
   // so a project's "constraints" can't leak into a question.
   const body = readComposeFields();
+  const title = composeTitle(body);
   return {
     id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
@@ -10655,6 +11369,7 @@ function buildSharedCardEntry() {
     imageName: selectedImageName,
     imageFocal: Object.assign({}, selectedImageFocal),
     attachments: attachedFiles.slice(),
+    link: selectedType === 'update' ? readComposeLink() : undefined,
     text: Object.assign({ title, summary: composeSummary(title, body) }, body),
   };
 }
@@ -11239,6 +11954,9 @@ function refreshShareText() {
   setText('previewDragHint', t().previewDragHint);
   refreshPreview();
 
+  setText('linkFieldLabel', t().linkLabel);
+  const linkInput = document.getElementById('linkInput');
+  if (linkInput) linkInput.placeholder = t().linkPlaceholder;
   setText('imageFieldLabel', s.imageLabel);
   setText('imageOptionalLabel', s.imageOptional);
   setText('uploadHintLabel', s.uploadHint);
@@ -11463,10 +12181,13 @@ safeInit('designers', initDesigners);
 safeInit('type filter dropdown', renderTypeFilterDropdown);
 safeInit('search', initSearch);
 safeInit('storage log', () => logStorageUsage('at startup'));
+// Before anything else can touch the stamp.
+safeInit('last visit', initLastVisit);
 safeInit('static text', initStaticText);
 // The page opens on floor 1 with nothing having called goToFloor yet, so the
 // corner marks have to be told once that they start life over a dark banner.
 safeInit('chrome', updateChrome);
+safeInit('now strip', initNowStrip);
 safeInit('for you', initForYou);
 // TODO(backend): delete with the rest of the arrival simulation.
 safeInit('demo trigger', initDemoTrigger);
