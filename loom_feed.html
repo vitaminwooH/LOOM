@@ -53,23 +53,12 @@
     font-family: 'Inter', -apple-system, sans-serif;
   }
 
-  /* ---------- hamburger button (topbar, left) ---------- */
-  .hamburger-btn {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.3s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .hamburger-btn:hover { background: rgba(20, 20, 20, 0.05); transform: scale(1.06); }
-  .hamburger-btn:active { transform: scale(0.94); }
-  .hamburger-btn svg { width: 18px; height: 18px; color: var(--ink); }
+  /* The hamburger's styling lives with the rest of the floating chrome, below
+     — .icon-ghost plus a fixed position. A block here from the topbar era
+     outlived the topbar by three rounds and was still giving it a white plate,
+     a 1px border and `svg { color: var(--ink) }`, the last of which pinned the
+     stroke dark no matter what .on-dark said. That is what the white box and
+     the icon that would not invert actually were. */
 
   /* ---------- toast — quiet feedback for actions with nowhere to go yet
      (e.g. Tools in the center menu) ---------- */
@@ -212,12 +201,20 @@
   }
   .page-veil.is-hidden { opacity: 0; }
 
-  /* ---------- floating chrome: hamburger, back, corner marks ----------
-     No panel, no pill, no white disc — the mark alone. These sit over anything
-     from a white browse floor to a dark full-bleed photo, so legibility comes
-     from a two-tone drop-shadow on the glyph itself: a tight light halo lifts it
-     off dark art, a wider soft dark one keeps it readable on white. Cheaper than
-     a backdrop and it never boxes the icon in. */
+  /* ---------- floating chrome: hamburger, back, arrows, corner marks ----------
+     No panel, no pill, no disc, and no halo. The mark alone.
+
+     Legibility comes from ONE mechanism: the mark is black on a light
+     background and white on a dark one, decided per corner from the pixels
+     actually behind it (see measureImageTone and updateChrome). That used to be
+     backed up by a white glow for the cases the measurement got wrong — which
+     meant every icon on every screen wore a smear, including the ones on plain
+     white where there was nothing to fix. Fixing the measurement is the right
+     answer; padding a bad one with glow is not.
+
+     What is left is a single dark shadow at low opacity: enough to keep a white
+     mark from dissolving into a bright photograph, small enough that you would
+     have to look for it. Nothing light, ever. */
   .icon-ghost {
     border: none;
     background: transparent;
@@ -228,15 +225,8 @@
     cursor: pointer;
     color: var(--ink);
     text-decoration: none;
-    /* Two shadows doing different jobs: a tight white rim that separates the
-       mark from anything directly behind it, and a soft dark spread that gives
-       it weight. Together they mean a borderline tone call is still legible
-       rather than invisible — the measurement decides which is better, not
-       whether the mark can be seen at all. */
-    filter:
-      drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
-      drop-shadow(0 1px 3px rgba(255, 255, 255, 0.6))
-      drop-shadow(0 2px 10px rgba(20, 20, 20, 0.35));
+    /* A black mark on a light background needs nothing at all. */
+    filter: none;
     /* colour and the shadow pair fade together — the cover rotates every five
        seconds and a mark that snapped from black to white would read as a
        flicker rather than as an adjustment */
@@ -248,14 +238,21 @@
   }
   .icon-ghost:hover { transform: scale(1.1); }
   .icon-ghost:active { transform: scale(0.93); }
-  .icon-ghost:focus-visible { outline: 2px solid var(--ink-dim); outline-offset: 4px; border-radius: 8px; }
-  /* over the banner's dark scrim the mark inverts — same shadow pair, reversed */
+  /* Keyboard focus only (:focus-visible, so a mouse click never draws it), and
+     a ring that follows the mark rather than a rectangle around it. currentColor
+     so it inverts with the icon instead of vanishing on whichever background
+     the other one was chosen for. */
+  .icon-ghost:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 5px;
+    border-radius: 50%;
+  }
+  /* Over a dark cover the mark goes white, with one small dark shadow so it
+     does not dissolve where the photograph happens to be bright. 2px blur at
+     0.3 — present, not visible as a glow. */
   .icon-ghost.on-dark {
     color: #ffffff;
-    filter:
-      drop-shadow(0 0 2px rgba(0, 0, 0, 0.6))
-      drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45))
-      drop-shadow(0 2px 12px rgba(0, 0, 0, 0.5));
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   }
 
   /* top-left: the one piece of chrome on every floor and every surface */
@@ -316,11 +313,13 @@
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    text-shadow: 0 1px 6px rgba(255, 255, 255, 0.7);
+    /* no light glow here either — this label inherits the mark's colour, so it
+       is already black on light and white on dark */
+    text-shadow: none;
     transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .corner-btn:hover .corner-btn-label { opacity: 1; transform: translate(0, -50%); }
-  .corner-btn.on-dark .corner-btn-label { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
+  .corner-btn.on-dark .corner-btn-label { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 
   .search-wrap input {
     width: 250px;
@@ -762,7 +761,12 @@
     padding: 0;
     opacity: 0;
   }
+  /* The stroke fills the button, so the whole 54px square is the hit area
+     while only the chevron is visible — no border, no background, nothing to
+     box the mark in. */
   .hero-arrow svg { width: 100%; height: 100%; stroke-width: 1.6; }
+  .hero-arrow, .hero-arrow:focus { outline: none; }
+  .hero-arrow:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 12px; }
   .hero-arrow:hover { transform: translateY(-50%) scale(1.12); }
   .hero-arrow-prev:hover { transform: translateY(-50%) scale(1.12) translateX(-3px); }
   .hero-arrow-next:hover { transform: translateY(-50%) scale(1.12) translateX(3px); }
@@ -2626,6 +2630,8 @@
     transition: color 0.3s ease, transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
   }
   .studio-nav svg { width: 100%; height: 100%; }
+  .studio-nav:focus { outline: none; }
+  .studio-nav:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 12px; }
   .studio-nav-prev { left: clamp(20px, 2.6vw, 48px); }
   .studio-nav-next { right: clamp(20px, 2.6vw, 48px); }
   .studio-nav:hover { color: var(--ink); transform: translateY(-50%) scale(1.12); }
