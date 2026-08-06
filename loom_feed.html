@@ -1387,36 +1387,481 @@
   }
   .expanded-pane-response .expanded-pane-inner { max-width: 520px; }
 
-  /* ---------- reactions ----------
-     Rows, not a row of chips: each is a different sentence rather than three
-     strengths of one, and reading them down the column makes that plain.
-     Nothing here carries a number — see the note above REACTION_KINDS. */
-  .reaction-list { display: flex; flex-direction: column; gap: 8px; }
-  .reaction-row {
+  /* ======================================================================
+     For you — the indicator, its arrival preview, and the panel
+     ====================================================================== */
+  .notify-corner {
+    position: fixed;
+    top: 22px;
+    right: 24px;
+    z-index: 320;
     display: flex;
     align-items: center;
     gap: 10px;
-    width: 100%;
-    padding: 10px 13px;
+    flex-direction: row-reverse; /* button on the right, toast unrolling leftward */
+  }
+
+  .notify-btn {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+  }
+  .notify-btn svg { width: 21px; height: 21px; }
+
+  /* The count sits on the mark rather than beside it, so the whole thing stays
+     one small object in the corner. */
+  .notify-count {
+    position: absolute;
+    top: -3px;
+    right: -5px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #ffffff;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 0.28s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .notify-btn.has-unread .notify-count { opacity: 1; transform: scale(1); }
+  .notify-btn.on-dark .notify-count { background: #ffffff; color: var(--ink); }
+
+  /* which studios it came from, before you open anything */
+  .notify-dots {
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 3px;
+  }
+  .notify-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px var(--bg);
+  }
+  .notify-btn.on-dark .notify-dot { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45); }
+
+  /* A breath, not a blink: 3.2s, and it only touches opacity on a halo ring —
+     something flashing in the corner of a reading screen is a tax, and this has
+     to be able to sit there unread for an hour without being annoying. */
+  .notify-btn.has-unread::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    opacity: 0;
+    animation: notify-breathe 3.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes notify-breathe {
+    0%, 100% { opacity: 0; transform: scale(0.86); }
+    50% { opacity: 0.28; transform: scale(1); }
+  }
+  /* one brighter beat when something actually lands */
+  .notify-btn.is-arriving { animation: notify-land 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+  @keyframes notify-land {
+    0% { transform: scale(1); }
+    28% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .notify-btn.has-unread::after { animation: none; opacity: 0.24; }
+    .notify-btn.is-arriving { animation: none; }
+  }
+
+  /* The preview unrolls out of the indicator and folds back into it, so what
+     you saw arrive is visibly what the count is now about. */
+  .notify-toast {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    max-width: 0;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: var(--surface);
+    box-shadow: 0 14px 34px -20px rgba(20, 20, 20, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    opacity: 0;
+    cursor: pointer;
+    transition: max-width 0.52s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease, padding 0.4s ease;
+  }
+  .notify-toast.is-open {
+    /* wide enough for the whole sentence in all four languages — a preview
+       that ends in "..." makes you open the panel to find out what it said,
+       which is exactly the trip it exists to save */
+    max-width: min(56vw, 620px);
+    padding: 9px 16px 9px 13px;
+    border-color: var(--border);
+    opacity: 1;
+  }
+  .notify-toast-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .notify-toast-text {
+    font-size: 12.5px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- the panel ---------- */
+  .for-you-panel {
+    position: fixed;
+    top: 62px;
+    right: 24px;
+    z-index: 330;
+    width: min(400px, calc(100vw - 48px));
+    max-height: min(560px, calc(100vh - 110px));
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--border);
-    border-radius: 12px;
-    background: #ffffff;
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: 0 34px 80px -34px rgba(20, 20, 20, 0.42);
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+    transform-origin: top right;
+    pointer-events: none;
+    transition: opacity 0.24s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .for-you-panel.is-open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+  .for-you-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .for-you-head h2 {
+    flex: 1;
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .for-you-mark-all {
+    border: none;
+    background: transparent;
     font-family: inherit;
-    font-size: 13px;
-    color: var(--ink-dim);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+  .for-you-mark-all:hover { color: var(--ink); }
+  .for-you-close {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .for-you-close svg { width: 14px; height: 14px; }
+  .for-you-close:hover { background: rgba(20, 20, 20, 0.06); color: var(--ink); }
+
+  .for-you-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
+
+  .for-you-item {
+    position: relative;
+    display: flex;
+    gap: 11px;
+    width: 100%;
+    padding: 12px 12px 12px 14px;
+    border: none;
+    border-radius: 13px;
+    background: transparent;
+    font-family: inherit;
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    transition: background 0.2s ease;
   }
-  .reaction-row:hover { border-color: var(--border-strong); color: var(--ink); transform: translateY(-1px); }
-  .reaction-row.is-mine { border-color: var(--ink); color: var(--ink); background: rgba(20, 20, 20, 0.035); }
-  .reaction-icon { flex-shrink: 0; display: flex; color: inherit; }
-  .reaction-icon svg { width: 17px; height: 17px; }
-  .reaction-label { flex: 1; min-width: 0; }
-  /* who reacted, as their studio dots. Two studios, so "who" fits in full and
-     there is never a "+3 others" to click through. */
-  .reaction-who { flex-shrink: 0; display: flex; gap: 4px; }
-  .reaction-who .card-dot { width: 8px; height: 8px; box-shadow: 0 0 0 1.5px #ffffff; }
+  .for-you-item:hover { background: rgba(20, 20, 20, 0.035); }
+  /* unread: a short bar in the sending studio's colour, not a badge — the
+     information is "this one is new and it came from there", and a coloured
+     edge says both without adding a word */
+  .for-you-mark {
+    position: absolute;
+    left: 4px;
+    top: 15px;
+    width: 3px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--item-studio);
+    opacity: 0;
+    transition: opacity 0.24s ease;
+  }
+  .for-you-item.is-unread .for-you-mark { opacity: 1; }
+  .for-you-item.is-unread .for-you-text { color: var(--ink); font-weight: 550; }
+
+  .for-you-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .for-you-text { font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
+  .for-you-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .for-you-meta .card-dot { width: 6px; height: 6px; box-shadow: none; }
+  .for-you-meta .sep { opacity: 0.6; }
+
+  .for-you-empty { padding: 34px 22px 40px; text-align: center; }
+  .for-you-empty-line { margin: 0 0 8px; font-size: 14px; color: var(--ink-dim); }
+  .for-you-empty-sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-faint); }
+
+  /* what has come back, on your own card's detail */
+  .card-status .card-status-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+  }
+  .card-status .card-status-row + .card-status-row { margin-top: 6px; }
+  .card-status-mark {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+  /* and on the card face: dots only, no number — a number here would be a
+     ranking of cards against each other */
+  .card-came-back { display: inline-flex; gap: 4px; margin-top: 9px; }
+  .card-came-back .card-dot { width: 7px; height: 7px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); }
+
+  /* ======================================================================
+     Reactions, replies, emoji
+     ====================================================================== */
+  .reaction-pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  .reaction-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+  .reaction-pill svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .reaction-pill:hover { border-color: var(--border-strong); color: var(--ink); transform: translateY(-1px); }
+  .reaction-pill.is-mine { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+  .reaction-empty { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-faint); }
+
+  .reaction-item {
+    padding: 13px 0 14px;
+    border-top: 1px solid var(--border);
+  }
+  .reaction-item:first-child { border-top: none; padding-top: 2px; }
+
+  .reaction-item-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+  }
+  .reaction-item-head .card-dot { width: 7px; height: 7px; box-shadow: none; }
+  .reaction-author { font-weight: 650; color: var(--ink); font-size: 12.5px; }
+  .reaction-studio { color: var(--ink-faint); }
+  /* the kind, said in words rather than implied by an icon alone */
+  .reaction-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.05);
+    color: var(--ink-dim);
+    font-size: 10.5px;
+  }
+  .reaction-kind svg { width: 11px; height: 11px; }
+  .reaction-time { margin-left: auto; }
+
+  .reaction-note {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(28, 28, 30, 0.8);
+    white-space: pre-wrap;
+  }
+
+  /* the optional line, hidden until you ask for it */
+  .reaction-note-editor { display: none; gap: 7px; margin-top: 9px; }
+  .reaction-item.is-noting .reaction-note-editor { display: flex; }
+  .reaction-item.is-noting .reaction-note-toggle { display: none; }
+  .reaction-note-editor input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 11px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    outline: none;
+  }
+  .reaction-note-editor input:focus { border-color: var(--border-strong); }
+  .reaction-note-save, .reply-send {
+    flex-shrink: 0;
+    padding: 7px 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--ink);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .reaction-note-toggle {
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .reaction-note-toggle:hover { color: var(--ink); }
+
+  /* ---------- replies: one level, and visibly one level ---------- */
+  .reply-list { margin: 4px 0 0 13px; padding-left: 12px; border-left: 1.5px solid var(--border); }
+  .reply-item { padding: 9px 0 2px; }
+  .reply-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .reply-head .card-dot { width: 6px; height: 6px; box-shadow: none; }
+  .reply-author { font-weight: 650; color: var(--ink); font-size: 11.5px; }
+  .reply-time { margin-left: auto; }
+  .reply-text { margin: 5px 0 0; font-size: 12.5px; line-height: 1.55; color: rgba(28, 28, 30, 0.78); white-space: pre-wrap; }
+
+  .reply-form { display: flex; gap: 7px; margin: 9px 0 0 25px; }
+  .reply-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 11px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    outline: none;
+  }
+  .reply-form input:focus { border-color: var(--border-strong); }
+  .reply-form input::placeholder { color: var(--ink-faint); }
+
+  /* ---------- emoji: the lightest layer, and it stays light ----------
+     The count is in the body size and the body colour. Bold, coloured or large
+     would turn a row of small agreements into a scoreboard, which is the thing
+     this app does not do. */
+  .emoji-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+  .emoji-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #ffffff;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+  .emoji-chip:hover { border-color: var(--border-strong); }
+  .emoji-chip.is-mine { border-color: var(--ink-dim); background: rgba(20, 20, 20, 0.045); }
+  .emoji-glyph { font-size: 12px; line-height: 1.4; }
+  .emoji-count { font-size: 10.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  .emoji-add { position: relative; }
+  .emoji-add-btn {
+    width: 21px;
+    height: 21px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-faint);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .emoji-add-btn svg { width: 11px; height: 11px; }
+  /* stays out of the way until you go looking for it */
+  .reaction-item:hover .emoji-add-btn,
+  .reply-item:hover .emoji-add-btn,
+  .body-emoji:hover .emoji-add-btn,
+  .emoji-add.is-open .emoji-add-btn { opacity: 1; }
+  .emoji-add-btn:hover { color: var(--ink); border-color: var(--ink-dim); }
+
+  .emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    z-index: 40;
+    display: flex;
+    gap: 2px;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: 0 12px 30px -16px rgba(20, 20, 20, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .emoji-add.is-open .emoji-picker { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  .emoji-option {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.16s ease, transform 0.16s ease;
+  }
+  .emoji-option:hover { background: rgba(20, 20, 20, 0.06); transform: scale(1.12); }
+
+  /* the body's own row, under the knowledge rather than beside it */
+  .body-emoji { margin: 26px 0 4px; }
+
 
   /* Below this both columns would be too narrow to read, so the response side
      goes under the body and the whole thing becomes one scroller again. */
@@ -3203,6 +3648,33 @@
      A bar that appears on two of three floors to say "Loom" was costing the
      other floor 98px and telling nobody anything. -->
 
+<!-- Top-right: the other half of the loop. Opposite the hamburger, above
+     everything, on every screen — see renderNotificationIndicator. -->
+<div class="notify-corner" id="notifyCorner">
+  <div class="notify-toast" id="notifyToast" role="status">
+    <span class="notify-toast-dot" id="notifyToastDot"></span>
+    <span class="notify-toast-text" id="notifyToastText"></span>
+  </div>
+  <button type="button" class="icon-ghost notify-btn" id="notifyBtn" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/>
+    </svg>
+    <span class="notify-count" id="notifyCount"></span>
+    <span class="notify-dots" id="notifyDots"></span>
+  </button>
+</div>
+
+<aside class="for-you-panel" id="forYouPanel" aria-labelledby="forYouTitle">
+  <div class="for-you-head">
+    <h2 id="forYouTitle"></h2>
+    <button type="button" class="for-you-mark-all" id="forYouMarkAll"></button>
+    <button type="button" class="for-you-close" id="forYouCloseBtn" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="for-you-list" id="forYouList"></div>
+</aside>
+
 <button type="button" class="icon-ghost hamburger-btn" id="menuToggleBtn" aria-label="Menu" aria-expanded="false">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
 </button>
@@ -3637,6 +4109,10 @@
              an empty one. -->
         <div class="reveal-on-open" id="expandedBodySections"></div>
 
+        <!-- The lightest layer: for when even "same problem here" is more
+             than you mean. Separate from the three reactions on the right. -->
+        <div class="body-emoji reveal-on-open" id="bodyEmojiRow"></div>
+
         <div class="expanded-section reveal-on-open" id="attachmentsSection" style="display:none;">
           <div class="label" id="labelAttachments"></div>
           <div class="attachments-list-wrap" id="expandedAttachmentsWrap"></div>
@@ -3678,8 +4154,14 @@
         <!-- Above the lineage on purpose: a reaction is the small thing a
              reader can give back immediately, and applying it is the large
              thing that may follow. -->
+        <!-- only on your own cards: on someone else's this would be a
+             scoreboard of their work -->
+        <div class="expanded-section card-status reveal-on-open" id="cardStatusBlock" style="display:none;"></div>
+
         <div class="expanded-section reveal-on-open">
           <div class="label" id="labelReactions"></div>
+          <!-- one click each; the note is a second, optional step -->
+          <div class="reaction-pills" id="reactionPills"></div>
           <div class="reaction-list" id="reactionList"></div>
         </div>
 
@@ -3908,9 +4390,39 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'What came back',
-        useful: 'Useful to us',
-        sameHere: "We've been here too",
-        changedMind: 'Changed how we were going to do it',
+        kinds: {
+          tryThis: "We'll try this",
+          sameProblem: 'Same problem here',
+          question: 'Question about this',
+        },
+        emptyList: 'Nothing yet. When someone reacts, their name and what they said show up here.',
+        noteAdd: 'Add a line',
+        noteEdit: 'Edit your line',
+        noteSave: 'Save',
+        notePlaceholder: 'Optional — anything worth saying alongside it',
+        replyPlaceholder: 'Reply…',
+        replySend: 'Send',
+        emojiAdd: 'Add a reaction',
+      },
+      forYou: {
+        aria: 'For you',
+        ariaUnread: (n) => `For you — ${n} new`,
+        title: 'For you',
+        markAll: 'Mark all read',
+        emptyTitle: "Nothing new right now.",
+        emptyBody: 'When another studio applies something you shared, reacts to it, or asks your studio a question, it turns up here.',
+        gone: "That one isn't here any more.",
+        lines: {
+          applied: (who, studio, title) => `${who} at ${studio} applied your approach from "${title}"`,
+          reaction: (who, studio, kind, title) => `${who} at ${studio} left "${kind}" on your "${title}"`,
+          reply: (who, studio, title) => `${who} at ${studio} replied in the thread on "${title}"`,
+          asked: (who, studio, title) => `${who} at ${studio} asked your studio: "${title}"`,
+        },
+      },
+      cardStatus: {
+        label: 'How it has travelled',
+        reactions: (n) => (n === 0 ? 'No reactions yet' : `${n} ${n > 1 ? 'people have' : 'person has'} reacted`),
+        applied: (names) => (names.length === 0 ? 'Not applied anywhere yet' : `Applied at ${names.join(' and ')}`),
       },
       appliedLabel: 'Where it spread',
       appliedCount: (n) => (n === 0 ? 'Not yet applied elsewhere' : `Applied by ${n} studio${n > 1 ? 's' : ''}`),
@@ -4161,9 +4673,39 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: '돌아온 반응',
-        useful: '우리에게 도움이 됩니다',
-        sameHere: '우리도 겪은 일이에요',
-        changedMind: '가려던 방향을 바꿨어요',
+        kinds: {
+          tryThis: '우리도 해볼게요',
+          sameProblem: '같은 문제를 겪고 있어요',
+          question: '이것에 대해 묻고 싶어요',
+        },
+        emptyList: '아직 없어요. 누군가 반응하면 이름과 남긴 말이 여기 보입니다.',
+        noteAdd: '한 줄 덧붙이기',
+        noteEdit: '남긴 말 수정',
+        noteSave: '저장',
+        notePlaceholder: '선택 — 함께 전하고 싶은 말이 있다면',
+        replyPlaceholder: '답장…',
+        replySend: '보내기',
+        emojiAdd: '이모지 남기기',
+      },
+      forYou: {
+        aria: '나에게 온 소식',
+        ariaUnread: (n) => `나에게 온 소식 — 새 소식 ${n}개`,
+        title: '나에게 온 소식',
+        markAll: '모두 읽음',
+        emptyTitle: '지금은 새 소식이 없어요.',
+        emptyBody: '다른 스튜디오가 당신이 공유한 걸 적용하거나, 반응을 남기거나, 당신의 스튜디오에 질문하면 여기에 나타납니다.',
+        gone: '그 항목은 이제 없어요.',
+        lines: {
+          applied: (who, studio, title) => `${studio}의 ${who}가 "${title}"의 접근법을 적용했어요`,
+          reaction: (who, studio, kind, title) => `${studio}의 ${who}가 "${title}"에 "${kind}"를 남겼어요`,
+          reply: (who, studio, title) => `${studio}의 ${who}가 "${title}" 대화에 답장했어요`,
+          asked: (who, studio, title) => `${studio}의 ${who}가 당신의 스튜디오에 물었어요: "${title}"`,
+        },
+      },
+      cardStatus: {
+        label: '어디까지 갔는지',
+        reactions: (n) => (n === 0 ? '아직 반응 없음' : `${n}명이 반응했어요`),
+        applied: (names) => (names.length === 0 ? '아직 적용한 곳 없음' : `${names.join(', ')}에서 적용했어요`),
       },
       appliedLabel: '적용된 곳',
       appliedCount: (n) => (n === 0 ? '아직 다른 스튜디오에 적용되지 않음' : `${n}개 스튜디오에서 적용함`),
@@ -4412,9 +4954,39 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'Was zurückkam',
-        useful: 'Für uns nützlich',
-        sameHere: 'Kennen wir auch',
-        changedMind: 'Hat unseren Plan geändert',
+        kinds: {
+          tryThis: 'Das probieren wir',
+          sameProblem: 'Kennen wir auch',
+          question: 'Dazu hätten wir eine Frage',
+        },
+        emptyList: 'Noch nichts. Sobald jemand reagiert, stehen hier Name und Anmerkung.',
+        noteAdd: 'Zeile hinzufügen',
+        noteEdit: 'Zeile bearbeiten',
+        noteSave: 'Speichern',
+        notePlaceholder: 'Optional — was noch dazugehört',
+        replyPlaceholder: 'Antworten…',
+        replySend: 'Senden',
+        emojiAdd: 'Emoji hinzufügen',
+      },
+      forYou: {
+        aria: 'Für dich',
+        ariaUnread: (n) => `Für dich — ${n} neu`,
+        title: 'Für dich',
+        markAll: 'Alle gelesen',
+        emptyTitle: 'Gerade nichts Neues.',
+        emptyBody: 'Wenn ein anderes Studio etwas von dir übernimmt, darauf reagiert oder deinem Studio eine Frage stellt, steht es hier.',
+        gone: 'Das gibt es nicht mehr.',
+        lines: {
+          applied: (who, studio, title) => `${who} von ${studio} hat deinen Ansatz aus „${title}" übernommen`,
+          reaction: (who, studio, kind, title) => `${who} von ${studio} hat „${kind}" zu „${title}" hinterlassen`,
+          reply: (who, studio, title) => `${who} von ${studio} hat im Thread zu „${title}" geantwortet`,
+          asked: (who, studio, title) => `${who} von ${studio} fragt dein Studio: „${title}"`,
+        },
+      },
+      cardStatus: {
+        label: 'Wie weit es gekommen ist',
+        reactions: (n) => (n === 0 ? 'Noch keine Reaktionen' : `${n} ${n > 1 ? 'Personen haben' : 'Person hat'} reagiert`),
+        applied: (names) => (names.length === 0 ? 'Noch nirgends übernommen' : `Übernommen bei ${names.join(' und ')}`),
       },
       appliedLabel: 'Wo es übernommen wurde',
       appliedCount: (n) => (n === 0 ? 'Noch von keinem Studio übernommen' : `Von ${n} Studio${n > 1 ? 's' : ''} übernommen`),
@@ -4663,9 +5235,39 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'Geri gelenler',
-        useful: 'Bize faydalı',
-        sameHere: 'Biz de yaşadık',
-        changedMind: 'Planımızı değiştirdi',
+        kinds: {
+          tryThis: 'Biz de deneyeceğiz',
+          sameProblem: 'Aynı sorun bizde de var',
+          question: 'Bununla ilgili bir sorum var',
+        },
+        emptyList: 'Henüz yok. Biri tepki verdiğinde adı ve söyledikleri burada görünür.',
+        noteAdd: 'Bir satır ekle',
+        noteEdit: 'Satırını düzenle',
+        noteSave: 'Kaydet',
+        notePlaceholder: 'İsteğe bağlı — yanında söylenmeye değer bir şey',
+        replyPlaceholder: 'Yanıtla…',
+        replySend: 'Gönder',
+        emojiAdd: 'Emoji ekle',
+      },
+      forYou: {
+        aria: 'Size gelenler',
+        ariaUnread: (n) => `Size gelenler — ${n} yeni`,
+        title: 'Size gelenler',
+        markAll: 'Tümünü okundu say',
+        emptyTitle: 'Şu anda yeni bir şey yok.',
+        emptyBody: 'Başka bir stüdyo paylaştığınız bir şeyi uyguladığında, tepki verdiğinde ya da stüdyonuza soru sorduğunda burada görünür.',
+        gone: 'O artık burada değil.',
+        lines: {
+          applied: (who, studio, title) => `${studio} stüdyosundan ${who}, "${title}" yaklaşımınızı uyguladı`,
+          reaction: (who, studio, kind, title) => `${studio} stüdyosundan ${who}, "${title}" için "${kind}" bıraktı`,
+          reply: (who, studio, title) => `${studio} stüdyosundan ${who}, "${title}" başlığındaki konuşmaya yanıt verdi`,
+          asked: (who, studio, title) => `${studio} stüdyosundan ${who} stüdyonuza sordu: "${title}"`,
+        },
+      },
+      cardStatus: {
+        label: 'Nereye kadar gitti',
+        reactions: (n) => (n === 0 ? 'Henüz tepki yok' : `${n} kişi tepki verdi`),
+        applied: (names) => (names.length === 0 ? 'Henüz hiçbir yerde uygulanmadı' : `${names.join(' ve ')} uyguladı`),
       },
       appliedLabel: 'Nerede uygulandı',
       appliedCount: (n) => (n === 0 ? 'Henüz başka stüdyo tarafından uygulanmadı' : `${n} stüdyo tarafından uygulandı`),
@@ -6241,6 +6843,7 @@ function buildPosterCard(data, index) {
         <span class="card-type">${t().types[data.type]}</span>
       </div>
       <div class="card-title">${text.title}</div>
+      ${ownCardStatusHTML(data)}
       ${hint ? `<div class="card-lineage-hint">↳ ${hint}</div>` : ''}
       ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
     </div>
@@ -7662,8 +8265,9 @@ function populateExpanded(data, index) {
   document.getElementById('expandedStatusBadge').innerHTML = statusBadgeHTML(data);
   document.getElementById('expandedTitle').textContent = text.title;
   renderBodySections(document.getElementById('expandedBodySections'), data, text);
+  renderCardStatus(document.getElementById('cardStatusBlock'), data);
   document.getElementById('labelReactions').textContent = t().reactions.label;
-  renderReactions(document.getElementById('reactionList'), data.id);
+  renderReactionArea(data.id);
   document.getElementById('labelApplied').textContent = t().appliedLabel;
   document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(data).length);
   renderLineageList(data);
@@ -7701,144 +8305,786 @@ function populateExpanded(data, index) {
    paragraph (never innerHTML — this is somebody's prose), and the CSS carries
    white-space: pre-wrap so the line breaks they typed survive. */
 /* ======================================================================
-   Reactions
+   Reactions, replies and emoji
    ----------------------------------------------------------------------
-   Three, and no counters anywhere. A count turns "somebody found this useful"
-   into "this scored 14", and a wall of cards with numbers on them is a ranking
-   of the studios that wrote them — which is the one thing this app is not for
-   (see the note above DESIGNERS). What comes back instead is which studios
-   reacted and how, shown as their dots: information about who you reached,
-   with nothing to be top of.
+   A reaction is a small message, not a vote. The previous version stored which
+   studios had picked each of three kinds, which can answer "how many" and
+   nothing else — and "how many" is a score, which is the one thing this app
+   does not do (see the note above DESIGNERS: contribution visible, competition
+   not).
 
-   Each kind is a different thing to say, not three strengths of the same
-   thing: "this is useful to us", "we have been here too", "this changed how we
-   were going to do it".
+   So each reaction carries who left it, which of the three things they meant,
+   an optional line of their own, and when. They are listed, never counted, and
+   anyone can answer one. Replies go exactly one level deep: a reaction with
+   three answers under it is a conversation, and a reaction with a reply to a
+   reply to a reply is a forum, which is a different product.
 
-   TODO(backend): a real service records the reacting *account*, server-side.
-   Here it is your studio, and there is nothing stopping the same reader
-   toggling it twice — which is fine when the display has no arithmetic in it.
+   Emoji sit underneath all of that as the lightest layer there is — for when
+   even "same problem here" is more than you mean. Deliberately small, with the
+   names on hover rather than a number in bold: five people quietly agreeing is
+   information, and "🔥 5" is a leaderboard.
+
+   TODO(backend): all of this is per-browser localStorage keyed by studio. A
+   real service records the authenticated account, server-side, and pushes the
+   resulting notification to the author rather than writing it locally (see
+   pushNotification).
    ====================================================================== */
-const REACTION_KINDS = ['useful', 'sameHere', 'changedMind'];
+/* Most of this file builds DOM with textContent, which needs no escaping. The
+   few templates below interpolate a person's name into innerHTML, and names
+   come off the Designers roster — which anyone can type into. Constant strings
+   (studio names, the inline SVGs) are safe; anything a reader authored is not. */
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const REACTION_KINDS = ['tryThis', 'sameProblem', 'question'];
 
 const REACTION_ICONS = {
-  useful: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21V10l4-7a2 2 0 0 1 3 2l-1 5h4a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 16.6 21H9Z"/><path d="M9 10H5v11h4"/></svg>',
-  sameHere: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M15.5 20a4.6 4.6 0 0 1 5.5-4.5"/></svg>',
-  changedMind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 8 0 0 1 13.7-5.6L20 7"/><path d="M20 4v3.5h-3.5"/><path d="M20 14a8 8 0 0 1-13.7 5.6L4 17"/><path d="M4 20v-3.5h3.5"/></svg>',
+  tryThis: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19.5 7"/></svg>',
+  sameProblem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M15.5 20a4.6 4.6 0 0 1 5.5-4.5"/></svg>',
+  question: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 9a2.9 2.9 0 1 1 3.8 2.8c-.8.3-1.3 1-1.3 1.9v.6"/><circle cx="11.8" cy="18" r="0.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="9"/></svg>',
 };
 
-// Seeded so the app does not open on a wall of zeroes — the same job the
-// sample conversations do. Keyed by card id; a card not listed simply has none.
-const SEED_REACTIONS = {
-  c1: { useful: ['whow'], changedMind: ['whow'] },
-  c2: { useful: ['doubleu'], sameHere: ['doubleu'] },
-  c5: { useful: ['doubleu'] },
-  c9: { sameHere: ['doubleu', 'whow'] },
-  c13: { useful: ['whow'], sameHere: ['whow'] },
+// Small, and five of them. More would be a picker, and a picker is a decision.
+const EMOJI_SET = ['\u2764\uFE0F', '\uD83D\uDC4D', '\uD83D\uDC40', '\uD83D\uDD25', '\u2753'];
+
+const REACTIONS_STORAGE_KEY = 'loom_reactions_v2';
+
+/* Seeded so the app does not open on an empty column — the same job the sample
+   conversations do. Ages are minutes-ago offsets rather than absolute stamps,
+   so a demo opened next week still reads as "yesterday" instead of as a
+   fixed date in the past. */
+const SEED_REACTIONS = [
+  { id: 'rx-1', cardId: 'c1', kind: 'sameProblem', author: 'Bengt Larsson', studio: 'whow', minsAgo: 60 * 26,
+    note: 'We saw the same drop-off before the paywall. Ours was closer to 88% but the shape is identical.',
+    emoji: { '\uD83D\uDC40': ['doubleu'] },
+    replies: [
+      { id: 'rp-1', author: 'Doyoon Kim', studio: 'doubleu', minsAgo: 60 * 25,
+        text: 'Good to know it is not just us. Did the near-miss moment move it for you?', emoji: {} },
+      { id: 'rp-2', author: 'Bengt Larsson', studio: 'whow', minsAgo: 60 * 24,
+        text: 'Trying it this sprint — will report back either way.', emoji: { '\u2764\uFE0F': ['doubleu'] } },
+    ] },
+  { id: 'rx-2', cardId: 'c1', kind: 'tryThis', author: 'Mira Keller', studio: 'whow', minsAgo: 60 * 9,
+    note: '', emoji: {}, replies: [] },
+  { id: 'rx-3', cardId: 'c2', kind: 'question', author: 'Haeun Lee', studio: 'doubleu', minsAgo: 60 * 40,
+    note: 'Did 7x7 hold up for players past week two, or only in the first sessions?',
+    emoji: { '\u2753': ['whow'] }, replies: [] },
+  { id: 'rx-4', cardId: 'c5', kind: 'tryThis', author: 'Jiho Baek', studio: 'doubleu', minsAgo: 60 * 70,
+    note: 'Lifting the three-day teaser wholesale for our autumn event.', emoji: {}, replies: [] },
+];
+
+// Emoji left on a card's body itself, keyed by card id. A separate, lighter
+// layer from the three reactions — for when even "same problem here" is more
+// than you mean.
+const SEED_BODY_EMOJI = {
+  c1: { '\uD83D\uDD25': ['whow'] },
+  c9: { '\uD83D\uDC4D': ['doubleu'], '\uD83D\uDC40': ['whow'] },
 };
 
-const REACTIONS_STORAGE_KEY = 'loom_reactions_v1';
+function seedReactionState() {
+  const now = Date.now();
+  const stamp = (mins) => now - mins * 60 * 1000;
+  return {
+    reactions: SEED_REACTIONS.map((r) => ({
+      id: r.id, cardId: r.cardId, kind: r.kind, author: r.author, studio: r.studio,
+      note: r.note, at: stamp(r.minsAgo),
+      emoji: JSON.parse(JSON.stringify(r.emoji || {})),
+      replies: (r.replies || []).map((p) => ({
+        id: p.id, author: p.author, studio: p.studio, text: p.text, at: stamp(p.minsAgo),
+        emoji: JSON.parse(JSON.stringify(p.emoji || {})),
+      })),
+    })),
+    bodyEmoji: JSON.parse(JSON.stringify(SEED_BODY_EMOJI)),
+  };
+}
 
-function loadReactions() {
+function loadReactionState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(REACTIONS_STORAGE_KEY));
-    if (parsed && typeof parsed === 'object') return parsed;
+    if (parsed && Array.isArray(parsed.reactions)) return parsed;
   } catch (err) {
     console.error('[Loom feed] could not read reactions:', err);
   }
-  // A deep-ish copy: the seed must not become the live object, or "reset by
-  // clearing storage" would come back with whatever the reader had done.
-  const out = {};
-  Object.keys(SEED_REACTIONS).forEach((id) => {
-    out[id] = {};
-    Object.keys(SEED_REACTIONS[id]).forEach((k) => { out[id][k] = SEED_REACTIONS[id][k].slice(); });
-  });
-  return out;
+  return seedReactionState();
 }
 
-let cardReactions = loadReactions();
+let reactionState = loadReactionState();
 
-function reactionsFor(cardId) {
-  return cardReactions[cardId] || {};
+function persistReactions() {
+  if (safeSetItem(REACTIONS_STORAGE_KEY, JSON.stringify(reactionState)).ok) return true;
+  showToast(t().share.storageFailed);
+  return false;
 }
 
-function studiosWhoReacted(cardId, kind) {
-  return (reactionsFor(cardId)[kind] || []).filter(isStudioEnabled);
+function reactionsOn(cardId) {
+  return reactionState.reactions
+    .filter((r) => r.cardId === cardId && isStudioEnabled(r.studio))
+    .sort((a, b) => a.at - b.at);
 }
 
-function hasReacted(cardId, kind) {
-  return studiosWhoReacted(cardId, kind).indexOf(MY_STUDIO_KEY) > -1;
+function findReaction(id) {
+  return reactionState.reactions.find((r) => r.id === id);
 }
 
-function toggleReaction(cardId, kind) {
-  if (!cardReactions[cardId]) cardReactions[cardId] = {};
-  const list = cardReactions[cardId][kind] || (cardReactions[cardId][kind] = []);
-  const at = list.indexOf(MY_STUDIO_KEY);
-  if (at > -1) list.splice(at, 1);
-  else list.push(MY_STUDIO_KEY);
+// A short id that does not need Date.now to be unique on its own — two
+// reactions left in the same millisecond would otherwise collide.
+let localIdSeq = 0;
+function localId(prefix) {
+  return prefix + '-' + Date.now().toString(36) + '-' + (localIdSeq++).toString(36);
+}
 
-  if (!safeSetItem(REACTIONS_STORAGE_KEY, JSON.stringify(cardReactions)).ok) {
-    // safeSetItem has already put the previous value back in storage, so undo
-    // the in-memory change too rather than showing a state that won't survive.
-    if (at > -1) list.push(MY_STUDIO_KEY);
-    else list.splice(list.indexOf(MY_STUDIO_KEY), 1);
-    showToast(t().share.storageFailed);
+/* Leaving a reaction. `note` is optional and usually empty: the whole point of
+   the three kinds is that agreeing costs one click. Returns the new reaction so
+   the caller can tell the author about it. */
+function addReaction(cardId, kind, note) {
+  const entry = {
+    id: localId('rx'),
+    cardId, kind,
+    author: myDisplayName(),
+    studio: MY_STUDIO_KEY,
+    note: (note || '').trim(),
+    at: Date.now(),
+    emoji: {},
+    replies: [],
+  };
+  reactionState.reactions.push(entry);
+  if (!persistReactions()) {
+    reactionState.reactions.pop();
+    return null;
+  }
+  return entry;
+}
+
+function removeReaction(id) {
+  const at = reactionState.reactions.findIndex((r) => r.id === id);
+  if (at < 0) return false;
+  const [removed] = reactionState.reactions.splice(at, 1);
+  if (!persistReactions()) {
+    reactionState.reactions.splice(at, 0, removed);
     return false;
   }
   return true;
 }
 
-/* One row per kind: the mark, what it says, and the dots of the studios who
-   said it. No number — the dots ARE the report, and there are two studios, so
-   "who" is short enough to show in full. */
-function renderReactions(wrap, cardId) {
+// Your own reaction of a given kind on a card, if you have left one — the
+// pills are a toggle, so this is what tells them which state to be in.
+function myReactionOn(cardId, kind) {
+  return reactionState.reactions.find((r) =>
+    r.cardId === cardId && r.kind === kind && r.studio === MY_STUDIO_KEY && r.author === myDisplayName());
+}
+
+function addReply(reactionId, text) {
+  const reaction = findReaction(reactionId);
+  if (!reaction) return null;
+  const reply = {
+    id: localId('rp'),
+    author: myDisplayName(),
+    studio: MY_STUDIO_KEY,
+    text: text.trim(),
+    at: Date.now(),
+    emoji: {},
+  };
+  reaction.replies.push(reply);
+  if (!persistReactions()) {
+    reaction.replies.pop();
+    return null;
+  }
+  return reply;
+}
+
+/* Emoji live on three kinds of thing — a card's body, a reaction, a reply — so
+   the toggle takes the map rather than an id, and every caller passes whichever
+   map it owns. Values are studio keys; the tooltip turns them into names. */
+function toggleEmojiIn(map, emoji) {
+  const list = map[emoji] || (map[emoji] = []);
+  const at = list.indexOf(MY_STUDIO_KEY);
+  if (at > -1) list.splice(at, 1);
+  else list.push(MY_STUDIO_KEY);
+  if (!list.length) delete map[emoji];
+  return persistReactions();
+}
+
+function bodyEmojiFor(cardId) {
+  if (!reactionState.bodyEmoji) reactionState.bodyEmoji = {};
+  return reactionState.bodyEmoji[cardId] || (reactionState.bodyEmoji[cardId] = {});
+}
+
+/* The reader's own name. There is no login, so it is the first person on their
+   own studio's roster — which at least makes "You" read as a person to anyone
+   being shown this, rather than as a placeholder.
+   TODO(auth): the signed-in account's display name. */
+function myDisplayName() {
+  const mine = designerRoster.find((d) => d.studio === MY_STUDIO_KEY);
+  return (mine && mine.name) || 'You';
+}
+
+function isMine(entry) {
+  return entry.studio === MY_STUDIO_KEY && entry.author === myDisplayName();
+}
+
+/* ---------- the three pills ----------
+   Leaving one is a single click. The note is a second, optional step that only
+   appears once you have clicked — asking for a sentence up front is how you
+   get no reactions at all. */
+function renderReactionPills(wrap, cardId, onChange) {
   wrap.innerHTML = '';
-  const strings = t().reactions;
 
   REACTION_KINDS.forEach((kind) => {
-    const who = studiosWhoReacted(cardId, kind);
-    const mine = hasReacted(cardId, kind);
+    const mine = myReactionOn(cardId, kind);
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'reaction-row' + (mine ? ' is-mine' : '');
+    btn.className = 'reaction-pill' + (mine ? ' is-mine' : '');
     btn.dataset.kind = kind;
     btn.setAttribute('aria-pressed', mine ? 'true' : 'false');
-
-    const icon = document.createElement('span');
-    icon.className = 'reaction-icon';
-    icon.innerHTML = REACTION_ICONS[kind];
+    btn.innerHTML = REACTION_ICONS[kind];
 
     const label = document.createElement('span');
-    label.className = 'reaction-label';
-    label.textContent = strings[kind];
-
-    const dots = document.createElement('span');
-    dots.className = 'reaction-who';
-    who.forEach((key) => {
-      const dot = document.createElement('span');
-      dot.className = 'card-dot';
-      dot.style.background = STUDIOS[key].color;
-      dot.title = STUDIOS[key].name;
-      dots.appendChild(dot);
-    });
-
-    btn.appendChild(icon);
+    label.textContent = t().reactions.kinds[kind];
     btn.appendChild(label);
-    btn.appendChild(dots);
 
     btn.addEventListener('click', () => {
-      if (toggleReaction(cardId, kind)) renderReactions(wrap, cardId);
+      if (mine) {
+        if (removeReaction(mine.id)) onChange();
+        return;
+      }
+      const entry = addReaction(cardId, kind);
+      if (!entry) return;
+      notifyAuthorOfReaction(cardId, entry);
+      onChange();
+      // The note box opens on the reaction you just left, focused, so adding a
+      // line is a continuation rather than a separate decision.
+      openNoteEditor(entry.id);
     });
 
     wrap.appendChild(btn);
   });
 }
 
-// How many kinds anyone has reacted with — for the "what exists now" line on
-// the completion screen, which is the one place a total is the honest answer
-// ("nothing has come back yet").
-function totalReactionKinds(cardId) {
-  return REACTION_KINDS.filter((k) => studiosWhoReacted(cardId, k).length).length;
+/* ---------- who reacted, and what they said ----------
+   A list, never a count. "Bengt at Whow hit the same thing and left a line
+   about it" is the reason to come back; "3" is not. */
+function renderReactionList(wrap, cardId, onChange) {
+  wrap.innerHTML = '';
+  const list = reactionsOn(cardId);
+
+  if (!list.length) {
+    const empty = document.createElement('p');
+    empty.className = 'reaction-empty';
+    empty.textContent = t().reactions.emptyList;
+    wrap.appendChild(empty);
+    return;
+  }
+
+  list.forEach((r) => wrap.appendChild(reactionItemEl(r, onChange)));
+}
+
+function reactionItemEl(r, onChange) {
+  const studio = STUDIOS[r.studio];
+  const item = document.createElement('div');
+  item.className = 'reaction-item';
+  item.dataset.reactionId = r.id;
+
+  // --- who, what kind, when ---
+  const head = document.createElement('div');
+  head.className = 'reaction-item-head';
+  head.innerHTML = `
+    <span class="card-dot" style="background:${studio.color}"></span>
+    <span class="reaction-author">${escapeHtml(r.author)}</span>
+    <span class="reaction-studio">${studio.name}</span>
+    <span class="reaction-kind">${REACTION_ICONS[r.kind]}${t().reactions.kinds[r.kind]}</span>
+    <span class="reaction-time">${relativeFromStamp(r.at)}</span>
+  `;
+  item.appendChild(head);
+
+  // --- their own line, if they left one ---
+  if (r.note) {
+    const note = document.createElement('p');
+    note.className = 'reaction-note';
+    note.textContent = r.note;
+    item.appendChild(note);
+  }
+
+  // --- the note editor, for your own reaction ---
+  if (isMine(r)) {
+    const editor = document.createElement('form');
+    editor.className = 'reaction-note-editor';
+    editor.dataset.for = r.id;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = r.note || '';
+    input.placeholder = t().reactions.notePlaceholder;
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'reaction-note-save';
+    save.textContent = t().reactions.noteSave;
+    editor.appendChild(input);
+    editor.appendChild(save);
+    editor.addEventListener('submit', (e) => {
+      e.preventDefault();
+      r.note = input.value.trim();
+      if (persistReactions()) onChange();
+    });
+    item.appendChild(editor);
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'reaction-note-toggle';
+    toggle.textContent = r.note ? t().reactions.noteEdit : t().reactions.noteAdd;
+    toggle.addEventListener('click', () => openNoteEditor(r.id));
+    item.appendChild(toggle);
+  }
+
+  item.appendChild(emojiRowEl(r.emoji, onChange));
+
+  // --- replies, one level deep ---
+  const replies = document.createElement('div');
+  replies.className = 'reply-list';
+  (r.replies || []).forEach((p) => replies.appendChild(replyEl(p, onChange)));
+  item.appendChild(replies);
+
+  const form = document.createElement('form');
+  form.className = 'reply-form';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = t().reactions.replyPlaceholder;
+  const send = document.createElement('button');
+  send.type = 'submit';
+  send.className = 'reply-send';
+  send.textContent = t().reactions.replySend;
+  form.appendChild(input);
+  form.appendChild(send);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const value = input.value.trim();
+    if (!value) return;
+    const reply = addReply(r.id, value);
+    if (!reply) return;
+    notifyOfReply(r, reply);
+    onChange();
+  });
+  item.appendChild(form);
+
+  return item;
+}
+
+function replyEl(p, onChange) {
+  const studio = STUDIOS[p.studio];
+  const el = document.createElement('div');
+  el.className = 'reply-item';
+  el.innerHTML = `
+    <div class="reply-head">
+      <span class="card-dot" style="background:${studio.color}"></span>
+      <span class="reply-author">${escapeHtml(p.author)}</span>
+      <span class="reply-studio">${studio.name}</span>
+      <span class="reply-time">${relativeFromStamp(p.at)}</span>
+    </div>
+    <p class="reply-text"></p>
+  `;
+  el.querySelector('.reply-text').textContent = p.text;
+  el.appendChild(emojiRowEl(p.emoji, onChange));
+  return el;
+}
+
+/* ---------- emoji ----------
+   Small on purpose. The count is there because a row of five identical hearts
+   would be worse, but it is set in the body size, not bold and not coloured —
+   who reacted is the tooltip, and that is the part worth reading. */
+function emojiRowEl(map, onChange) {
+  const row = document.createElement('div');
+  row.className = 'emoji-row';
+
+  EMOJI_SET.forEach((emoji) => {
+    const who = (map[emoji] || []).filter(isStudioEnabled);
+    const mine = who.indexOf(MY_STUDIO_KEY) > -1;
+    // Only the ones already used are shown at rest; the rest live behind the +
+    // so a fresh reaction is not five grey buttons.
+    if (!who.length) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-chip' + (mine ? ' is-mine' : '');
+    btn.title = who.map((k) => STUDIOS[k].name).join(', ');
+    btn.innerHTML = `<span class="emoji-glyph">${emoji}</span><span class="emoji-count">${who.length}</span>`;
+    btn.addEventListener('click', () => { if (toggleEmojiIn(map, emoji)) onChange(); });
+    row.appendChild(btn);
+  });
+
+  const add = document.createElement('div');
+  add.className = 'emoji-add';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'emoji-add-btn';
+  addBtn.setAttribute('aria-label', t().reactions.emojiAdd);
+  addBtn.title = t().reactions.emojiAdd;
+  addBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>';
+  const picker = document.createElement('div');
+  picker.className = 'emoji-picker';
+  EMOJI_SET.forEach((emoji) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'emoji-option';
+    b.textContent = emoji;
+    b.addEventListener('click', () => { if (toggleEmojiIn(map, emoji)) onChange(); });
+    picker.appendChild(b);
+  });
+  add.appendChild(addBtn);
+  add.appendChild(picker);
+  addBtn.addEventListener('click', () => add.classList.toggle('is-open'));
+  row.appendChild(add);
+
+  return row;
+}
+
+// Opens (and focuses) the note field on one reaction. Called right after you
+// leave one, and from its own "add a line" button.
+function openNoteEditor(reactionId) {
+  const item = document.querySelector(`.reaction-item[data-reaction-id="${reactionId}"]`);
+  if (!item) return;
+  item.classList.add('is-noting');
+  const input = item.querySelector('.reaction-note-editor input');
+  if (input) input.focus();
+}
+
+// The reaction column, redrawn as one piece — the pills reflect what is in the
+// list and the list reflects the pills, so they are never rendered apart.
+function renderReactionArea(cardId) {
+  const redraw = () => renderReactionArea(cardId);
+  renderReactionPills(document.getElementById('reactionPills'), cardId, redraw);
+  renderReactionList(document.getElementById('reactionList'), cardId, redraw);
+  const bodyRow = document.getElementById('bodyEmojiRow');
+  if (bodyRow) {
+    bodyRow.innerHTML = '';
+    bodyRow.appendChild(emojiRowEl(bodyEmojiFor(cardId), redraw));
+  }
+}
+
+/* ======================================================================
+   For you — what came back
+   ----------------------------------------------------------------------
+   Three things are worth telling somebody about, and they are all about their
+   own work: a studio applied what you wrote, someone reacted to or answered
+   it, or a question was addressed to your studio. Nothing else earns an
+   interruption — "12 new cards this week" is a metric, not news.
+
+   Phrasing is a person doing something, never a count: "Bengt at Whow left a
+   question on your reward flow", not "1 new reaction". The count on the
+   indicator exists so you know whether to look; the panel is where the actual
+   information is.
+
+   TODO(backend): every notification here is written locally by whichever
+   action caused it, because there is one browser and no server. A real service
+   emits these from the write path on the server and delivers them over a
+   socket or a poll to the *author's* session — nothing on the reader's machine
+   should be able to invent a notification for someone else. The shape below is
+   deliberately what such an event would carry, so swapping in a feed of them
+   touches loadNotifications and nothing else.
+   ====================================================================== */
+const NOTIFICATIONS_STORAGE_KEY = 'loom_notifications_v1';
+
+// 'applied'  — a studio took your knowledge and used it
+// 'reaction' — someone left one of the three reactions on your card
+// 'reply'    — someone answered a reaction in a thread you are part of
+// 'asked'    — a question was addressed to your studio
+const SEED_NOTIFICATIONS = [
+  { id: 'nt-1', kind: 'reaction', cardId: 'c1', actor: 'Bengt Larsson', studio: 'whow',
+    detail: 'sameProblem', minsAgo: 60 * 26, read: false },
+  { id: 'nt-2', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
+    detail: '', minsAgo: 60 * 9, read: false },
+  { id: 'nt-3', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
+    detail: '', minsAgo: 60 * 4, read: false },
+];
+
+function seedNotifications() {
+  const now = Date.now();
+  return SEED_NOTIFICATIONS.map((n) => Object.assign({}, n, { at: now - n.minsAgo * 60 * 1000 }));
+}
+
+function loadNotifications() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(NOTIFICATIONS_STORAGE_KEY));
+    if (Array.isArray(parsed)) return parsed;
+  } catch (err) {
+    console.error('[Loom feed] could not read notifications:', err);
+  }
+  return seedNotifications();
+}
+
+let notifications = loadNotifications();
+
+function persistNotifications() {
+  return safeSetItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications)).ok;
+}
+
+function unreadNotifications() {
+  return notifications.filter((n) => !n.read);
+}
+
+// Newest first — this is a "what happened while I was away" list, not a log.
+function sortedNotifications() {
+  return notifications.slice().sort((a, b) => b.at - a.at);
+}
+
+/* Adds one and announces it. `silent` skips the toast for anything generated
+   during page setup, so opening the app does not fire three toasts at once for
+   things that happened yesterday. */
+function pushNotification(entry, opts) {
+  const options = opts || {};
+  const full = Object.assign({ id: localId('nt'), at: Date.now(), read: false }, entry);
+  notifications.push(full);
+  if (!persistNotifications()) {
+    notifications.pop();
+    return null;
+  }
+  renderNotificationIndicator();
+  if (!options.silent) showNotificationToast(full);
+  return full;
+}
+
+function markNotificationRead(id) {
+  const n = notifications.find((x) => x.id === id);
+  if (!n || n.read) return;
+  n.read = true;
+  persistNotifications();
+  renderNotificationIndicator();
+}
+
+function markAllNotificationsRead() {
+  let changed = false;
+  notifications.forEach((n) => { if (!n.read) { n.read = true; changed = true; } });
+  if (changed) { persistNotifications(); renderNotificationIndicator(); }
+}
+
+/* ---- who gets told ----
+   Only ever the author, and never yourself. Reacting to your own card is a
+   perfectly reasonable thing to do (a correction, a note to the next reader)
+   and it should not ping you about it. */
+function cardById(id) {
+  return ALL_CARDS.find((c) => c.id === id);
+}
+
+function isMyCard(card) {
+  return !!card && card.studio === MY_STUDIO_KEY;
+}
+
+function notifyAuthorOfReaction(cardId, reaction) {
+  const card = cardById(cardId);
+  // Your own card, somebody else's reaction. Reacting to your own work is a
+  // reasonable thing to do — a correction, a note for the next reader — and it
+  // should not ping you about it.
+  if (!isMyCard(card) || isMine(reaction)) return;
+  pushNotification({ kind: 'reaction', cardId, actor: reaction.author, studio: reaction.studio, detail: reaction.kind });
+}
+
+/* A reply reaches whoever's reaction it answers. Three people it must never
+   reach: yourself (you just typed it), the replier when they are the reaction's
+   author too (they are talking to themselves), and anyone when the reaction is
+   your own — you are already looking at the thread.
+
+   Locally that means this almost never fires, because every action in this
+   browser is yours. That is correct: inbound events are what the arrival
+   simulation stands in for, and in a real service the server decides who gets
+   told. A client that can notify itself about its own typing is a bug you
+   only notice when a toast tells you what you just did. */
+function notifyOfReply(reaction, reply) {
+  if (isMine(reply)) return;
+  if (isMine(reaction) || reply.author === reaction.author) return;
+  pushNotification({ kind: 'reply', cardId: reaction.cardId, actor: reply.author, studio: reply.studio, detail: '' });
+}
+
+/* ---- the sentence ----
+   A person, doing something, to a named piece of your work. The card's title is
+   part of the sentence: "left a question on your reward flow" is news, "left a
+   question" is a database row. */
+function notificationText(n) {
+  const s = t().forYou.lines;
+  const card = cardById(n.cardId);
+  const title = card ? truncateForSummary(cardText(card).title, 46) : '';
+  const studio = STUDIOS[n.studio] ? STUDIOS[n.studio].name : n.studio;
+
+  if (n.kind === 'applied') return s.applied(n.actor, studio, title);
+  if (n.kind === 'reply') return s.reply(n.actor, studio, title);
+  if (n.kind === 'asked') return s.asked(n.actor, studio, title);
+  return s.reaction(n.actor, studio, t().reactions.kinds[n.detail] || '', title);
+}
+
+/* ---------- the indicator ----------
+   Top-right, opposite the hamburger, on every screen. It carries a count so
+   you know whether to look, and a dot per studio the news came from so you
+   know roughly what it is before you open anything. The dots are the useful
+   part: "something from Whow" is a different thought from "something from
+   DoubleU", and it costs no reading to tell them apart. */
+function renderNotificationIndicator() {
+  const btn = document.getElementById('notifyBtn');
+  if (!btn) return;
+
+  const unread = unreadNotifications();
+  const countEl = document.getElementById('notifyCount');
+  const dotsEl = document.getElementById('notifyDots');
+
+  countEl.textContent = unread.length ? String(unread.length) : '';
+  btn.classList.toggle('has-unread', unread.length > 0);
+  btn.setAttribute('aria-label', unread.length ? t().forYou.ariaUnread(unread.length) : t().forYou.aria);
+
+  // One dot per studio with something waiting, in a stable order so the row
+  // does not reshuffle every time something arrives.
+  dotsEl.innerHTML = '';
+  const studios = enabledStudioKeys().filter((k) => unread.some((n) => n.studio === k));
+  studios.forEach((k) => {
+    const dot = document.createElement('span');
+    dot.className = 'notify-dot';
+    dot.style.background = STUDIOS[k].color;
+    dot.title = STUDIOS[k].name;
+    dotsEl.appendChild(dot);
+  });
+}
+
+/* The arrival preview. Expands sideways out of the indicator for a few seconds
+   with one readable line, then folds back into it — so the thing you saw
+   arrive is visibly the thing the count is now about. Deliberately not a
+   separate corner toast, which would leave you hunting for what changed. */
+let notifyToastTimer = null;
+function showNotificationToast(n) {
+  const toast = document.getElementById('notifyToast');
+  if (!toast) return;
+
+  const studio = STUDIOS[n.studio];
+  toast.style.setProperty('--notify-studio', studio ? studio.color : 'var(--ink)');
+  document.getElementById('notifyToastDot').style.background = studio ? studio.color : 'var(--ink)';
+  document.getElementById('notifyToastText').textContent = notificationText(n);
+
+  clearTimeout(notifyToastTimer);
+  toast.classList.add('is-open');
+  // 4.5s: long enough to read a sentence in any of the four languages without
+  // sitting on the screen long enough to become furniture.
+  notifyToastTimer = setTimeout(() => toast.classList.remove('is-open'), 4500);
+
+  const btn = document.getElementById('notifyBtn');
+  btn.classList.remove('is-arriving');
+  void btn.offsetWidth; // restart the flash if two land close together
+  btn.classList.add('is-arriving');
+  setTimeout(() => btn.classList.remove('is-arriving'), 900);
+}
+
+/* ---------- the panel ---------- */
+function isForYouOpen() {
+  return document.getElementById('forYouPanel').classList.contains('is-open');
+}
+
+function openForYou() {
+  const panel = document.getElementById('forYouPanel');
+  if (panel.classList.contains('is-open')) return;
+  renderForYouList();
+  panel.classList.add('is-open');
+  document.getElementById('notifyBtn').setAttribute('aria-expanded', 'true');
+  document.getElementById('notifyToast').classList.remove('is-open');
+}
+
+function closeForYou() {
+  document.getElementById('forYouPanel').classList.remove('is-open');
+  document.getElementById('notifyBtn').setAttribute('aria-expanded', 'false');
+}
+
+function renderForYouList() {
+  const list = document.getElementById('forYouList');
+  const items = sortedNotifications();
+  list.innerHTML = '';
+
+  document.getElementById('forYouTitle').textContent = t().forYou.title;
+  const markAll = document.getElementById('forYouMarkAll');
+  markAll.textContent = t().forYou.markAll;
+  markAll.style.display = unreadNotifications().length ? '' : 'none';
+
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'for-you-empty';
+    empty.innerHTML = `<p class="for-you-empty-line"></p><p class="for-you-empty-sub"></p>`;
+    empty.querySelector('.for-you-empty-line').textContent = t().forYou.emptyTitle;
+    empty.querySelector('.for-you-empty-sub').textContent = t().forYou.emptyBody;
+    list.appendChild(empty);
+    return;
+  }
+
+  items.forEach((n) => {
+    const studio = STUDIOS[n.studio];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'for-you-item' + (n.read ? '' : ' is-unread');
+    row.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+
+    row.innerHTML = `
+      <span class="for-you-mark"></span>
+      <span class="for-you-body">
+        <span class="for-you-text"></span>
+        <span class="for-you-meta">
+          <span class="card-dot" style="background:${studio ? studio.color : '#999'}"></span>
+          <span>${studio ? studio.name : ''}</span>
+          <span class="sep">·</span>
+          <span>${relativeFromStamp(n.at)}</span>
+        </span>
+      </span>
+    `;
+    row.querySelector('.for-you-text').textContent = notificationText(n);
+
+    row.addEventListener('click', () => {
+      markNotificationRead(n.id);
+      closeForYou();
+      openCardById(n.cardId);
+    });
+
+    list.appendChild(row);
+  });
+}
+
+// Opening the thing a notification is about, from wherever you happen to be.
+function openCardById(cardId) {
+  const index = ALL_CARDS.findIndex((c) => c.id === cardId);
+  if (index < 0) { showToast(t().forYou.gone); return; }
+
+  const go = () => {
+    // Any element carrying this card will do — openCard reads the index off it
+    // and every surface tags its cards with both.
+    const el = document.querySelector(`[data-card-id="${cardId}"]`);
+    if (el) { openCard(el); return; }
+    // Not currently rendered (filtered out, or on a floor that has not been
+    // built) — hand openCard a detached stand-in carrying the same index.
+    const stub = document.createElement('div');
+    stub.dataset.index = String(index);
+    stub.dataset.cardId = cardId;
+    openCard(stub);
+  };
+
+  if (isShareMode) { exitShareMode(); setTimeout(go, CONFIG.MODE_SWAP_MS + 60); return; }
+  if (isDesignersMode) { exitDesignersMode(); setTimeout(go, CONFIG.MODE_SWAP_MS + 60); return; }
+  if (isCardExpanded) { closeCard(); setTimeout(go, CONFIG.MODE_SWAP_MS + 60); return; }
+  go();
+}
+
+function initForYou() {
+  document.getElementById('notifyBtn').addEventListener('click', () => {
+    if (isForYouOpen()) closeForYou();
+    else openForYou();
+  });
+  document.getElementById('forYouCloseBtn').addEventListener('click', closeForYou);
+  document.getElementById('forYouMarkAll').addEventListener('click', () => {
+    markAllNotificationsRead();
+    renderForYouList();
+  });
+
+  // The toast is the notification: clicking it opens the panel it came from.
+  document.getElementById('notifyToast').addEventListener('click', openForYou);
+
+  document.addEventListener('click', (e) => {
+    if (!isForYouOpen()) return;
+    if (e.target.closest('#forYouPanel') || e.target.closest('#notifyBtn')) return;
+    closeForYou();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isForYouOpen()) closeForYou();
+  });
+
+  renderNotificationIndicator();
 }
 
 /* "Edited 4 minutes ago", from the absolute stamp written at save time. Absent
@@ -7851,7 +9097,8 @@ function renderEditedStamp(el, data) {
 }
 
 // Minutes/hours/days since an absolute timestamp, in the reader's language.
-// Reuses formatRelativeTime so an edit is phrased the same way a card's age is.
+// Reuses formatRelativeTime so an edit, a reaction and a card's age are all
+// phrased the same way.
 function relativeFromStamp(stamp) {
   const secs = Math.max(0, Math.round((Date.now() - stamp) / 1000));
   if (secs < 60) return t().justNowInline;
@@ -7871,6 +9118,130 @@ function answerCountOf(data) {
   // warning that ignores the three answers you can see on screen is worse
   // than no warning.
   return Math.max(0, getConversationMessages(data).length - 1);
+}
+
+/* ---------- what has come back, on your own cards ----------
+   Only on your own: on somebody else's this would be a scoreboard of their
+   work, which is exactly what this app does not do. On yours it is the reason
+   to open the app again — "did anything happen to the thing I wrote". */
+function cardStatusLine(card) {
+  const s = t().cardStatus;
+  const reactions = reactionsOn(card.id);
+  const appliedNames = visibleAppliedBy(card).map((k) => STUDIOS[k].name);
+  return { reactions: s.reactions(reactions.length), applied: s.applied(appliedNames), any: reactions.length > 0 || appliedNames.length > 0 };
+}
+
+function renderCardStatus(el, card) {
+  if (!el) return;
+  if (!isMyCard(card)) { el.style.display = 'none'; return; }
+  const line = cardStatusLine(card);
+  el.style.display = '';
+  el.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = t().cardStatus.label;
+  el.appendChild(label);
+
+  [line.reactions, line.applied].forEach((text) => {
+    const row = document.createElement('div');
+    row.className = 'card-status-row';
+    row.innerHTML = '<span class="card-status-mark"></span>';
+    const span = document.createElement('span');
+    span.textContent = text;
+    row.appendChild(span);
+    el.appendChild(row);
+  });
+}
+
+/* A small mark on your own cards in the feed, so "something came back" is
+   visible without opening anything. A dot per studio that reacted or applied
+   — no number, because a number on a wall of cards is a ranking. */
+function ownCardStatusHTML(card) {
+  if (!isMyCard(card)) return '';
+  const studios = new Set();
+  reactionsOn(card.id).forEach((r) => studios.add(r.studio));
+  visibleAppliedBy(card).forEach((k) => studios.add(k));
+  studios.delete(MY_STUDIO_KEY);
+  if (!studios.size) return '';
+  const dots = [...studios].map((k) =>
+    `<span class="card-dot" style="background:${STUDIOS[k].color}" title="${STUDIOS[k].name}"></span>`).join('');
+  return `<span class="card-came-back" title="${escapeHtml(t().cardStatus.label)}">${dots}</span>`;
+}
+
+/* ======================================================================
+   Arrival simulation
+   ----------------------------------------------------------------------
+   TODO(backend): DELETE THIS WHOLE SECTION when there is a server.
+
+   Everything below fakes the other side of the conversation. With one browser
+   and no backend, sharing something produces silence forever, which makes the
+   loop impossible to see or to demo — and the loop is the point of the
+   feature. So a short while after you share, one of the other studios reacts,
+   the way one plausibly would.
+
+   In a real service this is a server event: the write path records the
+   reaction, the server emits a notification to the author's session, and the
+   client's job is only to render what arrives. Nothing here should survive
+   that change — the only piece worth keeping is pushNotification, which is
+   already shaped like the event a socket would deliver.
+   ====================================================================== */
+const DEMO_REPLY_DELAY_MS = 24000; // ~25s: long enough to have moved on, short enough to still be watching
+
+const DEMO_REACTORS = [
+  { author: 'Bengt Larsson', studio: 'whow', kind: 'sameProblem',
+    note: 'We ran into the same thing last quarter — reading this saved us a week of guessing.' },
+  { author: 'Mira Keller', studio: 'whow', kind: 'tryThis',
+    note: 'Taking this into our next sprint. Will tell you how it lands.' },
+  { author: 'Jonas Weber', studio: 'whow', kind: 'question',
+    note: 'How long did you leave it running before you trusted the numbers?' },
+];
+
+let demoReactorIndex = 0;
+const demoTimers = [];
+
+function scheduleDemoReaction(cardId) {
+  demoTimers.push(setTimeout(() => deliverDemoReaction(cardId), DEMO_REPLY_DELAY_MS));
+}
+
+/* The hidden trigger, for demoing without waiting: Shift+D lands the next
+   arrival immediately against the most recent thing you shared. */
+function initDemoTrigger() {
+  document.addEventListener('keydown', (e) => {
+    if (!e.shiftKey || e.key !== 'D') return;
+    if (e.target.matches('input, textarea')) return; // typing a capital D is not a command
+    const target = sharedCards[0] || ALL_CARDS.find(isMyCard);
+    if (!target) return;
+    e.preventDefault();
+    deliverDemoReaction(target.id);
+  });
+}
+
+/* One studio reacting, the way one plausibly would. scheduleDemoReaction is
+   this on a timer; the trigger above is this immediately. */
+function deliverDemoReaction(cardId) {
+  if (!cardById(cardId)) return; // deleted while we waited
+
+  const who = DEMO_REACTORS[demoReactorIndex % DEMO_REACTORS.length];
+  demoReactorIndex += 1;
+
+  const entry = {
+    id: localId('rx'), cardId, kind: who.kind, author: who.author, studio: who.studio,
+    note: who.note, at: Date.now(), emoji: {}, replies: [],
+  };
+  reactionState.reactions.push(entry);
+  if (!persistReactions()) { reactionState.reactions.pop(); return; }
+
+  pushNotification({ kind: 'reaction', cardId, actor: entry.author, studio: entry.studio, detail: entry.kind });
+
+  // If the reader happens to be looking at that very card, show it landing
+  // rather than making them close and reopen.
+  if (isCardExpanded && currentOpenIndex !== null) {
+    const open = ALL_CARDS[currentOpenIndex];
+    if (open && open.id === cardId) renderReactionArea(cardId);
+  }
+  renderDiscover();
+  renderBrowse();
 }
 
 function renderBodySections(wrap, data, text) {
@@ -9141,6 +10512,8 @@ function initSubmit() {
     const entry = buildSharedCardEntry();
     saveSharedCard(entry);
     pendingSharedEntries.push(entry);
+    // TODO(backend): delete — see the Arrival simulation section.
+    scheduleDemoReaction(entry.id);
     goToWeaveStep();
   });
 }
@@ -9857,6 +11230,9 @@ safeInit('static text', initStaticText);
 // The page opens on floor 1 with nothing having called goToFloor yet, so the
 // corner marks have to be told once that they start life over a dark banner.
 safeInit('chrome', updateChrome);
+safeInit('for you', initForYou);
+// TODO(backend): delete with the rest of the arrival simulation.
+safeInit('demo trigger', initDemoTrigger);
 safeInit('hero controls', initHeroControls);
 safeInit('browse scroll', initBrowseScroll);
 safeInit('feed wheel snap', initFeedWheelSnap);
