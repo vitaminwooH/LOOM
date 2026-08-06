@@ -80,9 +80,12 @@
     bottom: 6.5vh;
     transform: translateX(-50%);
     display: flex;
-    gap: 30px;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
     z-index: 10;
   }
+  .studio-dock-row { display: flex; gap: 30px; }
 
   .studio-button {
     position: relative;
@@ -130,6 +133,22 @@
     pointer-events: none;
   }
 
+  /* The icons are two logos in a dark void, which reads as decoration until
+     somebody clicks one by accident. One line says what they are for. */
+  .studio-dock-hint {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.38);
+    margin-bottom: 4px;
+    transition: opacity 0.3s ease;
+  }
+  /* The tooltip opens into exactly this space. Once the pointer is on a studio
+     the hint has done its job, so it steps aside rather than being read
+     through the name it is overlapping. */
+  .studio-dock:has(.studio-button:hover) .studio-dock-hint,
+  .studio-dock:has(.studio-button:focus-visible) .studio-dock-hint { opacity: 0; }
+
   .studio-tooltip {
     position: absolute;
     bottom: calc(100% + 14px);
@@ -176,7 +195,10 @@
   <div class="tagline">Woven Together</div>
 </div>
 
-<div class="studio-dock" id="studio-dock"></div>
+<div class="studio-dock" id="studio-dock">
+  <div class="studio-dock-hint">Choose your studio to enter</div>
+  <div class="studio-dock-row" id="studio-dock-row"></div>
+</div>
 
 <div class="page-veil" id="pageVeil"></div>
 
@@ -243,6 +265,7 @@ const STUDIOS = [
     id: 'doubleu',
     name: 'DoubleU Games',
     initials: 'DU',
+    country: 'Korea', // 아이콘 툴팁에 "DoubleU Games · Korea"로 표시됩니다
     color: 0x378ADD,
     lat: 37.5, lon: 127, // 대한민국
     enabled: true,
@@ -252,6 +275,7 @@ const STUDIOS = [
     id: 'whow',
     name: 'Whow Games',
     initials: 'WH',
+    country: 'Germany',
     color: 0xD85A30,
     lat: 51, lon: 9, // 독일
     enabled: true,
@@ -261,6 +285,7 @@ const STUDIOS = [
     id: 'paxie',
     name: 'Paxie',
     initials: 'PA',
+    country: '',
     color: 0x1D9E75,
     lat: 37.5, lon: 127, // 좌표 미정 — 협업 확정 시 실제 위치로 채워 넣을 것
     enabled: false, // 협업 아직 미확정 — 확정되면 true로 바꾸면 바로 노드/버튼에 나타남
@@ -813,7 +838,7 @@ requestAnimationFrame(() => {
 /* ======================================================================
    6. 하단 스튜디오 버튼 DOM 생성
    ====================================================================== */
-const dock = document.getElementById('studio-dock');
+const dock = document.getElementById('studio-dock-row');
 
 activeStudios.forEach((studio) => {
   const btn = document.createElement('button');
@@ -844,10 +869,13 @@ activeStudios.forEach((studio) => {
     btn.appendChild(img);
   }
 
+  // Full name and where they are. A logo tells you which of the two this is
+  // only if you already know both logos.
   const tooltip = document.createElement('div');
   tooltip.className = 'studio-tooltip';
-  tooltip.textContent = studio.name;
+  tooltip.textContent = studio.country ? `${studio.name} · ${studio.country}` : studio.name;
   btn.appendChild(tooltip);
+  btn.setAttribute('title', tooltip.textContent);
 
   btn.addEventListener('click', () => enterStudioAndProceed(studio));
   dock.appendChild(btn);

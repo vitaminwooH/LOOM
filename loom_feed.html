@@ -181,6 +181,33 @@
   .menu-item.is-active { color: #ffffff; }
   .menu-item.is-visible { opacity: 1; transform: translateY(0); }
 
+  /* ---------- what is behind each door ----------
+     Five nouns in a column tell you the names of the rooms and nothing about
+     what is in them. The line appears under the pointer rather than sitting
+     there permanently: the menu is meant to be a handful of big words, and
+     five subtitles would turn it back into a list. Space is reserved for it
+     either way (see .menu-item), so the column never jumps as you move down
+     it — a menu that reflows under the cursor is a menu you misclick. */
+  .menu-item { position: relative; padding-bottom: 26px; }
+  .menu-item-desc {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.55);
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .menu-item:hover .menu-item-desc,
+  .menu-item:focus-visible .menu-item-desc { opacity: 1; transform: translateY(0); }
+
   /* ---------- app content ---------- */
   .app {
     transition: filter 0.55s ease, transform 0.55s ease, opacity 0.45s ease;
@@ -1171,8 +1198,11 @@
     /* margin-block: auto, not justify-content: center — auto margins collapse
        to zero the moment the content is taller than the scroller, so three
        questions sit in the middle of the floor and thirty still scroll from
-       the top instead of having their first row clipped above the scrollport. */
-    margin-block: auto;
+       the top instead of having their first row clipped above the scrollport.
+       Only the bottom half of that pair lives here now — the top auto margin
+       moved onto .questions-personal, which sits above the grid and has to be
+       inside the centred block rather than pinned above it. */
+    margin-block: 0 auto;
   }
 
   /* the marker that explains why a card is at the front of floor 3 */
@@ -1193,6 +1223,13 @@
     border-color: var(--ink);
     background: var(--ink);
     color: #ffffff;
+  }
+  /* The softer reason to open one: a question three people are already in is a
+     different invitation from one nobody has touched. */
+  .question-card-activity {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--ink-faint);
   }
 
   .question-card {
@@ -1503,20 +1540,27 @@
 
   /* Whose turn. A sentence and a button, not a banner — the ask has to be
      small enough that ignoring it costs nothing. */
-  .your-turn { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .your-turn-line { font-size: 12.5px; color: rgba(255, 255, 255, 0.78); }
+  /* The button earns its presence with contrast and room around it, not with
+     size. A big button on the cover would be an advertisement; a small solid
+     one against a translucent outline is simply the only filled thing in the
+     row, which is enough for the eye to find it. */
+  .your-turn { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 4px; }
+  .your-turn-line { font-size: 13px; color: rgba(255, 255, 255, 0.9); }
   .your-turn-cta {
-    padding: 6px 15px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 8px 18px;
+    border: 1px solid transparent;
     border-radius: 999px;
-    background: transparent;
+    background: #ffffff;
     font-family: inherit;
-    font-size: 12px;
-    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    color: var(--ink);
     cursor: pointer;
-    transition: background 0.22s ease, border-color 0.22s ease;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, background 0.22s ease;
   }
-  .your-turn-cta:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.7); }
+  .your-turn-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); }
+  .your-turn-cta:active { transform: scale(0.97); }
 
   /* On a Question cover the banner is paper, so the strip has to go dark-on-
      light with it — see the tone system in updateChrome. */
@@ -1529,30 +1573,56 @@
   .discover-section.on-light .now-item-time { color: var(--ink-faint); }
   .discover-section.on-light .now-strip-empty,
   .discover-section.on-light .your-turn-line { color: var(--ink-dim); }
-  .discover-section.on-light .your-turn-cta { border-color: var(--border-strong); color: var(--ink); }
-  .discover-section.on-light .your-turn-cta:hover { background: rgba(20, 20, 20, 0.06); }
+  /* On a light cover the same trick inverts: ink on paper is the filled thing. */
+  .discover-section.on-light .your-turn-cta { background: var(--ink); color: #ffffff; }
+  .discover-section.on-light .your-turn-cta:hover { box-shadow: 0 10px 24px -12px rgba(20, 20, 20, 0.5); }
 
   /* ---------- what came of a card ----------
      One line, in the quiet colour, under the title. No number in bold and no
      icon: the moment this looks like a stat it becomes a thing to be top of. */
   .exchange-trace {
+    display: block;
     margin-top: 9px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
     font-size: 11.5px;
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.72);
   }
+  /* When the trace names one specific piece of work it is a way to get there,
+     so it looks like one: an arrow, and it underlines under the pointer. */
+  .exchange-trace.is-linked { cursor: pointer; transition: color 0.2s ease; }
+  .exchange-trace-arrow { margin-left: 5px; opacity: 0.7; }
+  .exchange-trace.is-linked:hover { color: #ffffff; text-decoration: underline; text-underline-offset: 3px; }
   .question-card .exchange-trace,
   .poster-card.is-open-question .exchange-trace { color: var(--ink-faint); }
+  .question-card .exchange-trace.is-linked:hover,
+  .poster-card.is-open-question .exchange-trace.is-linked:hover { color: var(--ink); }
 
   /* floor 3's dock line — the one place a count belongs, because it is a
-     count of things waiting on YOU rather than a count of your output */
-  .needs-you-line {
-    font-size: 12.5px;
-    color: var(--ink-dim);
-    padding: 5px 8px;
-    white-space: nowrap;
+     count of things waiting on YOU rather than a count of your output. There
+     is exactly one of these now; two lines saying different true things about
+     the same list read as the app disagreeing with itself. */
+  .questions-count.is-wanted { color: var(--ink); font-weight: 600; }
+
+  /* The sentence at the top of floor 3, addressed to whoever is reading. */
+  /* Sits with the cards rather than in the corner: the auto margin above it and
+     the one below the grid make the pair one centred block, so a floor with
+     three questions on it is a sentence and three cards, not a caption stranded
+     at the top edge under the hamburger. */
+  .questions-personal {
+    margin: auto 0 26px;
+    text-align: center;
+    font-family: 'Newsreader', serif;
+    font-size: clamp(18px, 1.7vw, 25px);
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--ink);
   }
-  .needs-you-line.is-wanted { color: var(--ink); font-weight: 600; }
+  .questions-personal:empty { display: none; }
 
   /* ---------- Share, in Update mode ----------
      Fewer things on screen, and the one box is bigger. The form should look
@@ -1573,6 +1643,45 @@
      was pushed to the bottom of the column, which left a void in the middle
      and made the last field look like something you had missed. */
   .step-compose.is-update .compose-left { justify-content: flex-start; }
+  /* One line, a picture and somewhere to look. Attachments are a filing
+     cabinet, and nobody attaches a PDF to a sentence — leaving the column
+     there made the lightest type in the app look like the same form as the
+     others with two boxes greyed out. */
+  .step-compose.is-update .compose-attach-row { grid-template-columns: 1fr; }
+  .step-compose.is-update .compose-attach-col-attachments { display: none; }
+
+  /* ---------- "Add more context" ----------
+     A Project asks four questions. Four empty boxes is a form you put off until
+     you have time to do it properly, and most of what a studio learns never
+     survives that wait. So the first box is the form and the rest are behind
+     one line of text — still there, no longer in the way. */
+  .compose-more {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 2px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+  .compose-more:hover { color: var(--ink); }
+  .compose-more svg { width: 13px; height: 13px; transition: transform 0.25s ease; }
+  .compose-more.is-open svg { transform: rotate(180deg); }
+  .compose-extra-fields { display: none; flex-direction: column; gap: 16px; min-height: 0; }
+  .compose-extra-fields.is-open { display: flex; flex: 1 1 auto; }
+  /* With the extras folded away, the one visible box would inherit the whole
+     leftover column — a 600px void under one sentence, which is the same "this
+     form wants an essay" signal the split was meant to remove. Same fix the
+     Update type already uses: a box the size of what it is asking for. */
+  .compose-fields.has-hidden-extras { flex: 0 0 auto; justify-content: flex-start; }
+  .compose-fields.has-hidden-extras > .field { flex: 0 0 auto; }
+  .compose-fields.has-hidden-extras > .field textarea { flex: 0 0 auto; min-height: 132px; max-height: 190px; }
 
   .field-link input {
     width: 100%;
@@ -2606,6 +2715,43 @@
   /* 66px, not 30: a question has no banner above it, so this header is the
      first thing under the fixed top-left hamburger and back arrow. */
   .question-detail-header { flex-shrink: 0; padding: 66px 40px 18px; border-bottom: 1px solid var(--border); }
+
+  /* ---------- what follows a resolved question ---------- */
+  /* A column, not one wrapping row: the lineage panel below is much taller than
+     a button, and asking flex-wrap to keep the two apart is a bet that depends
+     on how wide the panel happens to be. */
+  .resolved-next {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .resolved-next-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+  .resolved-next-label {
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+  .resolved-next-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .resolved-next-btn {
+    padding: 8px 15px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .resolved-next-btn:hover { border-color: var(--ink); color: var(--ink); transform: translateY(-1px); }
+  .resolved-next-lineage { align-self: stretch; max-width: 560px; }
   .question-detail-meta {
     display: flex;
     align-items: center;
@@ -2673,8 +2819,32 @@
     flex-direction: column;
     gap: 20px;
   }
-  .conversation-message { display: flex; flex-direction: column; gap: 5px; max-width: 82%; }
-  .conversation-message.is-me { align-self: flex-end; align-items: flex-end; }
+  /* ---------- one turn in the conversation ----------
+     This pane is wide, and a column of near-identical grey boxes running its
+     full width has no rhythm: you cannot tell at a glance where one person
+     stops and the next starts, or how many people are even in it. Three cheap
+     fixes, no new colours — an initials disc in the speaker's studio colour, a
+     line length short of the pane, and the meta row hung off the disc so the
+     eye has a left edge to run down. */
+  .conversation-message { display: flex; gap: 10px; max-width: 66%; }
+  .conversation-message.is-me { align-self: flex-end; flex-direction: row-reverse; }
+  .conversation-message-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .conversation-message.is-me .conversation-message-body { align-items: flex-end; }
+  .conversation-avatar {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    margin-top: 18px; /* sits beside the bubble, not beside the name above it */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--speaker-color, var(--ink));
+    color: #ffffff;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
   .conversation-message-meta { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--ink-faint); }
   .conversation-message-meta .card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .conversation-message-author { font-weight: 650; color: var(--ink-dim); }
@@ -3039,6 +3209,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* What they are in the middle of, on the front, under the role. Marked with
+     the studio's colour so it reads as current rather than as a second title. */
+  .designer-now {
+    margin-top: 2px;
+    padding-left: 9px;
+    border-left: 2px solid var(--studio-color, var(--ink-faint));
+    font-size: clamp(11px, 0.85vw, 13px);
+    line-height: 1.35;
+    color: var(--ink-faint);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
   /* ---------- the back face ----------
      Everything here has to fit without scrolling. A card that grows a scrollbar
@@ -3055,6 +3239,35 @@
   .designer-back-head { flex-shrink: 0; min-width: 0; }
   .designer-back-head .designer-name { white-space: normal; font-size: clamp(15px, 1.3vw, 21px); }
   .designer-back-head .designer-role { margin-top: 3px; white-space: normal; font-size: clamp(11.5px, 0.9vw, 14px); }
+
+  /* Working on / Can help with / Recently shared — the three reasons to write
+     to somebody, above the addresses you would write to. */
+  .designer-fact { flex-shrink: 0; min-width: 0; }
+  .designer-fact-label {
+    font-size: clamp(8.5px, 0.62vw, 9.5px);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin-bottom: 3px;
+  }
+  .designer-fact-value {
+    font-size: clamp(11px, 0.85vw, 13px);
+    line-height: 1.4;
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* The contact block is now the tail of the card, so it gets a rule above it
+     rather than a heading competing with the three that matter. */
+  .designer-contact-label {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding-top: clamp(8px, 1.2vh, 12px);
+    border-top: 1px solid var(--border);
+  }
 
   .designer-links {
     display: flex;
@@ -3601,37 +3814,6 @@
   .preview-mode:hover { color: var(--ink-dim); }
   .preview-mode.is-active { background: #ffffff; color: var(--ink); box-shadow: 0 1px 3px rgba(20, 20, 20, 0.1); }
 
-  /* ---------- banner mode ----------
-     The floor-1 cover at preview size: wide, the title set as large as the
-     frame allows, and the same scrim underneath it. Not a scaled screenshot —
-     the same .card-media / .card-scrim / .card-content pieces, so what you see
-     here is what floor 1 will do with it. */
-  /* Top of the column, not floating in the middle of it. The banner is much
-     shorter than the card, and centring it in the leftover height made the
-     preview look like it had come loose from its own heading. */
-  .preview-card-wrap.is-banner { align-items: flex-start; }
-  .preview-card.is-banner {
-    flex: 0 0 auto;
-    width: 100%;
-    aspect-ratio: 16 / 10;
-    min-height: 0;
-    align-self: flex-start;
-  }
-  .preview-card.is-banner .card-content { padding: 16px 18px 18px; }
-  .preview-card.is-banner .card-title {
-    font-size: clamp(15px, 2.1vw, 24px);
-    line-height: 1.14;
-    letter-spacing: -0.015em;
-    /* the cover's title is the loudest thing on the screen; past four lines
-       this preview would be nothing but type */
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .preview-card.is-banner .card-meta { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
-  .preview-card.is-banner .preview-focus { display: none; }
-
   .preview-pane-label {
     font-size: 11px;
     letter-spacing: 0.12em;
@@ -3639,85 +3821,95 @@
     font-weight: 650;
     color: var(--ink-faint);
   }
-  .preview-card-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+  .preview-card-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
 
-  /* Deliberately the same card-media / card-scrim / card-content pieces the
-     real poster uses, at whatever size this column happens to be — so the
-     preview cannot drift away from the thing it is previewing. */
+  /* ---------- the preview card ----------
+     Picture on top, words underneath. They used to be one layer — the title and
+     the focused field sat on a scrim over the image — which looks like the real
+     poster and is useless while you are typing: the sentence you are writing
+     lands on top of whatever the photo happens to be doing there, and half of
+     it is unreadable. Two blocks costs a little fidelity and buys the one thing
+     a live preview is for.
+
+     Both modes share the split; only the proportions differ. Banner is the
+     floor-1 cover, wide and short. Card is the poster, tall and narrow, the
+     same shape the thing actually ends up as in Discover and Browse. */
   .preview-card {
     position: relative;
-    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--border);
-    background: var(--surface);
+    background: #ffffff;
     box-shadow: var(--shadow-resting);
   }
-  .preview-card .card-content {
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 20px 20px 22px;
-    z-index: 2;
+  .preview-card.is-banner { width: 100%; flex: 0 0 auto; }
+  .preview-card.is-banner .preview-media-slot { aspect-ratio: 16 / 9; }
+  .preview-card.is-banner .preview-title {
+    font-size: clamp(16px, 1.5vw, 21px);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    -webkit-line-clamp: 3;
   }
-  .preview-card .card-meta { margin-bottom: 10px; font-size: 11.5px; }
-  .preview-card .card-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    font-size: 17px;
-    line-height: 1.3;
-    color: #ffffff;
+  /* The poster's own proportions (see .poster-card, 1:1.7) so this is the shape
+     it will be, not a rectangle standing in for one. */
+  .preview-card.is-card {
+    width: min(100%, 268px);
+    flex: 0 0 auto;
+    aspect-ratio: 1 / 1.62;
   }
-  .preview-card .card-title:empty::after {
-    content: attr(data-placeholder);
-    color: rgba(255, 255, 255, 0.45);
-    font-weight: 500;
-  }
+  .preview-card.is-card .preview-media-slot { flex: 0 0 44%; }
+  .preview-card.is-card .preview-text { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
-  /* Only the field you are in right now. Showing the whole body would make
-     this a second, smaller copy of the form you are already looking at; the
-     point is to answer "how does what I am typing read on a card". */
-  .preview-focus {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.22);
-    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  /* ---- the picture half ----
+     Also the way in: click it and the file picker opens, drop a file on it and
+     that is the image. The upload button under the preview does the same thing
+     and they stay in step, because two controls for one value that disagree is
+     worse than one control. */
+  .preview-media-slot {
+    position: relative;
+    flex: 0 0 auto;
+    min-height: 0;
+    cursor: pointer;
+    background: rgba(20, 20, 20, 0.03);
   }
-  .preview-focus.is-swapping { opacity: 0; transform: translateY(6px); }
-  .preview-focus-label {
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.62);
-    margin-bottom: 6px;
-  }
-  .preview-focus-text {
-    margin: 0;
-    font-size: 12.5px;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.9);
-    /* the line breaks they typed are part of what they wrote */
-    white-space: pre-wrap;
-    /* the card is short; past a few lines this is a teaser, not the text */
-    display: -webkit-box;
-    -webkit-line-clamp: 7;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .preview-focus-text:empty::after {
-    content: attr(data-placeholder);
-    color: rgba(255, 255, 255, 0.42);
-  }
-
   .preview-media { position: absolute; inset: 0; }
   .preview-media.has-image { cursor: grab; }
   .preview-media.is-dragging { cursor: grabbing; }
+
+  .preview-image-cta {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    pointer-events: none;
+    transition: opacity 0.2s ease, background 0.2s ease;
+  }
+  .preview-image-cta svg { width: 20px; height: 20px; stroke-width: 1.5; }
+  /* With a picture in it the invitation gets out of the way until you go
+     looking for it — the picture is the thing you want to see. */
+  .preview-card.has-image .preview-image-cta {
+    opacity: 0;
+    background: rgba(20, 20, 20, 0.5);
+    color: #ffffff;
+  }
+  .preview-media-slot:hover .preview-image-cta { opacity: 1; }
+  .preview-media-slot.is-dropping .preview-image-cta { opacity: 1; background: rgba(20, 20, 20, 0.55); color: #ffffff; }
+  .preview-media-slot.is-dropping { outline: 2px dashed var(--ink); outline-offset: -6px; }
+
   .preview-drag-hint {
     position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 3;
+    top: 10px;
+    left: 10px;
+    z-index: 4;
     display: none;
     padding: 5px 11px;
     border-radius: 999px;
@@ -3730,6 +3922,91 @@
     pointer-events: none;
   }
   .preview-card.has-image .preview-drag-hint { display: block; }
+
+  /* ---- the words half ---- */
+  .preview-text {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px 16px;
+    background: #ffffff;
+  }
+  /* .card-meta and friends are written for a scrim over a photograph — white
+     type, a text shadow, a translucent pill. On paper all three vanish, so the
+     preview restates them in ink rather than forking the shared pieces. */
+  .preview-text .card-meta { position: static; margin-bottom: 8px; gap: 7px; }
+  .preview-text .card-dot { width: 7px; height: 7px; box-shadow: none; }
+  .preview-text .card-studio {
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+    text-shadow: none;
+  }
+  .preview-text .card-type {
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 3px 8px;
+    background: rgba(20, 20, 20, 0.06);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: var(--ink-dim);
+  }
+  .preview-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 14.5px;
+    line-height: 1.32;
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .preview-title:empty::after {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+
+  /* Only the field you are in right now. Showing the whole body would make
+     this a second, smaller copy of the form you are already looking at; the
+     point is to answer "how does what I am typing read on a card". */
+  .preview-focus {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    min-height: 0;
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .preview-focus.is-swapping { opacity: 0; transform: translateY(6px); }
+  .preview-focus-label {
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  .preview-focus-text {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    /* the line breaks they typed are part of what they wrote */
+    white-space: pre-wrap;
+    /* the card is short; past a few lines this is a teaser, not the text */
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .preview-focus-text:empty::after {
+    content: attr(data-placeholder);
+    color: var(--ink-faint);
+  }
 
   /* ---------- image + attachments, side by side under the preview ----------
      Each takes only the height it needs. No thumbnail on the image side: the
@@ -3827,7 +4104,6 @@
       padding-bottom: 20px;
     }
     .compose-fields .field { flex: 0 0 auto; }
-    .preview-card { min-height: 340px; }
   }
 
   .field { display: flex; flex-direction: column; }
@@ -4377,8 +4653,11 @@
       </div>
     </div>
 
+    <!-- One line, not two. "Nothing is waiting on you right now" used to sit
+         next to "2 questions waiting on an answer", which are both true and
+         read as a contradiction. Whichever of the two is the more useful thing
+         to say goes in the single slot — see renderQuestionsDockLine. -->
     <div class="floor-dock-group" id="dockQuestions">
-      <span class="needs-you-line" id="needsYouLine"></span>
       <button type="button" class="author-chip" id="authorChipQuestions" style="display:none;">
         <span class="author-chip-avatar" id="authorChipQuestionsAvatar"></span>
         <span class="author-chip-label" id="authorChipQuestionsLabel"></span>
@@ -4446,6 +4725,9 @@
       <!-- the only floor whose content can genuinely run long: it scrolls
            inside itself rather than making the floor taller than a viewport -->
       <div class="floor-scroll questions-scroll" id="questionsScroll">
+        <!-- Written to the studio reading it: whether any of this is theirs to
+             answer, before they read a single card. See renderQuestionsPersonal. -->
+        <p class="questions-personal" id="questionsPersonal"></p>
         <div class="questions-grid" id="questionsGrid"></div>
         <p class="questions-empty" id="questionsEmpty" style="display:none;"></p>
       </div>
@@ -4536,6 +4818,18 @@
               <input type="text" id="editorRoleInput" autocomplete="off" />
             </div>
 
+            <!-- The two lines the card back leads with. Optional, like the
+                 links: a roster with these blank is still a roster, it just
+                 answers one fewer question. -->
+            <div class="editor-field">
+              <div class="editor-field-label" id="editorWorkingOnLabel"></div>
+              <input type="text" id="editorWorkingOnInput" autocomplete="off" maxlength="80" />
+            </div>
+            <div class="editor-field">
+              <div class="editor-field-label" id="editorCanHelpLabel"></div>
+              <input type="text" id="editorCanHelpInput" autocomplete="off" maxlength="80" />
+            </div>
+
             <!-- Populated from DESIGNER_LINK_KINDS so adding a kind needs no
                  markup change. Every one is optional; blanks are simply never
                  rendered on the card back. -->
@@ -4619,27 +4913,37 @@
           <div class="preview-pane">
             <div class="preview-pane-head">
               <div class="preview-pane-label" id="previewLabel"></div>
-              <!-- Card is the default: it is the shape most things end up in,
-                   and the banner is the one worth checking rather than the one
-                   worth living in. -->
+              <!-- Banner first: it is the shape a new piece of knowledge lands
+                   in on floor 1, so it is the one you want in front of you
+                   while you write. Card is the second look. -->
               <div class="preview-modes" id="previewModes">
-                <button type="button" class="preview-mode is-active" data-mode="card" id="previewModeCard"></button>
-                <button type="button" class="preview-mode" data-mode="banner" id="previewModeBanner"></button>
+                <button type="button" class="preview-mode is-active" data-mode="banner" id="previewModeBanner"></button>
+                <button type="button" class="preview-mode" data-mode="card" id="previewModeCard"></button>
               </div>
             </div>
             <div class="preview-card-wrap">
-              <div class="preview-card" id="previewCard">
-                <div class="card-media preview-media" id="previewMedia">
-                  <span class="card-media-icon" id="previewMediaIcon"></span>
+              <div class="preview-card is-banner" id="previewCard">
+                <!-- Picture on top, words underneath — never words over the
+                     picture. Also the image drop zone; see initPreviewImageInput. -->
+                <div class="preview-media-slot" id="previewMediaSlot" role="button" tabindex="0">
+                  <div class="card-media preview-media" id="previewMedia">
+                    <span class="card-media-icon" id="previewMediaIcon"></span>
+                  </div>
+                  <div class="preview-image-cta" id="previewImageCta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M4 17l4.5-4.5 3.5 3.5 3-2.5L20 17"/>
+                    </svg>
+                    <span id="previewImageCtaLabel"></span>
+                  </div>
+                  <div class="preview-drag-hint" id="previewDragHint"></div>
                 </div>
-                <div class="card-scrim"></div>
-                <div class="card-content">
+                <div class="preview-text">
                   <div class="card-meta">
                     <span class="card-dot" id="previewDot"></span>
                     <span class="card-studio" id="previewStudio"></span>
                     <span class="card-type" id="previewType"></span>
                   </div>
-                  <div class="card-title" id="previewTitle"></div>
+                  <div class="preview-title" id="previewTitle"></div>
                   <!-- only the field you are in right now, not the whole body:
                        see setPreviewFocus() -->
                   <div class="preview-focus" id="previewFocus">
@@ -4647,7 +4951,6 @@
                     <p class="preview-focus-text" id="previewFocusText"></p>
                   </div>
                 </div>
-                <div class="preview-drag-hint" id="previewDragHint"></div>
               </div>
             </div>
           </div>
@@ -4674,7 +4977,7 @@
               <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
             </div>
 
-            <div class="field compose-attach-col">
+            <div class="field compose-attach-col compose-attach-col-attachments">
               <div class="field-label"><span id="attachmentsFieldLabel"></span> <span class="optional" id="attachmentsOptionalLabel"></span></div>
               <div class="file-slot" id="attachmentZone">
                 <button type="button" class="file-slot-btn" id="attachmentPickBtn">
@@ -4885,6 +5188,22 @@
       </div>
       <h2 class="question-detail-title" id="qdTitle"></h2>
       <div class="attachments-list-wrap qd-attachments" id="qdAttachmentsWrap"></div>
+
+      <!-- Only once it is resolved. An answered question with nothing to do
+           next is where knowledge stops: somebody worked it out, and the
+           working-out stays in a thread nobody rereads. These are the three
+           things that actually follow from an answer. See renderResolvedNext. -->
+      <div class="resolved-next" id="resolvedNext" style="display:none;">
+        <div class="resolved-next-row">
+          <span class="resolved-next-label" id="resolvedNextLabel"></span>
+          <div class="resolved-next-actions">
+            <button type="button" class="resolved-next-btn" id="resolvedNextExperiment"></button>
+            <button type="button" class="resolved-next-btn" id="resolvedNextLink"></button>
+            <button type="button" class="resolved-next-btn" id="resolvedNextLineage"></button>
+          </div>
+        </div>
+        <div class="resolved-next-lineage" id="resolvedNextLineageWrap" style="display:none;"></div>
+      </div>
     </div>
 
     <div class="question-tabs" id="questionTabs">
@@ -5006,6 +5325,15 @@ const TRANSLATIONS = {
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
       menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', designers: 'Designers', tools: 'Tools' },
+      /* One line each, on hover. Five nouns in a column tell you the names of
+         the rooms and nothing about what is in them. */
+      menuDesc: {
+        newest: 'What studios are doing right now',
+        browse: 'Projects and experiments worth reusing',
+        question: 'Where your experience can help',
+        designers: 'The people behind the work',
+        tools: 'Shared resources — coming soon',
+      },
       // ---- Update: the whole point is that this copy gives permission ----
       updateType: 'Update',
       updateMode: {
@@ -5021,14 +5349,20 @@ const TRANSLATIONS = {
       openLink: 'Open link',
       nowStrip: {
         empty: 'No updates yet this week.',
-        yourTurnWith: (who, studio) => `${who} at ${studio} just posted. What is ${STUDIOS[MY_STUDIO_KEY].name} up to?`,
-        yourTurnFirst: 'Nobody has posted this week. Go first?',
+        // Names both studios: the whole prompt is "they went, now you". A
+        // person's name was in here before, which reads as gossip rather than
+        // as one studio's turn following another's.
+        yourTurnWith: (studio) => `${studio} just shared what they are building. What is ${STUDIOS[MY_STUDIO_KEY].name} working on today?`,
+        yourTurnFirst: () => `Nobody has posted this week. What is ${STUDIOS[MY_STUDIO_KEY].name} working on today?`,
         cta: 'Share an update',
       },
       // ---- what came of a card. Never a score, never bold. ----
       trace: {
         answeredBy: (studio, n) => `${studio} answered ${n} ${n > 1 ? 'times' : 'time'}`,
         pickedUpBy: (studio) => `${studio} picked this up`,
+        // The named version: where it went, by name, and clickable. "Whow
+        // picked this up" is a fact you cannot follow; this one is a door.
+        pickedUpIn: (title, studio) => `Picked up in “${title}” by ${studio}`,
         usedIn: (n) => `Used in ${n} ${n > 1 ? 'projects' : 'project'}`,
         testing: (studio) => `${studio} is testing this`,
         needsView: (studio) => `${studio}'s view would help here`,
@@ -5039,6 +5373,30 @@ const TRANSLATIONS = {
         count: (n) => `${n} ${n > 1 ? 'questions want' : 'question wants'} ${STUDIOS[MY_STUDIO_KEY].name}'s view`,
         none: 'Nothing is waiting on you right now.',
         badge: (studio) => `Needs ${studio}'s perspective`,
+      },
+      /* The one sentence at the top of the Questions floor, written to the
+         studio reading it. "Questions studios are figuring out right now" is
+         true of a noticeboard; this says whether any of it is yours. */
+      questionsPersonal: {
+        asked: (asker, n) => `${asker} is waiting for ${STUDIOS[MY_STUDIO_KEY].name}'s perspective on ${n} ${n > 1 ? 'questions' : 'question'}.`,
+        askedMixed: (n) => `${n} ${n > 1 ? 'studios are' : 'studio is'} waiting for ${STUDIOS[MY_STUDIO_KEY].name}'s perspective.`,
+        canHelp: (n) => `${STUDIOS[MY_STUDIO_KEY].name} can help with ${n} open ${n > 1 ? 'questions' : 'question'}.`,
+        none: 'Nothing is open right now — a good time to ask something yourself.',
+      },
+      // Why this one might be yours to answer, on the card itself.
+      questionHint: {
+        discussing: (n) => `${n} ${n > 1 ? 'people are' : 'person is'} already discussing this`,
+        noAnswers: 'Nobody has answered yet',
+      },
+      /* A resolved question is a dead end unless it points somewhere. These are
+         the three things that actually follow from an answer. */
+      resolvedNext: {
+        label: 'What now?',
+        experiment: 'Create an Experiment from this',
+        linkProject: 'Link a Project outcome',
+        lineage: 'View related lineage',
+        hideLineage: 'Hide the lineage',
+        noLineage: 'Nothing has been connected to this yet.',
       },
       // No "nothing new" line lives here any more: the section is only drawn
       // when it has something in it, so it can never contradict the list under
@@ -5071,7 +5429,11 @@ const TRANSLATIONS = {
       },
       imageChosenFallback: 'Image attached',
       previewLabel: 'Live preview',
+      // Banner first: it is the shape a new piece of knowledge lands in on
+      // floor 1, so it is the one worth looking at while you write.
       previewModes: { card: 'Card', banner: 'Banner' },
+      previewImageEmpty: 'Click or drop an image here',
+      previewImageReplace: 'Click or drop to replace',
       previewTitlePlaceholder: 'Your title will appear here',
       previewEmptyField: 'Whatever you type in that field shows up here.',
       previewDragHint: 'Drag to reposition',
@@ -5256,6 +5618,17 @@ const TRANSLATIONS = {
         namePlaceholder: 'Full name',
         roleLabel: 'Role',
         rolePlaceholder: 'e.g. Motion Designer',
+        /* A job title says what somebody is called. These two say whether it is
+           worth writing to them this week, which is the only reason anyone
+           opens a roster. They come before the contact details on the back of
+           the card for the same reason. */
+        workingOnLabel: 'Working on',
+        workingOnPlaceholder: 'e.g. AI production pipeline',
+        canHelpLabel: 'Can help with',
+        canHelpPlaceholder: 'e.g. Motion systems, onboarding flows',
+        recentlySharedLabel: 'Recently shared',
+        noRecentlyShared: 'Nothing shared yet.',
+        contactLabel: 'Get in touch',
         linksLabel: 'Links — all optional',
         linkPlaceholders: {
           email: 'name@studio.com',
@@ -5311,7 +5684,18 @@ const TRANSLATIONS = {
         imageRemove: 'Remove',
         attachmentsLabel: 'Attachments',
         attachmentsHint: 'Drop a file here (PDF works great), or click to add one',
+        /* "Takes about two minutes" was the same promise over a one-line box and
+           over a four-paragraph write-up, and one of those was a lie. The cost
+           is different per type, so the sentence is too. */
         submitHint: "Takes about two minutes. It'll be worth it.",
+        submitHintByType: {
+          update: 'One line is enough.',
+          project: 'Start with one box. The rest can wait.',
+          experiment: 'What you wanted to know, and what happened. Two boxes.',
+          question: 'Say what you are stuck on. That is the whole thing.',
+        },
+        moreContext: (n) => `Add more context (${n})`,
+        lessContext: 'Hide the extra fields',
         submitButton: 'Add to the weave',
         weaveCaption: 'Finding where this belongs…',
         weaveDoneTitle: 'Your approach is now part of the weave.',
@@ -5388,6 +5772,13 @@ const TRANSLATIONS = {
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
       menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', designers: '디자이너', tools: '툴' },
+      menuDesc: {
+        newest: '스튜디오들이 지금 하고 있는 일',
+        browse: '다시 써먹을 만한 프로젝트와 실험',
+        question: '당신의 경험이 도움이 될 곳',
+        designers: '이 일을 만드는 사람들',
+        tools: '함께 쓰는 자원 — 준비 중',
+      },
       updateType: '업데이트',
       updateMode: {
         heading: '요즘 뭐 하고 있어요?',
@@ -5402,13 +5793,14 @@ const TRANSLATIONS = {
       openLink: '링크 열기',
       nowStrip: {
         empty: '이번 주엔 아직 소식이 없어요.',
-        yourTurnWith: (who, studio) => `${studio}의 ${who}가 방금 소식을 남겼어요. ${STUDIOS[MY_STUDIO_KEY].name}는 지금 뭘 하고 있나요?`,
-        yourTurnFirst: '이번 주엔 아직 아무도 남기지 않았어요. 먼저 남겨볼까요?',
+        yourTurnWith: (studio) => `${studio}가 방금 만들고 있는 걸 공유했어요. ${STUDIOS[MY_STUDIO_KEY].name}는 오늘 뭘 하고 있나요?`,
+        yourTurnFirst: () => `이번 주엔 아직 아무도 남기지 않았어요. ${STUDIOS[MY_STUDIO_KEY].name}는 오늘 뭘 하고 있나요?`,
         cta: '업데이트 남기기',
       },
       trace: {
         answeredBy: (studio, n) => `${studio}가 ${n}번 답했어요`,
         pickedUpBy: (studio) => `${studio}가 이어받았어요`,
+        pickedUpIn: (title, studio) => `${studio}의 “${title}”로 이어졌어요`,
         usedIn: (n) => `${n}개 프로젝트에 쓰였어요`,
         testing: (studio) => `${studio}가 테스트 중`,
         needsView: (studio) => `${studio}의 의견이 필요해요`,
@@ -5419,6 +5811,24 @@ const TRANSLATIONS = {
         count: (n) => `${STUDIOS[MY_STUDIO_KEY].name}의 의견이 필요한 질문 ${n}개`,
         none: '지금 당신을 기다리는 건 없어요.',
         badge: (studio) => `${studio}의 의견이 필요해요`,
+      },
+      questionsPersonal: {
+        asked: (asker, n) => `${asker}가 ${STUDIOS[MY_STUDIO_KEY].name}의 의견을 기다리는 질문이 ${n}개 있어요.`,
+        askedMixed: (n) => `${n}개 스튜디오가 ${STUDIOS[MY_STUDIO_KEY].name}의 의견을 기다리고 있어요.`,
+        canHelp: (n) => `${STUDIOS[MY_STUDIO_KEY].name}가 도울 수 있는 열린 질문이 ${n}개 있어요.`,
+        none: '지금은 열린 질문이 없어요 — 직접 하나 물어보기 좋은 때예요.',
+      },
+      questionHint: {
+        discussing: (n) => `${n}명이 이미 이야기 중이에요`,
+        noAnswers: '아직 아무도 답하지 않았어요',
+      },
+      resolvedNext: {
+        label: '이제 뭘 할까요?',
+        experiment: '이걸로 실험 만들기',
+        linkProject: '프로젝트 결과 연결하기',
+        lineage: '이어진 계보 보기',
+        hideLineage: '계보 숨기기',
+        noLineage: '아직 이어진 글이 없어요.',
       },
       sinceLastVisit: {
         title: '지난 방문 이후',
@@ -5447,6 +5857,8 @@ const TRANSLATIONS = {
       imageChosenFallback: '이미지 첨부됨',
       previewLabel: '실시간 미리보기',
       previewModes: { card: '카드', banner: '배너' },
+      previewImageEmpty: '클릭하거나 이미지를 끌어다 놓으세요',
+      previewImageReplace: '클릭하거나 끌어다 놓아 교체',
       previewTitlePlaceholder: '제목이 여기 표시됩니다',
       previewEmptyField: '그 칸에 쓰는 내용이 여기 보입니다.',
       previewDragHint: '드래그해서 위치 조절',
@@ -5617,6 +6029,13 @@ const TRANSLATIONS = {
         namePlaceholder: '이름을 입력하세요',
         roleLabel: '직업',
         rolePlaceholder: '예: 모션 디자이너',
+        workingOnLabel: '지금 하는 일',
+        workingOnPlaceholder: '예: AI 프로덕션 파이프라인',
+        canHelpLabel: '도울 수 있는 것',
+        canHelpPlaceholder: '예: 모션 시스템, 온보딩 플로우',
+        recentlySharedLabel: '최근 공유한 글',
+        noRecentlyShared: '아직 공유한 글이 없어요.',
+        contactLabel: '연락하기',
         linksLabel: '링크 — 모두 선택',
         linkPlaceholders: {
           email: 'name@studio.com',
@@ -5673,6 +6092,14 @@ const TRANSLATIONS = {
         attachmentsLabel: '첨부파일',
         attachmentsHint: '파일을 끌어다 놓거나 클릭해서 추가하세요 (PDF 권장)',
         submitHint: '2분 정도면 충분해요. 그만한 가치가 있을 거예요.',
+        submitHintByType: {
+          update: '한 줄이면 충분해요.',
+          project: '한 칸만 채워도 돼요. 나머지는 나중에.',
+          experiment: '뭘 알고 싶었고 뭐가 일어났는지. 두 칸이면 돼요.',
+          question: '어디서 막혔는지만 쓰면 끝이에요.',
+        },
+        moreContext: (n) => `내용 더 추가하기 (${n})`,
+        lessContext: '추가 항목 접기',
         submitButton: '망에 더하기',
         weaveCaption: '어디에 속할지 찾는 중…',
         weaveDoneTitle: '당신의 경험이 이제 망의 일부가 되었습니다.',
@@ -5749,6 +6176,13 @@ const TRANSLATIONS = {
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
       menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      menuDesc: {
+        newest: 'Woran die Studios gerade arbeiten',
+        browse: 'Projekte und Experimente, die sich wiederverwenden lassen',
+        question: 'Wo deine Erfahrung helfen kann',
+        designers: 'Die Menschen hinter der Arbeit',
+        tools: 'Geteilte Ressourcen — bald',
+      },
       updateType: 'Update',
       updateMode: {
         heading: 'Woran arbeitest du gerade?',
@@ -5763,13 +6197,14 @@ const TRANSLATIONS = {
       openLink: 'Link öffnen',
       nowStrip: {
         empty: 'Diese Woche noch keine Updates.',
-        yourTurnWith: (who, studio) => `${who} von ${studio} hat gerade etwas gepostet. Was macht ${STUDIOS[MY_STUDIO_KEY].name} gerade?`,
-        yourTurnFirst: 'Diese Woche hat noch niemand gepostet. Den Anfang machen?',
+        yourTurnWith: (studio) => `${studio} hat gerade geteilt, woran sie bauen. Woran arbeitet ${STUDIOS[MY_STUDIO_KEY].name} heute?`,
+        yourTurnFirst: () => `Diese Woche hat noch niemand gepostet. Woran arbeitet ${STUDIOS[MY_STUDIO_KEY].name} heute?`,
         cta: 'Update teilen',
       },
       trace: {
         answeredBy: (studio, n) => `${studio} hat ${n}-mal geantwortet`,
         pickedUpBy: (studio) => `${studio} hat das aufgegriffen`,
+        pickedUpIn: (title, studio) => `Aufgegriffen in „${title}“ von ${studio}`,
         usedIn: (n) => `In ${n} ${n > 1 ? 'Projekten' : 'Projekt'} verwendet`,
         testing: (studio) => `${studio} testet das gerade`,
         needsView: (studio) => `Die Sicht von ${studio} würde hier helfen`,
@@ -5780,6 +6215,24 @@ const TRANSLATIONS = {
         count: (n) => `${n} ${n > 1 ? 'Fragen warten' : 'Frage wartet'} auf die Sicht von ${STUDIOS[MY_STUDIO_KEY].name}`,
         none: 'Gerade wartet nichts auf dich.',
         badge: (studio) => `Braucht die Sicht von ${studio}`,
+      },
+      questionsPersonal: {
+        asked: (asker, n) => `${asker} wartet bei ${n} ${n > 1 ? 'Fragen' : 'Frage'} auf die Sicht von ${STUDIOS[MY_STUDIO_KEY].name}.`,
+        askedMixed: (n) => `${n} ${n > 1 ? 'Studios warten' : 'Studio wartet'} auf die Sicht von ${STUDIOS[MY_STUDIO_KEY].name}.`,
+        canHelp: (n) => `${STUDIOS[MY_STUDIO_KEY].name} kann bei ${n} offenen ${n > 1 ? 'Fragen' : 'Frage'} helfen.`,
+        none: 'Gerade ist nichts offen — ein guter Moment, selbst etwas zu fragen.',
+      },
+      questionHint: {
+        discussing: (n) => `${n} ${n > 1 ? 'Personen sprechen' : 'Person spricht'} schon darüber`,
+        noAnswers: 'Noch keine Antwort',
+      },
+      resolvedNext: {
+        label: 'Und jetzt?',
+        experiment: 'Daraus ein Experiment machen',
+        linkProject: 'Ein Projektergebnis verknüpfen',
+        lineage: 'Zugehörige Kette ansehen',
+        hideLineage: 'Kette ausblenden',
+        noLineage: 'Damit ist noch nichts verknüpft.',
       },
       sinceLastVisit: {
         title: 'Seit deinem letzten Besuch',
@@ -5808,6 +6261,8 @@ const TRANSLATIONS = {
       imageChosenFallback: 'Bild angehängt',
       previewLabel: 'Live-Vorschau',
       previewModes: { card: 'Karte', banner: 'Banner' },
+      previewImageEmpty: 'Klicken oder Bild hierher ziehen',
+      previewImageReplace: 'Klicken oder ziehen zum Ersetzen',
       previewTitlePlaceholder: 'Dein Titel erscheint hier',
       previewEmptyField: 'Was du in dieses Feld schreibst, steht hier.',
       previewDragHint: 'Zum Verschieben ziehen',
@@ -5976,6 +6431,13 @@ const TRANSLATIONS = {
         photoRemove: 'Entfernen',
         nameLabel: 'Name',
         namePlaceholder: 'Vollständiger Name',
+        workingOnLabel: 'Arbeitet gerade an',
+        workingOnPlaceholder: 'AI-Produktionspipeline',
+        canHelpLabel: 'Kann helfen bei',
+        canHelpPlaceholder: 'Motion-Systeme, Onboarding-Flows',
+        recentlySharedLabel: 'Zuletzt geteilt',
+        noRecentlyShared: 'Noch nichts geteilt.',
+        contactLabel: 'Kontakt',
         roleLabel: 'Rolle',
         rolePlaceholder: 'z. B. Motion Designer',
         linksLabel: 'Links — alle optional',
@@ -6034,6 +6496,14 @@ const TRANSLATIONS = {
         attachmentsLabel: 'Anhänge',
         attachmentsHint: 'Datei hierher ziehen (PDF eignet sich gut) oder klicken, um eine hinzuzufügen',
         submitHint: 'Dauert etwa zwei Minuten. Es lohnt sich.',
+        submitHintByType: {
+          update: 'Eine Zeile reicht.',
+          project: 'Fang mit einem Feld an. Der Rest kann warten.',
+          experiment: 'Was du wissen wolltest und was passiert ist. Zwei Felder.',
+          question: 'Sag, wo es hakt. Das ist alles.',
+        },
+        moreContext: (n) => `Mehr Kontext hinzufügen (${n})`,
+        lessContext: 'Zusatzfelder ausblenden',
         submitButton: 'Zum Netz hinzufügen',
         weaveCaption: 'Suche, wohin das gehört…',
         weaveDoneTitle: 'Dein Ansatz ist jetzt Teil des Netzes.',
@@ -6110,6 +6580,13 @@ const TRANSLATIONS = {
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
       menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menuDesc: {
+        newest: 'Stüdyoların şu anda ne yaptığı',
+        browse: 'Yeniden kullanmaya değer proje ve deneyler',
+        question: 'Deneyiminizin işe yarayacağı yer',
+        designers: 'İşin arkasındaki insanlar',
+        tools: 'Ortak kaynaklar — yakında',
+      },
       updateType: 'Güncelleme',
       updateMode: {
         heading: 'Şu sıralar ne yapıyorsunuz?',
@@ -6124,13 +6601,14 @@ const TRANSLATIONS = {
       openLink: 'Bağlantıyı aç',
       nowStrip: {
         empty: 'Bu hafta henüz güncelleme yok.',
-        yourTurnWith: (who, studio) => `${studio} stüdyosundan ${who} az önce paylaştı. ${STUDIOS[MY_STUDIO_KEY].name} şu sıralar ne yapıyor?`,
-        yourTurnFirst: 'Bu hafta henüz kimse paylaşmadı. İlk siz olur musunuz?',
+        yourTurnWith: (studio) => `${studio} az önce ne inşa ettiğini paylaştı. ${STUDIOS[MY_STUDIO_KEY].name} bugün ne üzerinde çalışıyor?`,
+        yourTurnFirst: () => `Bu hafta henüz kimse paylaşmadı. ${STUDIOS[MY_STUDIO_KEY].name} bugün ne üzerinde çalışıyor?`,
         cta: 'Bir güncelleme paylaş',
       },
       trace: {
         answeredBy: (studio, n) => `${studio} ${n} kez yanıtladı`,
         pickedUpBy: (studio) => `${studio} bunu devraldı`,
+        pickedUpIn: (title, studio) => `${studio} stüdyosunun “${title}” işinde devam etti`,
         usedIn: (n) => `${n} projede kullanıldı`,
         testing: (studio) => `${studio} bunu deniyor`,
         needsView: (studio) => `${studio} stüdyosunun görüşü işe yarardı`,
@@ -6141,6 +6619,24 @@ const TRANSLATIONS = {
         count: (n) => `${n} soru ${STUDIOS[MY_STUDIO_KEY].name} stüdyosunun görüşünü bekliyor`,
         none: 'Şu anda sizi bekleyen bir şey yok.',
         badge: (studio) => `${studio} stüdyosunun bakışı gerekiyor`,
+      },
+      questionsPersonal: {
+        asked: (asker, n) => `${asker}, ${n} soruda ${STUDIOS[MY_STUDIO_KEY].name} stüdyosunun görüşünü bekliyor.`,
+        askedMixed: (n) => `${n} stüdyo ${STUDIOS[MY_STUDIO_KEY].name} stüdyosunun görüşünü bekliyor.`,
+        canHelp: (n) => `${STUDIOS[MY_STUDIO_KEY].name} ${n} açık soruda yardımcı olabilir.`,
+        none: 'Şu anda açık soru yok — kendiniz bir şey sormak için iyi bir zaman.',
+      },
+      questionHint: {
+        discussing: (n) => `${n} kişi bunu şimdiden konuşuyor`,
+        noAnswers: 'Henüz kimse yanıtlamadı',
+      },
+      resolvedNext: {
+        label: 'Şimdi ne olacak?',
+        experiment: 'Bundan bir Deney oluştur',
+        linkProject: 'Bir Proje sonucunu bağla',
+        lineage: 'İlgili zinciri gör',
+        hideLineage: 'Zinciri gizle',
+        noLineage: 'Buna henüz bir şey bağlanmadı.',
       },
       sinceLastVisit: {
         title: 'Son ziyaretinizden bu yana',
@@ -6169,6 +6665,8 @@ const TRANSLATIONS = {
       imageChosenFallback: 'Görsel eklendi',
       previewLabel: 'Canlı önizleme',
       previewModes: { card: 'Kart', banner: 'Afiş' },
+      previewImageEmpty: 'Tıklayın ya da buraya bir görsel bırakın',
+      previewImageReplace: 'Değiştirmek için tıklayın ya da bırakın',
       previewTitlePlaceholder: 'Başlığınız burada görünecek',
       previewEmptyField: 'O alana yazdığınız burada görünür.',
       previewDragHint: 'Konumlandırmak için sürükleyin',
@@ -6339,6 +6837,13 @@ const TRANSLATIONS = {
         namePlaceholder: 'Ad soyad',
         roleLabel: 'Rol',
         rolePlaceholder: 'örn. Motion Tasarımcısı',
+        workingOnLabel: 'Üzerinde çalıştığı',
+        workingOnPlaceholder: 'örn. AI prodüksiyon hattı',
+        canHelpLabel: 'Yardımcı olabileceği',
+        canHelpPlaceholder: 'örn. Motion sistemleri, onboarding akışları',
+        recentlySharedLabel: 'Son paylaştığı',
+        noRecentlyShared: 'Henüz bir şey paylaşmadı.',
+        contactLabel: 'İletişim',
         linksLabel: 'Bağlantılar — hepsi isteğe bağlı',
         linkPlaceholders: {
           email: 'name@studio.com',
@@ -6395,6 +6900,14 @@ const TRANSLATIONS = {
         attachmentsLabel: 'Ekler',
         attachmentsHint: 'Bir dosyayı buraya sürükle (PDF için ideal) ya da eklemek için tıkla',
         submitHint: 'Yaklaşık iki dakika sürer. Buna değer.',
+        submitHintByType: {
+          update: 'Bir satır yeter.',
+          project: 'Tek bir kutuyla başlayın. Gerisi bekleyebilir.',
+          experiment: 'Ne öğrenmek istediniz ve ne oldu. İki kutu.',
+          question: 'Nerede takıldığınızı yazın. Hepsi bu.',
+        },
+        moreContext: (n) => `Daha fazla bağlam ekle (${n})`,
+        lessContext: 'Ek alanları gizle',
         submitButton: 'Ağa ekle',
         weaveCaption: 'Nereye ait olduğu bulunuyor…',
         weaveDoneTitle: 'Yaklaşımın artık ağın bir parçası.',
@@ -6727,18 +7240,35 @@ const MENU_ITEMS = [
    roster where nobody has a Behance never shows an empty Behance row.
    `photoPos` is the focal point of their portrait as {x, y} percentages; see
    makeFocalDraggable for why a face is so rarely in the middle of a 1:1.4 crop. */
+/* `workingOn` and `canHelp` are free text and always in the language they were
+   typed in — same rule as `role` (see the note above). They come before the
+   contact details everywhere they appear: a job title and an email address tell
+   you who somebody is, and neither tells you whether it is worth writing to
+   them this week, which is the only question anyone opens a roster with. */
 const DEFAULT_DESIGNERS = [
   { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null, photoPos: null,
+    workingOn: 'First-payment reward flow, round two',
+    canHelp: 'Monetisation flows, paywall timing',
     links: { email: 'doyoon.kim@doubleugames.com', website: 'https://doyoonkim.design' } },
   { id: 'du-haeun', studio: 'doubleu', name: 'Haeun Lee', roleKey: 'motionDesigner', photo: null, photoPos: null,
+    workingOn: 'AI production pipeline for event art',
+    canHelp: 'Motion systems, reward animation timing',
     links: { email: 'haeun.lee@doubleugames.com', vimeo: 'vimeo.com/haeunlee', instagram: 'instagram.com/haeun.motion' } },
   { id: 'du-minji', studio: 'doubleu', name: 'Minji Yoon', roleKey: 'brandDesigner', photo: null, photoPos: null,
+    workingOn: 'Onboarding rewrite, screens three and four',
+    canHelp: 'Brand systems, localisation that keeps the tone',
     links: { email: 'minji.yoon@doubleugames.com', behance: 'behance.net/minjiyoon' } },
   { id: 'wh-lena', studio: 'whow', name: 'Lena Fischer', roleKey: 'uxDesigner', photo: null, photoPos: null,
+    workingOn: 'Merge board sizing, follow-up test',
+    canHelp: 'A/B test design, session-length research',
     links: { email: 'lena.fischer@whow.com', website: 'https://lenafischer.de', behance: 'behance.net/lenafischer' } },
   { id: 'wh-jonas', studio: 'whow', name: 'Jonas Weber', roleKey: 'artDirector', photo: null, photoPos: null,
+    workingOn: 'Seasonal event teasers',
+    canHelp: 'Event art direction, teaser pacing',
     links: { email: 'jonas.weber@whow.com', instagram: 'instagram.com/jonas.ad' } },
   { id: 'wh-mira', studio: 'whow', name: 'Mira Keller', roleKey: 'uiDesigner', photo: null, photoPos: null,
+    workingOn: 'Daily-reward screen rebuild',
+    canHelp: 'Icon systems, UI performance passes',
     links: {} },
 ];
 
@@ -7407,6 +7937,10 @@ function renderMenuOverlay() {
       aside.className = 'menu-item-aside';
       btn.appendChild(aside);
     }
+    // What is actually behind the word, shown on hover — see refreshMenuLabels.
+    const desc = document.createElement('span');
+    desc.className = 'menu-item-desc';
+    btn.appendChild(desc);
 
     btn.addEventListener('click', () => {
       closeMenuOverlay();
@@ -7451,6 +7985,8 @@ function refreshMenuLabels() {
     btn.querySelector('.menu-item-label').textContent = t().menu[btn.dataset.value];
     const aside = btn.querySelector('.menu-item-aside');
     if (aside) aside.textContent = t().menuToolsAside;
+    const desc = btn.querySelector('.menu-item-desc');
+    if (desc) desc.textContent = (t().menuDesc || {})[btn.dataset.value] || '';
   });
 }
 
@@ -8062,6 +8598,7 @@ function buildQuestionCard(data, index) {
   const studio = STUDIOS[data.studio];
   const text = cardText(data);
   const timeText = data.justNow ? t().justNow : formatRelativeTime(currentLang, data.timeValue, data.timeUnit);
+  const activityHint = questionActivityHint(data);
 
   const card = document.createElement('div');
   card.className = 'question-card is-pre-reveal';
@@ -8079,6 +8616,7 @@ function buildQuestionCard(data, index) {
       <div class="question-card-title">${text.title}</div>
       ${exchangeTraceHTML(data)}
       ${askedToBadgeHTML(data)}
+      ${activityHint ? `<div class="question-card-activity">${escapeHtml(activityHint)}</div>` : ''}
       ${langPendingBadgeHTML(data)}
     </div>
     <div class="question-card-footer">
@@ -8100,8 +8638,8 @@ function renderQuestions() {
   indices.forEach((index) => grid.appendChild(buildQuestionCard(ALL_CARDS[index], index)));
 
   const waitingCount = indices.filter((i) => ALL_CARDS[i].status !== 'resolved').length;
-  document.getElementById('questionsCount').textContent = t().questionsCount(waitingCount);
-  renderNeedsYou();
+  renderQuestionsDockLine(waitingCount);
+  renderQuestionsPersonal(waitingCount);
   document.getElementById('questionsEmpty').style.display = indices.length > 0 ? 'none' : 'block';
   grid.style.display = indices.length > 0 ? '' : 'none';
 
@@ -8156,6 +8694,16 @@ function rosterStudioKeys() {
 
 function designersOf(studioKey) {
   return designerRoster.filter((d) => d.studio === studioKey);
+}
+
+// The newest thing this person put into the network, for the back of their
+// card. `name` is the join key between the roster and a card's author (see the
+// DESIGNERS note) — there is no id on either side to match on.
+function mostRecentCardBy(name) {
+  if (!name) return null;
+  return ALL_CARDS
+    .filter((c) => c.author === name)
+    .sort((a, b) => daysAgoOf(a) - daysAgoOf(b))[0] || null;
 }
 
 let rosterStudioIndex = 0;
@@ -8287,10 +8835,24 @@ function buildDesignerCard(person, studio) {
   text.appendChild(nameEl);
   text.appendChild(roleEl);
 
+  /* One more line, and the most useful one on the front: a job title says what
+     somebody is called, this says what they are in the middle of. */
+  if ((person.workingOn || '').trim()) {
+    const now = document.createElement('div');
+    now.className = 'designer-now';
+    now.textContent = person.workingOn.trim();
+    text.appendChild(now);
+  }
+
   front.appendChild(photo);
   front.appendChild(text);
 
   // ---- back ----
+  /* Reordered. This used to be a contact card: name, role, then five rows of
+     links filling everything left. Contact details are the last thing you need
+     and the first thing that was shown — you write to somebody *because* of
+     what they are working on, so that goes on top and the addresses go under
+     it, quietly, where they are still one glance away. */
   const back = document.createElement('div');
   back.className = 'designer-face designer-face-back';
 
@@ -8306,8 +8868,38 @@ function buildDesignerCard(person, studio) {
   backHead.appendChild(backRole);
   back.appendChild(backHead);
 
+  const strings = t().designers;
+  const factBlock = (labelText, valueText) => {
+    if (!valueText) return;
+    const block = document.createElement('div');
+    block.className = 'designer-fact';
+    const label = document.createElement('div');
+    label.className = 'designer-fact-label';
+    label.textContent = labelText;
+    const value = document.createElement('div');
+    value.className = 'designer-fact-value';
+    value.textContent = valueText;
+    block.appendChild(label);
+    block.appendChild(value);
+    back.appendChild(block);
+  };
+
+  factBlock(strings.workingOnLabel, (person.workingOn || '').trim());
+  factBlock(strings.canHelpLabel, (person.canHelp || '').trim());
+
+  // What they last put into the network — the third reason to write to them,
+  // and the only one the app can answer by itself.
+  const recent = mostRecentCardBy(person.name);
+  factBlock(strings.recentlySharedLabel,
+    recent ? truncateForSummary(cardText(recent).title || '', 64) : strings.noRecentlyShared);
+
   const entries = designerLinkEntries(person);
   if (entries.length) {
+    const contactLabel = document.createElement('div');
+    contactLabel.className = 'designer-fact-label designer-contact-label';
+    contactLabel.textContent = strings.contactLabel;
+    back.appendChild(contactLabel);
+
     const list = document.createElement('div');
     list.className = 'designer-links';
     entries.forEach((entry) => {
@@ -8322,11 +8914,6 @@ function buildDesignerCard(person, studio) {
       list.appendChild(a);
     });
     back.appendChild(list);
-  } else {
-    const none = document.createElement('p');
-    none.className = 'designer-links-empty';
-    none.textContent = t().designers.noLinks;
-    back.appendChild(none);
   }
 
   const seeBtn = document.createElement('button');
@@ -8618,6 +9205,8 @@ function openDesignerEditor(person) {
   document.getElementById('designerEditorTitle').textContent = person ? strings.editTitle : strings.addTitle;
   document.getElementById('editorNameInput').value = person ? person.name : '';
   document.getElementById('editorRoleInput').value = person ? designerRole(person) : '';
+  document.getElementById('editorWorkingOnInput').value = person ? (person.workingOn || '') : '';
+  document.getElementById('editorCanHelpInput').value = person ? (person.canHelp || '') : '';
   document.getElementById('editorDeleteBtn').style.display = person ? '' : 'none';
   document.getElementById('editorDeleteConfirm').style.display = 'none';
   renderEditorLinkRows();
@@ -8687,6 +9276,8 @@ function saveDesignerFromEditor() {
   const name = document.getElementById('editorNameInput').value.trim();
   const role = document.getElementById('editorRoleInput').value.trim();
   if (!name || !role) return;
+  const workingOn = document.getElementById('editorWorkingOnInput').value.trim();
+  const canHelp = document.getElementById('editorCanHelpInput').value.trim();
   const studioKey = currentRosterStudio();
   if (!canEditRoster(studioKey)) return;
 
@@ -8699,6 +9290,8 @@ function saveDesignerFromEditor() {
       // next language switch and quietly undo the edit.
       person.role = role;
       delete person.roleKey;
+      person.workingOn = workingOn;
+      person.canHelp = canHelp;
       person.photo = editorPhotoUrl;
       person.photoPos = editorPhotoUrl ? Object.assign({}, editorPhotoPos) : null;
       person.links = readEditorLinks();
@@ -8709,6 +9302,8 @@ function saveDesignerFromEditor() {
       studio: studioKey,
       name,
       role,
+      workingOn,
+      canHelp,
       photo: editorPhotoUrl,
       photoPos: editorPhotoUrl ? Object.assign({}, editorPhotoPos) : null,
       links: readEditorLinks(),
@@ -8743,6 +9338,10 @@ function refreshDesignerEditorText() {
   document.getElementById('editorNameInput').placeholder = strings.namePlaceholder;
   document.getElementById('editorRoleLabel').textContent = strings.roleLabel;
   document.getElementById('editorRoleInput').placeholder = strings.rolePlaceholder;
+  document.getElementById('editorWorkingOnLabel').textContent = strings.workingOnLabel;
+  document.getElementById('editorWorkingOnInput').placeholder = strings.workingOnPlaceholder;
+  document.getElementById('editorCanHelpLabel').textContent = strings.canHelpLabel;
+  document.getElementById('editorCanHelpInput').placeholder = strings.canHelpPlaceholder;
   const linksLabel = document.getElementById('editorLinksLabel');
   if (linksLabel) linksLabel.textContent = strings.linksLabel;
   renderEditorLinkRows();
@@ -10769,18 +11368,25 @@ function renderYourTurn(items) {
   const line = document.getElementById('yourTurnLine');
   const latestOther = items.find((c) => c.studio !== MY_STUDIO_KEY);
   line.textContent = latestOther
-    ? t().nowStrip.yourTurnWith(latestOther.author, STUDIOS[latestOther.studio].name)
-    : t().nowStrip.yourTurnFirst;
+    ? t().nowStrip.yourTurnWith(STUDIOS[latestOther.studio].name)
+    // a function, not a string: it names your studio, and STUDIOS does not
+    // exist yet when TRANSLATIONS is evaluated
+    : t().nowStrip.yourTurnFirst();
   document.getElementById('yourTurnCta').textContent = t().nowStrip.cta;
 }
 
 function initNowStrip() {
-  // Straight into Share with Update already chosen. Asking someone who just
-  // decided to post a line to first pick a type out of four is exactly the
-  // friction this type exists to remove.
+  // Straight into Share with Update already chosen, caret in the box. Asking
+  // someone who has just decided to post a line to first pick a type out of
+  // four, then find the field, is exactly the friction this type exists to
+  // remove — so from here there is no type step at all.
   document.getElementById('yourTurnCta').addEventListener('click', () => {
     enterShareMode();
-    setTimeout(() => setComposeType('update'), CONFIG.MODE_SWAP_MS + 60);
+    setTimeout(() => {
+      setComposeType('update');
+      const note = document.getElementById('field_note');
+      if (note) note.focus();
+    }, CONFIG.MODE_SWAP_MS + 60);
   });
 }
 
@@ -10797,15 +11403,20 @@ function initNowStrip() {
    loudest thing on the card, and it makes the author's next post feel like a
    gamble.
    ====================================================================== */
-function exchangeTrace(card) {
-  if (!card) return '';
+/* Returns { text, cardId } — the cardId is set only when the trace is about one
+   named piece of writing, which is the case worth making clickable. "Whow
+   picked this up" is a fact you cannot follow; "Picked up in 'A 3-day teaser…'
+   by Whow" is a door, and the door is the point of saying it at all. */
+function exchangeTraceInfo(card) {
+  if (!card) return null;
   const s = t().trace;
+  const plain = (text) => (text ? { text, cardId: '' } : null);
 
   // ---- questions: the conversation is the whole story ----
   if (isOpenQuestion(card)) {
     const answers = answerCountOf(card);
-    if (card.status === 'resolved' && answers) return s.resolvedWith(answers);
-    if (askedToMe(card)) return s.needsView(STUDIOS[MY_STUDIO_KEY].name);
+    if (card.status === 'resolved' && answers) return plain(s.resolvedWith(answers));
+    if (askedToMe(card)) return plain(s.needsView(STUDIOS[MY_STUDIO_KEY].name));
     if (answers) {
       // whichever studio has answered most — a name reads better than a total
       const counts = {};
@@ -10814,9 +11425,9 @@ function exchangeTrace(card) {
       });
       const top = Object.keys(counts).filter(isStudioEnabled)
         .sort((a, b) => counts[b] - counts[a])[0];
-      if (top) return s.answeredBy(STUDIOS[top].name, counts[top]);
+      if (top) return plain(s.answeredBy(STUDIOS[top].name, counts[top]));
     }
-    return '';
+    return null;
   }
 
   // ---- knowledge: where it went, in order of how much it says ----
@@ -10826,21 +11437,53 @@ function exchangeTrace(card) {
   const testing = reactions.find((r) => r.kind === 'tryThis');
   const same = reactions.find((r) => r.kind === 'sameProblem');
 
-  // One piece of work built on this one is a studio, with a name; several is a
-  // count. "DoubleU picked this up" says more than "used in 1 project", and
-  // "used in 1 project" is the kind of sentence that only a counter writes.
-  if (derived.length === 1) return s.pickedUpBy(STUDIOS[derived[0].studio].name);
-  if (derived.length > 1) return s.usedIn(derived.length);
-  if (applied.length > 1) return s.usedIn(applied.length);
-  if (applied.length === 1) return s.pickedUpBy(STUDIOS[applied[0]].name);
-  if (testing) return s.testing(STUDIOS[testing.studio].name);
-  if (same) return s.sameProblem(STUDIOS[same.studio].name);
-  return '';
+  // One piece of work built on this one gets named and linked; several is a
+  // count, because five titles in a caption line is not a caption line.
+  if (derived.length === 1) {
+    const child = derived[0];
+    const childStudio = STUDIOS[child.studio];
+    return {
+      text: s.pickedUpIn(truncateForSummary(cardText(child).title || '', 40), childStudio ? childStudio.name : ''),
+      cardId: child.id,
+    };
+  }
+  if (derived.length > 1) return plain(s.usedIn(derived.length));
+  if (applied.length > 1) return plain(s.usedIn(applied.length));
+  if (applied.length === 1) return plain(s.pickedUpBy(STUDIOS[applied[0]].name));
+  if (testing) return plain(s.testing(STUDIOS[testing.studio].name));
+  if (same) return plain(s.sameProblem(STUDIOS[same.studio].name));
+  return null;
 }
 
+// Kept for anything that only wants the sentence.
+function exchangeTrace(card) {
+  const info = exchangeTraceInfo(card);
+  return info ? info.text : '';
+}
+
+/* A linked trace is a button, not a div, and it carries the destination on a
+   data attribute — every surface that renders cards already has a delegated
+   click handler on the card itself, so the trace stops propagation there (see
+   initExchangeTraceLinks) rather than each surface wiring its own. */
 function exchangeTraceHTML(card) {
-  const line = exchangeTrace(card);
-  return line ? `<div class="exchange-trace">${escapeHtml(line)}</div>` : '';
+  const info = exchangeTraceInfo(card);
+  if (!info) return '';
+  if (!info.cardId) return `<div class="exchange-trace">${escapeHtml(info.text)}</div>`;
+  return `<button type="button" class="exchange-trace is-linked" data-trace-to="${escapeHtml(info.cardId)}">` +
+    `${escapeHtml(info.text)}<span class="exchange-trace-arrow">→</span></button>`;
+}
+
+/* One listener for every surface. Capture phase, because the card underneath
+   opens on click and the trace is a different destination — without stopping
+   it here the trace would open the card it is printed on. */
+function initExchangeTraceLinks() {
+  document.addEventListener('click', (e) => {
+    const trace = e.target.closest('.exchange-trace.is-linked');
+    if (!trace) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openCardById(trace.dataset.traceTo);
+  }, true);
 }
 
 /* ======================================================================
@@ -10850,12 +11493,50 @@ function questionsNeedingMe() {
   return ALL_CARDS.filter((c) => isOpenQuestion(c) && c.status !== 'resolved' && askedToMe(c));
 }
 
-function renderNeedsYou() {
-  const el = document.getElementById('needsYouLine');
+/* ---- the one dock line ----
+   There were two: "Nothing is waiting on you right now" and "2 questions
+   waiting on an answer", side by side. Both true — one is about you, one is
+   about the list — and together they read as the app contradicting itself.
+   Whichever is the more useful thing to say goes in the single slot, and
+   "something is waiting on you" always wins that. */
+function renderQuestionsDockLine(waitingCount) {
+  const el = document.getElementById('questionsCount');
   if (!el) return;
-  const n = questionsNeedingMe().length;
-  el.textContent = n ? t().needsYou.count(n) : t().needsYou.none;
-  el.classList.toggle('is-wanted', n > 0);
+  const mine = questionsNeedingMe().length;
+  el.textContent = mine ? t().needsYou.count(mine) : t().questionsCount(waitingCount);
+  el.classList.toggle('is-wanted', mine > 0);
+}
+
+/* ---- the sentence at the top of the floor ----
+   Addressed to the studio reading it, and specific about why they are being
+   shown a list at all. "Questions studios are figuring out right now" is a
+   caption on a noticeboard; this says whether any of it is theirs. */
+function renderQuestionsPersonal(waitingCount) {
+  const el = document.getElementById('questionsPersonal');
+  if (!el) return;
+  const s = t().questionsPersonal;
+  const mine = questionsNeedingMe();
+
+  if (mine.length) {
+    // Name the studio doing the asking when there is only one of them; with
+    // several, naming one of them would be wrong about the others.
+    const askers = Array.from(new Set(mine.map((c) => c.studio)));
+    el.textContent = askers.length === 1
+      ? s.asked(STUDIOS[askers[0]] ? STUDIOS[askers[0]].name : '', mine.length)
+      : s.askedMixed(askers.length);
+    return;
+  }
+  el.textContent = waitingCount ? s.canHelp(waitingCount) : s.none;
+}
+
+/* Why this particular card might be yours to answer. "Asked to DoubleU" is
+   already its own badge; this is the softer version — a conversation with
+   people in it is a different invitation from an unanswered question. */
+function questionActivityHint(data) {
+  const messages = getConversationMessages(data).slice(1);
+  if (!messages.length) return data.status === 'resolved' ? '' : t().questionHint.noAnswers;
+  const people = new Set(messages.map((m) => m.author).filter(Boolean));
+  return people.size ? t().questionHint.discussing(people.size) : '';
 }
 
 /* ---- since your last visit ----
@@ -11067,7 +11748,13 @@ function lineageArrowEl(relation) {
 }
 
 function renderLineageStrip(data, preferId) {
-  const wrap = document.getElementById('lineageStrip');
+  paintLineageStrip(document.getElementById('lineageStrip'), data, preferId);
+}
+
+// Same strip, any container — the resolved-question panel draws one too, and
+// two copies of this drifting apart is exactly how a preview stops matching
+// the thing it previews.
+function paintLineageStrip(wrap, data, preferId) {
   if (!wrap) return;
   wrap.innerHTML = '';
 
@@ -11135,21 +11822,30 @@ function switchQuestionTab(pane) {
 
 function conversationMessageEl(msg) {
   const studio = STUDIOS[msg.studio];
+  const color = studio ? studio.color : 'var(--ink)';
   const timeText = msg.justNow ? t().justNow : formatRelativeTime(currentLang, msg.timeValue, msg.timeUnit);
   const isMe = msg.author === 'You';
   const el = document.createElement('div');
   el.className = 'conversation-message' + (isMe ? ' is-me' : '');
+  el.style.setProperty('--speaker-color', color);
+  // designerInitials, not a bespoke split: the same two letters this person
+  // gets on the roster, so the two surfaces agree about who they are.
   el.innerHTML = `
-    <div class="conversation-message-meta">
-      <span class="card-dot" style="background:${studio.color}"></span>
-      <span class="conversation-message-author">${msg.author}</span>
-      <span class="sep">·</span>
-      <span>${studio.name}</span>
-      <span class="sep">·</span>
-      <span>${timeText}</span>
+    <span class="conversation-avatar"></span>
+    <div class="conversation-message-body">
+      <div class="conversation-message-meta">
+        <span class="card-dot" style="background:${color}"></span>
+        <span class="conversation-message-author"></span>
+        <span class="sep">·</span>
+        <span>${studio ? studio.name : ''}</span>
+        <span class="sep">·</span>
+        <span>${timeText}</span>
+      </div>
+      <div class="conversation-message-bubble"></div>
     </div>
-    <div class="conversation-message-bubble"></div>
   `;
+  el.querySelector('.conversation-avatar').textContent = designerInitials(msg.author);
+  el.querySelector('.conversation-message-author').textContent = msg.author;
   el.querySelector('.conversation-message-bubble').textContent = msg.text;
   return el;
 }
@@ -11209,8 +11905,88 @@ function populateQuestionDetail(data) {
   document.getElementById('conversationSendBtn').textContent = t().conversationUi.sendButton;
   switchQuestionTab('conversation');
 
+  renderResolvedNext(data);
   renderConversation(data);
   renderBrief(data);
+}
+
+/* ---- what follows an answer ----
+   A resolved question is where knowledge quietly stops: somebody worked it
+   out, and the working-out stays in a thread nobody rereads. Each of these
+   turns the answer into something that lasts — a test, a link to the work it
+   produced, or a look at what it already led to. */
+function renderResolvedNext(data) {
+  const wrap = document.getElementById('resolvedNext');
+  if (!wrap) return;
+
+  const show = data.status === 'resolved';
+  wrap.style.display = show ? '' : 'none';
+  document.getElementById('resolvedNextLineageWrap').style.display = 'none';
+  if (!show) return;
+
+  const s = t().resolvedNext;
+  document.getElementById('resolvedNextLabel').textContent = s.label;
+  document.getElementById('resolvedNextExperiment').textContent = s.experiment;
+  document.getElementById('resolvedNextLink').textContent = s.linkProject;
+  document.getElementById('resolvedNextLineage').textContent = s.lineage;
+  wrap.dataset.cardId = data.id;
+}
+
+/* Share, opened on Experiment with the question already in the title. The
+   point of the button is that the write-up starts from the question rather
+   than from a blank form — retyping what you just read is the friction that
+   stops the experiment being written at all. */
+function startExperimentFromQuestion(card) {
+  closeCard();
+  setTimeout(() => {
+    enterShareMode();
+    setTimeout(() => {
+      setComposeType('experiment');
+      const title = document.getElementById('titleInput');
+      if (title) { title.value = cardText(card).title || ''; title.focus(); }
+      // The question's own "what's blocking us" is the best first draft of
+      // "what we wanted to find out" there is going to be.
+      const goal = document.getElementById('field_goal');
+      if (goal && !goal.value) goal.value = bodyValue(cardText(card), 'question', 'blocked') || '';
+      updateSubmitGate();
+      refreshPreview();
+    }, CONFIG.MODE_SWAP_MS + 60);
+  }, CONFIG.MODE_SWAP_MS + 40);
+}
+
+function initResolvedNext() {
+  const wrap = document.getElementById('resolvedNext');
+  if (!wrap) return;
+  const current = () => cardById(wrap.dataset.cardId);
+
+  document.getElementById('resolvedNextExperiment').addEventListener('click', () => {
+    const card = current();
+    if (card) startExperimentFromQuestion(card);
+  });
+
+  // The same three questions the "we applied this too" button asks, with the
+  // resolved question as the thing being applied — see openApplyFlow.
+  document.getElementById('resolvedNextLink').addEventListener('click', () => {
+    const card = current();
+    if (card) openApplyFlow(card);
+  });
+
+  document.getElementById('resolvedNextLineage').addEventListener('click', function () {
+    const card = current();
+    if (!card) return;
+    const box = document.getElementById('resolvedNextLineageWrap');
+    const open = box.style.display === 'none';
+    if (!open) {
+      box.style.display = 'none';
+      this.textContent = t().resolvedNext.lineage;
+      return;
+    }
+    const chain = lineageChain(card);
+    if (!chain.before.length && !chain.after.length) { showToast(t().resolvedNext.noLineage); return; }
+    box.style.display = '';
+    paintLineageStrip(box, card);
+    this.textContent = t().resolvedNext.hideLineage;
+  });
 }
 
 // Adding a reply on the left plays a brief fake "Summarizing…" moment, then
@@ -11929,14 +12705,48 @@ function renderAskedToPicker() {
   });
 }
 
+/* ---- how much the form asks for up front ----
+   Every type's full question set is in FIELD_SETS, and every one of those
+   questions is worth answering. What was wrong was showing all of them at once:
+   a Project opened as four empty boxes, which reads as an evening's work, and
+   the write-up that needs an evening is the one that never gets written.
+
+   So each type names the box it genuinely cannot do without, and the rest sit
+   behind "Add more context" — one click, same fields, nothing removed. */
+const PRIMARY_FIELDS = {
+  update: ['note'],
+  project: ['made'],
+  experiment: ['goal', 'happened'],
+  question: ['blocked'],
+};
+
+function primaryFieldsFor(type) {
+  const all = fieldsFor(type);
+  const primary = (PRIMARY_FIELDS[type] || []).filter((k) => all.indexOf(k) >= 0);
+  return primary.length ? primary : all.slice(0, 1);
+}
+
+function extraFieldsFor(type) {
+  const primary = primaryFieldsFor(type);
+  return fieldsFor(type).filter((k) => primary.indexOf(k) < 0);
+}
+
+// Sticky per compose session, not per type: someone who opened the extra
+// fields once is someone who writes them, and re-collapsing on every type
+// switch would hide what they had already typed.
+let composeExtraOpen = false;
+
+const CHEVRON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
 /* The body fields, as the chosen type asks them. `carried` is an optional
    {key: value} map from a previous type, so a field both types share keeps
    what was in it. */
 function renderComposeFields(carried) {
   const wrap = document.getElementById('composeFields');
   wrap.innerHTML = '';
+  wrap.classList.remove('has-hidden-extras');
 
-  fieldsFor(selectedType).forEach((key) => {
+  const buildField = (key) => {
     const strings = fieldStrings(selectedType, key);
 
     const field = document.createElement('div');
@@ -11958,8 +12768,49 @@ function renderComposeFields(carried) {
 
     field.appendChild(label);
     field.appendChild(area);
-    wrap.appendChild(field);
+    return field;
+  };
+
+  primaryFieldsFor(selectedType).forEach((key) => wrap.appendChild(buildField(key)));
+
+  const extras = extraFieldsFor(selectedType);
+  if (!extras.length) return;
+
+  // Carrying text into a hidden box would lose it in front of the person who
+  // typed it, so anything already written forces the section open.
+  if (carried && extras.some((k) => (carried[k] || '').trim())) composeExtraOpen = true;
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'compose-more' + (composeExtraOpen ? ' is-open' : '');
+  toggle.innerHTML = `<span class="compose-more-label"></span>${CHEVRON_ICON}`;
+
+  const box = document.createElement('div');
+  box.className = 'compose-extra-fields' + (composeExtraOpen ? ' is-open' : '');
+  extras.forEach((key) => box.appendChild(buildField(key)));
+
+  const paint = () => {
+    toggle.querySelector('.compose-more-label').textContent =
+      composeExtraOpen ? t().share.lessContext : t().share.moreContext(extras.length);
+    toggle.classList.toggle('is-open', composeExtraOpen);
+    box.classList.toggle('is-open', composeExtraOpen);
+    // Tells the CSS whether the visible boxes should share the column's height
+    // or stay the size of the question they are asking.
+    wrap.classList.toggle('has-hidden-extras', !composeExtraOpen);
+  };
+  paint();
+
+  toggle.addEventListener('click', () => {
+    composeExtraOpen = !composeExtraOpen;
+    paint();
+    if (composeExtraOpen) {
+      const first = box.querySelector('textarea');
+      if (first) first.focus();
+    }
   });
+
+  wrap.appendChild(toggle);
+  wrap.appendChild(box);
 }
 
 // Everything currently typed, keyed by field name.
@@ -11999,7 +12850,10 @@ function refreshComposeCopy() {
   setText('composeHeading', copy.heading);
   setText('composeIntro', copy.intro);
   setText('submitBtnLabel', copy.submitButton);
-  setText('composeHintLabel', copy.submitHint);
+  // How much work this actually is, per type. One promise across a one-line box
+  // and a four-paragraph write-up was wrong about at least one of them.
+  const byType = s.submitHintByType || {};
+  setText('composeHintLabel', byType[selectedType] || copy.submitHint);
 }
 
 // The composed card's image, if any — a data: URL (not a blob: object URL)
@@ -12263,8 +13117,11 @@ function renderAttachmentsInto(wrapEl, data) {
    read on a card", and that question has one field in it.
    ====================================================================== */
 let previewFocusKey = null;
-// 'card' or 'banner'. Card by default — it is the shape most things end up in.
-let previewMode = 'card';
+/* 'banner' or 'card'. Banner by default: it is the shape a new piece of
+   knowledge lands in on floor 1, so it is the one worth having in front of you
+   while you write. The card is the second look, and it is the poster's own
+   tall proportions rather than a stand-in rectangle. */
+let previewMode = 'banner';
 
 function setPreviewMode(mode) {
   if (mode === previewMode) return;
@@ -12340,20 +13197,19 @@ function refreshPreview() {
      differently — which is the whole reason this toggle exists. */
   const banner = previewMode === 'banner';
   card.classList.toggle('is-banner', banner);
-  document.querySelector('.preview-card-wrap').classList.toggle('is-banner', banner);
+  card.classList.toggle('is-card', !banner);
 
   const media = document.getElementById('previewMedia');
   applyCardMedia(media, selectedImageUrl, studio.color, selectedImageFocal);
   card.classList.toggle('has-image', !!selectedImageUrl);
   media.classList.toggle('has-image-draggable', !!selectedImageUrl);
+  document.getElementById('previewImageCtaLabel').textContent =
+    selectedImageUrl ? t().previewImageReplace : t().previewImageEmpty;
 
   // If the caret has never been in a field, show the first one — an empty
   // preview body on a fresh form says nothing about what the preview is for.
   if (!previewFocusKey) previewFocusKey = fieldsFor(selectedType)[0];
   paintPreviewFocus();
-  // Banner mode shows no body at all, matching floor 1 — the cover carries a
-  // title and nothing else.
-  if (banner) document.getElementById('previewFocus').style.display = 'none';
 }
 
 /* Dragging the preview moves the image inside its frame, and that position is
@@ -12363,14 +13219,17 @@ function refreshPreview() {
    Events with capture, so a drag that leaves the element still tracks. */
 function initPreviewImageDrag() {
   const media = document.getElementById('previewMedia');
-  if (!media) return;
+  const slot = document.getElementById('previewMediaSlot');
+  if (!media || !slot) return;
 
   let dragging = false;
+  let moved = false;
   let startX = 0, startY = 0, startPos = null;
 
   media.addEventListener('pointerdown', (e) => {
-    if (!selectedImageUrl) return;
+    if (!selectedImageUrl) return; // nothing to reposition; the click opens the picker
     dragging = true;
+    moved = false;
     startX = e.clientX;
     startY = e.clientY;
     startPos = Object.assign({}, selectedImageFocal);
@@ -12386,6 +13245,7 @@ function initPreviewImageDrag() {
     // moving the picture rather than nudging a slider.
     const dx = ((e.clientX - startX) / Math.max(1, r.width)) * 100;
     const dy = ((e.clientY - startY) / Math.max(1, r.height)) * 100;
+    if (Math.abs(e.clientX - startX) > 3 || Math.abs(e.clientY - startY) > 3) moved = true;
     selectedImageFocal = {
       x: Math.max(0, Math.min(100, startPos.x - dx)),
       y: Math.max(0, Math.min(100, startPos.y - dy)),
@@ -12400,9 +13260,48 @@ function initPreviewImageDrag() {
     if (e.pointerId !== undefined && media.hasPointerCapture(e.pointerId)) {
       media.releasePointerCapture(e.pointerId);
     }
+    // A reposition drag ends with a click on the same surface, and that surface
+    // also opens the file picker. Without this, every nudge popped the picker.
+    if (moved) {
+      slot.dataset.justRepositioned = '1';
+      setTimeout(() => { delete slot.dataset.justRepositioned; }, 0);
+    }
   };
   media.addEventListener('pointerup', end);
   media.addEventListener('pointercancel', end);
+}
+
+/* The preview frame is the other way in for an image, and the obvious one: it
+   is the thing on screen that looks like where a picture goes. The button under
+   it stays — some people go looking for a button — and both call the same
+   handleImageFile, so whichever you use the result is identical. */
+function initPreviewImageInput() {
+  const slot = document.getElementById('previewMediaSlot');
+  const fileInput = document.getElementById('imageFileInput');
+  if (!slot || !fileInput) return;
+
+  const open = () => {
+    if (slot.dataset.justRepositioned) return;
+    fileInput.click();
+  };
+  slot.addEventListener('click', open);
+  slot.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  });
+
+  // dragenter/dragleave fire for children too, so count depth rather than
+  // toggling on every crossing — otherwise the outline flickers off the moment
+  // the pointer passes over the label inside the frame.
+  let depth = 0;
+  slot.addEventListener('dragenter', (e) => { e.preventDefault(); depth += 1; slot.classList.add('is-dropping'); });
+  slot.addEventListener('dragover', (e) => { e.preventDefault(); });
+  slot.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) slot.classList.remove('is-dropping'); });
+  slot.addEventListener('drop', (e) => {
+    e.preventDefault();
+    depth = 0;
+    slot.classList.remove('is-dropping');
+    handleImageFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+  });
 }
 
 function initSubmitGate() {
@@ -12497,6 +13396,7 @@ function resetComposeForm() {
   document.getElementById('linkInput').value = '';
   // A new compose is a blank sheet for every type, not just the one showing.
   Object.keys(composeDrafts).forEach((k) => { delete composeDrafts[k]; });
+  composeExtraOpen = false; // a blank sheet asks for one box, whatever the last one did
   selectedType = 'project';
   selectedAskedTo = 'all';
   document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
@@ -12515,6 +13415,7 @@ function resetComposeForm() {
 
   attachedFiles = [];
   renderAttachmentList();
+  setPreviewMode('banner'); // every compose opens on the shape floor 1 will use
   setPreviewFocus(fieldsFor(selectedType)[0]);
   refreshPreview();
 
@@ -13347,8 +14248,12 @@ function refreshShareText() {
   setText('attachmentsFieldLabel', s.attachmentsLabel);
   setText('attachmentsOptionalLabel', s.imageOptional);
   setText('attachmentHintLabel', s.attachmentsHint);
-  setText('composeHintLabel', s.submitHint);
   setText('submitBtnLabel', s.submitButton);
+  // Heading, intro, button and hint are all per-type, and refreshComposeCopy
+  // owns all four. Writing the generic hint here after updateComposeChrome has
+  // already set the type's own put the two-minute promise back over a one-line
+  // box on every language switch and every fresh open.
+  refreshComposeCopy();
   setText('weaveCaption', s.weaveCaption);
   setText('weaveDoneTitle', s.weaveDoneTitle);
   setText('weaveCount', s.weaveDoneCount);
@@ -13578,11 +14483,14 @@ safeInit('card expand', initExpandCard);
 safeInit('apply flow', initApplyFlow);
 safeInit('card delete', initDeleteCard);
 safeInit('question detail', initQuestionDetail);
+safeInit('resolved next steps', initResolvedNext);
+safeInit('exchange trace links', initExchangeTraceLinks);
 safeInit('type picker', renderTypePicker);
 safeInit('upload stub', initUploadStub);
 safeInit('attachment upload', initAttachmentUpload);
 safeInit('submit gate', initSubmitGate);
 safeInit('preview drag', initPreviewImageDrag);
+safeInit('preview image input', initPreviewImageInput);
 safeInit('preview modes', initPreviewModes);
 safeInit('submit handler', initSubmit);
 safeInit('weave canvas', initWeaveCanvas);
