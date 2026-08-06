@@ -1615,7 +1615,8 @@
     font-weight: 700;
     color: var(--ink-faint);
   }
-  .for-you-since-none { margin: 0; padding: 4px 14px 12px; font-size: 12.5px; color: var(--ink-faint); }
+  /* There is no "nothing new since your last visit" line any more: the heading
+     is only drawn when it has rows under it, so it cannot contradict them. */
 
   /* ======================================================================
      For you — the indicator, its arrival preview, and the panel
@@ -1842,16 +1843,18 @@
   .for-you-item.is-unread .for-you-text { color: var(--ink); font-weight: 550; }
 
   .for-you-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  /* One sentence per row, with the time inside it. The studio is already named
+     mid-sentence, so the dot is the only other marker the row needs. */
   .for-you-text { font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
-  .for-you-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--ink-faint);
+  .for-you-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: var(--item-studio);
   }
-  .for-you-meta .card-dot { width: 6px; height: 6px; box-shadow: none; }
-  .for-you-meta .sep { opacity: 0.6; }
+  .for-you-time { color: var(--ink-faint); white-space: nowrap; }
 
   .for-you-empty { padding: 34px 22px 40px; text-align: center; }
   .for-you-empty-line { margin: 0 0 8px; font-size: 14px; color: var(--ink-dim); }
@@ -1879,26 +1882,26 @@
   .card-came-back .card-dot { width: 7px; height: 7px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); }
 
   /* ---------- the lineage strip ----------
-     Origin, this, what came after — in a row, and that is all. No pan, no
-     zoom, no layout engine: if it overflows it scrolls sideways. */
+     Work → work. Each box is a card someone wrote; the studio and the author
+     are metadata inside it, next to a colour dot, never a box of their own.
+
+     Stacked, not laid out sideways. This pane is ~430px wide and four nodes in
+     a row is four nodes you have to scroll to read — a chain you can only see
+     two links of is not a chain. Top to bottom it all fits, and the arrow
+     between two nodes has room for the word that says how they are related,
+     which is the part a bare "→" leaves out. */
   .lineage-strip {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
-    gap: 8px;
     margin-bottom: 16px;
-    padding-bottom: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
-  .lineage-strip::-webkit-scrollbar { display: none; }
 
   .lineage-node {
-    flex: 0 0 auto;
-    max-width: 170px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 9px 12px;
+    gap: 5px;
+    padding: 10px 12px 11px;
     border: 1px solid var(--border);
     border-radius: 12px;
     background: #ffffff;
@@ -1908,7 +1911,7 @@
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
   .lineage-node:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-resting); }
-  /* the one you are reading: filled in its own studio's colour, so the strip
+  /* the one you are reading: outlined in its own studio's colour, so the strip
      reads as a sentence with a subject rather than a row of equal boxes */
   .lineage-node.is-self {
     cursor: default;
@@ -1916,36 +1919,63 @@
     box-shadow: inset 0 0 0 1px var(--node-studio);
   }
   .lineage-node.is-self:hover { transform: none; box-shadow: inset 0 0 0 1px var(--node-studio); }
-  .lineage-node.is-studio { cursor: default; background: rgba(20, 20, 20, 0.025); }
-  .lineage-node.is-studio:hover { transform: none; box-shadow: none; border-color: var(--border); }
 
-  .lineage-node-relation {
-    font-size: 9.5px;
+  .lineage-node-here {
+    font-size: 9px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     font-weight: 700;
+    color: var(--node-studio);
+  }
+  .lineage-node-type {
+    align-self: flex-start;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.055);
+    font-size: 9px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-dim);
+  }
+  .lineage-node-title {
+    font-size: 12.5px;
+    line-height: 1.4;
+    font-weight: 550;
+    color: var(--ink);
+  }
+  .lineage-node-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
     color: var(--ink-faint);
   }
-  .lineage-node-body { display: flex; align-items: flex-start; gap: 6px; }
-  .lineage-node-body .card-dot { width: 6px; height: 6px; margin-top: 5px; flex-shrink: 0; box-shadow: none; }
-  .lineage-node-title {
-    font-size: 12px;
-    line-height: 1.35;
-    color: var(--ink);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  .lineage-node-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .lineage-node-note {
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: var(--ink-faint);
+    font-style: italic;
   }
 
+  /* The arrow carries the relation, because "→" alone says two things are
+     connected and nothing about how. */
   .lineage-arrow {
-    flex: 0 0 auto;
-    align-self: center;
     display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 0 6px 15px;
     color: var(--ink-faint);
-    opacity: 0.55;
   }
-  .lineage-arrow svg { width: 15px; height: 15px; }
+  .lineage-arrow-label {
+    font-size: 9px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .lineage-arrow-glyph { display: flex; opacity: 0.5; }
+  .lineage-arrow-glyph svg { width: 14px; height: 14px; transform: rotate(90deg); }
 
   /* ======================================================================
      Reactions, replies, emoji
@@ -2237,6 +2267,21 @@
   }
   .applied-summary { font-size: 12.5px; color: var(--ink-dim); }
 
+  /* One line under each label saying what kind of thing the block holds. The
+     two blocks in this pane look alike and are not: one is talk, one is
+     lineage, and the rule above the second one is the seam. */
+  .section-caption {
+    margin: -6px 0 13px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-faint);
+  }
+  .expanded-section-lineage {
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+  }
+
   /* ---------- lineage — what this card derived from, what derived from it,
      related ideas, and which studios applied it. A plain list, on purpose:
      a small radial graph was tried here and didn't earn its keep next to
@@ -2244,8 +2289,9 @@
      now lives there instead (see .card-lineage-hint), light and textual.
      This modal list is the one place it's spelled out in full. ---------- */
   .lineage-list-wrap { display: flex; flex-direction: column; gap: 9px; }
-  .lineage-empty { margin: 0; font-size: 13px; color: var(--ink-faint); font-style: italic; }
-  .lineage-row { display: flex; align-items: baseline; gap: 9px; font-size: 13.5px; }
+  .lineage-empty { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-faint); font-style: italic; }
+  .lineage-row { display: flex; align-items: baseline; gap: 9px; font-size: 13.5px; flex-wrap: wrap; }
+  .lineage-row-studio { font-size: 11.5px; color: var(--ink-faint); }
   .lineage-row-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; align-self: center; }
   .lineage-row-relation {
     font-size: 10.5px;
@@ -2274,6 +2320,188 @@
   .apply-btn:hover { background: var(--studio-color, var(--ink)); color: #fff; transform: translateY(-1px); box-shadow: 0 10px 24px -14px rgba(20, 20, 20, 0.45); }
   .apply-btn:active { transform: scale(0.96); }
   .apply-btn.is-applied { background: var(--studio-color, var(--ink)); color: #fff; }
+
+  /* ---------- the "we applied this too" flow ----------
+     Three short questions, one at a time. A single form with all three on it
+     would be a form; asked one at a time it stays a decision you can back out
+     of, which is what Cancel and the backdrop are for. ---------- */
+  .apply-flow {
+    position: fixed;
+    inset: 0;
+    z-index: 520;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .apply-flow.is-open { display: flex; }
+  .apply-flow-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 20, 20, 0.42);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .apply-flow-sheet {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(520px, 100%);
+    max-height: min(640px, calc(100vh - 48px));
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 40px 90px -30px rgba(20, 20, 20, 0.5);
+    overflow: hidden;
+  }
+  .apply-flow-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px 18px 14px 22px;
+  }
+  .apply-flow-head-text { flex: 1 1 auto; min-width: 0; }
+  .apply-flow-head h2 {
+    margin: 0;
+    font-family: 'Newsreader', serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .apply-flow-source {
+    margin: 5px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink-faint);
+  }
+  .apply-flow-progress {
+    padding: 0 22px 14px;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+  .apply-flow-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 22px 4px;
+  }
+  .apply-step { display: none; }
+  .apply-step.is-active { display: block; }
+  .apply-step-q {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .apply-step-hint { margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: var(--ink-faint); }
+
+  .apply-target-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+  .apply-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+  .apply-option:hover { border-color: var(--border-strong); }
+  .apply-option.is-picked {
+    border-color: var(--ink);
+    background: rgba(20, 20, 20, 0.035);
+  }
+  .apply-option-dot { width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; flex-shrink: 0; }
+  .apply-option-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .apply-option-title { font-size: 13px; line-height: 1.4; font-weight: 550; color: var(--ink); }
+  .apply-option-meta {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+  }
+  .apply-empty { margin: 0 0 12px; font-size: 12.5px; color: var(--ink-faint); font-style: italic; }
+
+  .apply-new-update {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--ink-dim);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.18s ease, color 0.18s ease;
+  }
+  .apply-new-update:hover { border-color: var(--ink); color: var(--ink); }
+  .apply-new-update.is-picked { border-style: solid; border-color: var(--ink); color: var(--ink); }
+  .apply-new-update-plus { font-size: 15px; line-height: 1; }
+  .apply-new-update-box { margin-top: 9px; }
+  .apply-new-update-box textarea,
+  #applyNoteInput {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink);
+    resize: none;
+  }
+  .apply-new-update-box textarea:focus,
+  #applyNoteInput:focus { outline: none; border-color: var(--ink); }
+
+  .apply-relation-list { display: flex; flex-direction: column; gap: 7px; }
+
+  .apply-summary {
+    margin-top: 14px;
+    padding: 12px 13px;
+    border-radius: 12px;
+    background: rgba(20, 20, 20, 0.035);
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+  .apply-summary strong { font-weight: 600; color: var(--ink); }
+
+  .apply-flow-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 22px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .apply-flow-foot-right { display: flex; align-items: center; gap: 8px; }
+  .apply-flow-next {
+    padding: 11px 20px;
+    border-radius: 999px;
+    border: none;
+    background: var(--ink);
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .apply-flow-next:hover:not(:disabled) { transform: translateY(-1px); }
+  .apply-flow-next:disabled { opacity: 0.32; cursor: not-allowed; }
 
   .reveal-on-open {
     opacity: 0;
@@ -4028,6 +4256,67 @@
   <div class="for-you-list" id="forYouList"></div>
 </aside>
 
+<!-- ---------- "We applied this too" ----------
+     Pressing it used to append your studio's name to a list, which is how a
+     company ended up looking like a node in someone's lineage. Applying
+     something is an event between two pieces of work: the one you read and the
+     one you made because of it. So it asks for that second piece — an existing
+     Project/Experiment/Update of yours, or a one-line Update written on the
+     spot — then what kind of connection it is, then optionally what changed.
+     Only on save does a line appear between the two. Escape, the backdrop and
+     Cancel all leave without writing anything. -->
+<div class="apply-flow" id="applyFlow" role="dialog" aria-modal="true" aria-labelledby="applyFlowTitle">
+  <div class="apply-flow-backdrop" id="applyFlowBackdrop"></div>
+  <div class="apply-flow-sheet">
+    <div class="apply-flow-head">
+      <div class="apply-flow-head-text">
+        <h2 id="applyFlowTitle"></h2>
+        <p class="apply-flow-source" id="applyFlowSource"></p>
+      </div>
+      <button type="button" class="for-you-close" id="applyFlowClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="apply-flow-progress" id="applyFlowProgress"></div>
+
+    <div class="apply-flow-body">
+      <section class="apply-step" data-step="1">
+        <h3 class="apply-step-q" id="applyQ1"></h3>
+        <p class="apply-step-hint" id="applyQ1Hint"></p>
+        <div class="apply-target-list" id="applyTargetList"></div>
+        <button type="button" class="apply-new-update" id="applyNewUpdateBtn">
+          <span class="apply-new-update-plus">+</span>
+          <span id="applyNewUpdateLabel"></span>
+        </button>
+        <div class="apply-new-update-box" id="applyNewUpdateBox" style="display:none;">
+          <textarea id="applyNewUpdateInput" rows="2" maxlength="180"></textarea>
+        </div>
+      </section>
+
+      <section class="apply-step" data-step="2">
+        <h3 class="apply-step-q" id="applyQ2"></h3>
+        <div class="apply-relation-list" id="applyRelationList"></div>
+      </section>
+
+      <section class="apply-step" data-step="3">
+        <h3 class="apply-step-q" id="applyQ3"></h3>
+        <p class="apply-step-hint" id="applyQ3Hint"></p>
+        <input type="text" id="applyNoteInput" maxlength="140" autocomplete="off">
+        <div class="apply-summary" id="applySummary"></div>
+      </section>
+    </div>
+
+    <div class="apply-flow-foot">
+      <button type="button" class="btn-ghost-sm" id="applyFlowCancel"></button>
+      <div class="apply-flow-foot-right">
+        <button type="button" class="btn-ghost-sm" id="applyFlowBack"></button>
+        <button type="button" class="apply-flow-next" id="applyFlowNext"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <button type="button" class="icon-ghost hamburger-btn" id="menuToggleBtn" aria-label="Menu" aria-expanded="false">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
 </button>
@@ -4544,15 +4833,24 @@
              scoreboard of their work -->
         <div class="expanded-section card-status reveal-on-open" id="cardStatusBlock" style="display:none;"></div>
 
+        <!-- WHAT CAME BACK — talk. Reactions and their replies never draw a
+             line in the lineage below: someone saying "we'll try this" is a
+             conversation, and only a piece of writing that actually came out
+             of this one is a link. The caption on each block says which of the
+             two you are looking at, and the rule below separates them. -->
         <div class="expanded-section reveal-on-open">
           <div class="label" id="labelReactions"></div>
+          <p class="section-caption" id="captionReactions"></p>
           <!-- one click each; the note is a second, optional step -->
           <div class="reaction-pills" id="reactionPills"></div>
           <div class="reaction-list" id="reactionList"></div>
         </div>
 
-        <div class="expanded-section reveal-on-open">
+        <!-- WHERE IT SPREAD — work. Content to content, never company to
+             company; see renderLineageStrip. -->
+        <div class="expanded-section expanded-section-lineage reveal-on-open">
           <div class="label" id="labelApplied"></div>
+          <p class="section-caption" id="captionLineage"></p>
           <div class="lineage-strip" id="lineageStrip"></div>
           <div class="lineage-list-wrap" id="lineageListWrap"></div>
         </div>
@@ -4742,9 +5040,11 @@ const TRANSLATIONS = {
         none: 'Nothing is waiting on you right now.',
         badge: (studio) => `Needs ${studio}'s perspective`,
       },
+      // No "nothing new" line lives here any more: the section is only drawn
+      // when it has something in it, so it can never contradict the list under
+      // it. The genuinely-empty case is forYou.emptyTitle/emptyBody.
       sinceLastVisit: {
         title: 'Since your last visit',
-        none: 'Nothing new since you were last here.',
       },
       // What each kind of card is asked, and the example that shows the kind
       // of answer that is actually useful to another studio.
@@ -4840,15 +5140,22 @@ const TRANSLATIONS = {
         aria: 'For you',
         ariaUnread: (n) => `For you — ${n} new`,
         title: 'For you',
+        earlier: 'Earlier',
         markAll: 'Mark all read',
         emptyTitle: "Nothing new right now.",
         emptyBody: 'When another studio applies something you shared, reacts to it, or asks your studio a question, it turns up here.',
         gone: "That one isn't here any more.",
+        /* One finished sentence each: who, where they are, what they did, and
+           which piece of your work they did it to. Every one of those parts is
+           checked before the line is built (see notificationView) — a
+           notification missing any of them is not shown at all, because a
+           half-built sentence is worse than one fewer row. */
         lines: {
-          applied: (who, studio, title) => `${who} at ${studio} applied your approach from "${title}"`,
-          reaction: (who, studio, kind, title) => `${who} at ${studio} left "${kind}" on your "${title}"`,
-          reply: (who, studio, title) => `${who} at ${studio} replied in the thread on "${title}"`,
-          asked: (who, studio, title) => `${who} at ${studio} asked your studio: "${title}"`,
+          applied: (who, studio, title) => `${who} from ${studio} applied your approach — “${title}”`,
+          reaction: (who, studio, kind, title) => `${who} from ${studio} left “${kind}” on your work — “${title}”`,
+          reply: (who, studio, title) => `${who} from ${studio} replied in the thread on your work — “${title}”`,
+          replyToQuestion: (who, studio, title) => `${who} from ${studio} replied to your question — “${title}”`,
+          asked: (who, studio, title) => `${who} from ${studio} asked your studio — “${title}”`,
         },
       },
       cardStatus: {
@@ -4856,21 +5163,53 @@ const TRANSLATIONS = {
         reactions: (n) => (n === 0 ? 'No reactions yet' : `${n} ${n > 1 ? 'people have' : 'person has'} reacted`),
         applied: (names) => (names.length === 0 ? 'Not applied anywhere yet' : `Applied at ${names.join(' and ')}`),
       },
+      reactionsCaption: 'Replies and reactions. A conversation \u2014 it does not connect two pieces of work.',
       appliedLabel: 'Where it spread',
-      appliedCount: (n) => (n === 0 ? 'Not yet applied elsewhere' : `Applied by ${n} studio${n > 1 ? 's' : ''}`),
+      lineageCaption: 'Other work this actually turned into.',
+      // Plain, and deliberately not a score: the sentence is about reach, and a
+      // bolded number would turn it into one.
+      lineageSummary: (works, studios) => (works === 0
+        ? 'Not connected to other work yet'
+        : `Connected to ${works} work${works > 1 ? 's' : ''} across ${studios} studio${studios > 1 ? 's' : ''}`),
+      /* The five ways one piece of work can follow from another. `back` is how
+         the person making the link says it ("we applied this from\u2026"); `forward`
+         is how the strip reads it left to right, parent to child. */
+      lineageRelations: {
+        appliedFrom: { back: 'Applied from', forward: 'Applied in' },
+        inspiredBy: { back: 'Inspired by', forward: 'Inspired' },
+        continuedFrom: { back: 'Continued from', forward: 'Continued in' },
+        builtOn: { back: 'Built on', forward: 'Built on by' },
+        solvedThrough: { back: 'Solved through', forward: 'Solved in' },
+      },
       lineageStrip: {
-        thisOne: 'This knowledge',
-        inspiredBy: 'Inspired by',
-        continuedBy: 'Continued by',
-        appliedBy: 'Applied by',
-        empty: 'Nothing is connected to this yet. Apply another studio\u2019s approach and it will show up here.',
+        thisOne: 'You are reading this',
+        empty: 'This has not led to other work yet. When a studio applies it to something of their own, the chain shows up here.',
       },
       lineage: {
-        derivedFrom: 'Derived from',
-        derivedInto: 'Went further with this',
+        derivedFrom: 'Came from',
+        derivedInto: 'Led to',
         related: 'Related idea',
-        appliedBy: 'Applied it',
         empty: 'Not yet connected to other knowledge',
+      },
+      applyFlow: {
+        title: 'Connect this to your work',
+        source: (title) => `From \u201c${title}\u201d`,
+        step: (n, total) => `Step ${n} of ${total}`,
+        q1: 'Where did you apply it?',
+        q1Hint: 'Pick something your studio has already written, or start a new Update.',
+        q1Empty: 'Your studio has nothing to connect this to yet \u2014 write a quick Update instead.',
+        newUpdate: 'Write a quick Update instead',
+        newUpdatePlaceholder: 'One line \u2014 what you did with it.',
+        q2: 'What kind of connection is it?',
+        q3: 'What changed?',
+        q3Hint: 'Optional. One line, for whoever reads the chain later.',
+        notePlaceholder: 'We kept the timing but halved the reward.',
+        cancel: 'Cancel',
+        back: 'Back',
+        next: 'Next',
+        save: 'Save the connection',
+        saved: 'Connected.',
+        failed: 'That connection could not be saved.',
       },
       applyButton: 'We applied this too',
       applyButtonDone: '✓ Applied',
@@ -4881,6 +5220,9 @@ const TRANSLATIONS = {
       // the same moment mid-sentence, where a capital reads as a typo
       // ("Edited Just now"). Only English needs the distinction.
       justNowInline: 'just now',
+      // When a timestamp is missing or unreadable. Vague on purpose — "Recently"
+      // is true, and "NaN days ago" is the app admitting it lost the number.
+      recently: 'Recently',
       deleteLink: 'Delete this card',
       editLink: 'Edit',
       editHeading: 'Edit what you shared',
@@ -5080,7 +5422,6 @@ const TRANSLATIONS = {
       },
       sinceLastVisit: {
         title: '지난 방문 이후',
-        none: '마지막으로 다녀간 뒤로 새로운 건 없어요.',
       },
       fields: {
         update: {
@@ -5174,15 +5515,17 @@ const TRANSLATIONS = {
         aria: '나에게 온 소식',
         ariaUnread: (n) => `나에게 온 소식 — 새 소식 ${n}개`,
         title: '나에게 온 소식',
+        earlier: '그 이전',
         markAll: '모두 읽음',
         emptyTitle: '지금은 새 소식이 없어요.',
         emptyBody: '다른 스튜디오가 당신이 공유한 걸 적용하거나, 반응을 남기거나, 당신의 스튜디오에 질문하면 여기에 나타납니다.',
         gone: '그 항목은 이제 없어요.',
         lines: {
-          applied: (who, studio, title) => `${studio}의 ${who}가 "${title}"의 접근법을 적용했어요`,
-          reaction: (who, studio, kind, title) => `${studio}의 ${who}가 "${title}"에 "${kind}"를 남겼어요`,
-          reply: (who, studio, title) => `${studio}의 ${who}가 "${title}" 대화에 답장했어요`,
-          asked: (who, studio, title) => `${studio}의 ${who}가 당신의 스튜디오에 물었어요: "${title}"`,
+          applied: (who, studio, title) => `${studio}의 ${who}님이 당신의 접근법을 적용했어요 — “${title}”`,
+          reaction: (who, studio, kind, title) => `${studio}의 ${who}님이 “${kind}”라고 반응했어요 — “${title}”`,
+          reply: (who, studio, title) => `${studio}의 ${who}님이 당신 글의 대화에 답글을 남겼어요 — “${title}”`,
+          replyToQuestion: (who, studio, title) => `${studio}의 ${who}님이 당신의 질문에 답했어요 — “${title}”`,
+          asked: (who, studio, title) => `${studio}의 ${who}님이 당신의 스튜디오에 물었어요 — “${title}”`,
         },
       },
       cardStatus: {
@@ -5190,21 +5533,48 @@ const TRANSLATIONS = {
         reactions: (n) => (n === 0 ? '아직 반응 없음' : `${n}명이 반응했어요`),
         applied: (names) => (names.length === 0 ? '아직 적용한 곳 없음' : `${names.join(', ')}에서 적용했어요`),
       },
-      appliedLabel: '적용된 곳',
-      appliedCount: (n) => (n === 0 ? '아직 다른 스튜디오에 적용되지 않음' : `${n}개 스튜디오에서 적용함`),
+      reactionsCaption: '답글과 반응이에요. 대화일 뿐, 두 글을 잇는 계보는 아닙니다.',
+      appliedLabel: '어디로 이어졌나',
+      lineageCaption: '이 글이 실제로 이어진 다른 글이에요.',
+      lineageSummary: (works, studios) => (works === 0
+        ? '아직 다른 글과 이어지지 않았어요'
+        : `${studios}개 스튜디오의 글 ${works}개와 이어져 있어요`),
+      lineageRelations: {
+        appliedFrom: { back: '여기서 적용', forward: '여기에 적용됨' },
+        inspiredBy: { back: '여기서 영감', forward: '영감을 줌' },
+        continuedFrom: { back: '여기서 이어짐', forward: '여기로 이어짐' },
+        builtOn: { back: '여기 위에 쌓음', forward: '여기서 더 나아감' },
+        solvedThrough: { back: '이걸로 풀림', forward: '여기서 풀림' },
+      },
       lineageStrip: {
-        thisOne: '이 지식',
-        inspiredBy: '여기서 출발했어요',
-        continuedBy: '여기로 이어졌어요',
-        appliedBy: '적용한 곳',
-        empty: '아직 이어진 지식이 없어요. 다른 스튜디오의 접근을 응용하면 여기에 나타나요.',
+        thisOne: '지금 보는 글',
+        empty: '아직 다른 글로 이어지지 않았어요. 어떤 스튜디오가 자기 작업에 적용하면 여기에 계보가 생깁니다.',
       },
       lineage: {
-        derivedFrom: '여기서 파생됨',
-        derivedInto: '이걸 더 발전시킴',
+        derivedFrom: '여기서 왔어요',
+        derivedInto: '여기로 갔어요',
         related: '연관된 아이디어',
-        appliedBy: '적용함',
         empty: '아직 다른 지식과 연결되지 않았습니다',
+      },
+      applyFlow: {
+        title: '내 작업과 연결하기',
+        source: (title) => `“${title}”에서`,
+        step: (n, total) => `${total}단계 중 ${n}단계`,
+        q1: '어디에 적용했나요?',
+        q1Hint: '스튜디오가 이미 쓴 글을 고르거나, 새 Update를 시작하세요.',
+        q1Empty: '아직 연결할 글이 없어요 — 새 Update를 빠르게 써 보세요.',
+        newUpdate: '새 Update 빠르게 작성',
+        newUpdatePlaceholder: '한 줄 — 이걸로 무엇을 했는지.',
+        q2: '어떤 관계인가요?',
+        q3: '무엇이 달라졌나요?',
+        q3Hint: '선택 사항이에요. 나중에 계보를 읽을 사람을 위한 한 줄.',
+        notePlaceholder: '타이밍은 그대로 두고 보상만 절반으로 줄였어요.',
+        cancel: '취소',
+        back: '이전',
+        next: '다음',
+        save: '연결 저장',
+        saved: '연결됐어요.',
+        failed: '연결을 저장하지 못했어요.',
       },
       applyButton: '우리도 적용했어요',
       applyButtonDone: '✓ 적용됨',
@@ -5213,6 +5583,7 @@ const TRANSLATIONS = {
       backToNetwork: '신경망으로 돌아가기',
       justNow: '방금 전',
       justNowInline: '방금 전',
+      recently: '최근',
       deleteLink: '이 카드 삭제',
       editLink: '수정',
       editHeading: '공유한 내용 수정',
@@ -5412,7 +5783,6 @@ const TRANSLATIONS = {
       },
       sinceLastVisit: {
         title: 'Seit deinem letzten Besuch',
-        none: 'Seit deinem letzten Besuch ist nichts Neues passiert.',
       },
       fields: {
         update: {
@@ -5506,15 +5876,17 @@ const TRANSLATIONS = {
         aria: 'Für dich',
         ariaUnread: (n) => `Für dich — ${n} neu`,
         title: 'Für dich',
+        earlier: 'Früher',
         markAll: 'Alle gelesen',
         emptyTitle: 'Gerade nichts Neues.',
         emptyBody: 'Wenn ein anderes Studio etwas von dir übernimmt, darauf reagiert oder deinem Studio eine Frage stellt, steht es hier.',
         gone: 'Das gibt es nicht mehr.',
         lines: {
-          applied: (who, studio, title) => `${who} von ${studio} hat deinen Ansatz aus „${title}" übernommen`,
-          reaction: (who, studio, kind, title) => `${who} von ${studio} hat „${kind}" zu „${title}" hinterlassen`,
-          reply: (who, studio, title) => `${who} von ${studio} hat im Thread zu „${title}" geantwortet`,
-          asked: (who, studio, title) => `${who} von ${studio} fragt dein Studio: „${title}"`,
+          applied: (who, studio, title) => `${who} von ${studio} hat deinen Ansatz übernommen — „${title}“`,
+          reaction: (who, studio, kind, title) => `${who} von ${studio} hat „${kind}“ zu deiner Arbeit hinterlassen — „${title}“`,
+          reply: (who, studio, title) => `${who} von ${studio} hat im Gespräch zu deiner Arbeit geantwortet — „${title}“`,
+          replyToQuestion: (who, studio, title) => `${who} von ${studio} hat auf deine Frage geantwortet — „${title}“`,
+          asked: (who, studio, title) => `${who} von ${studio} hat dein Studio gefragt — „${title}“`,
         },
       },
       cardStatus: {
@@ -5522,21 +5894,48 @@ const TRANSLATIONS = {
         reactions: (n) => (n === 0 ? 'Noch keine Reaktionen' : `${n} ${n > 1 ? 'Personen haben' : 'Person hat'} reagiert`),
         applied: (names) => (names.length === 0 ? 'Noch nirgends übernommen' : `Übernommen bei ${names.join(' und ')}`),
       },
-      appliedLabel: 'Wo es übernommen wurde',
-      appliedCount: (n) => (n === 0 ? 'Noch von keinem Studio übernommen' : `Von ${n} Studio${n > 1 ? 's' : ''} übernommen`),
+      reactionsCaption: 'Antworten und Reaktionen. Ein Gespräch — es verknüpft keine zwei Arbeiten.',
+      appliedLabel: 'Wohin es weitergegangen ist',
+      lineageCaption: 'Andere Arbeiten, zu denen dies tatsächlich geführt hat.',
+      lineageSummary: (works, studios) => (works === 0
+        ? 'Noch mit keiner anderen Arbeit verbunden'
+        : `Verbunden mit ${works} ${works > 1 ? 'Arbeiten' : 'Arbeit'} aus ${studios} ${studios > 1 ? 'Studios' : 'Studio'}`),
+      lineageRelations: {
+        appliedFrom: { back: 'Übernommen aus', forward: 'Übernommen in' },
+        inspiredBy: { back: 'Angeregt durch', forward: 'Hat angeregt' },
+        continuedFrom: { back: 'Fortgeführt aus', forward: 'Fortgeführt in' },
+        builtOn: { back: 'Aufgebaut auf', forward: 'Darauf aufgebaut in' },
+        solvedThrough: { back: 'Gelöst durch', forward: 'Gelöst in' },
+      },
       lineageStrip: {
-        thisOne: 'Dieses Wissen',
-        inspiredBy: 'Angeregt durch',
-        continuedBy: 'Fortgeführt von',
-        appliedBy: 'Übernommen von',
-        empty: 'Damit ist noch nichts verknüpft. Wenn du den Ansatz eines anderen Studios übernimmst, erscheint er hier.',
+        thisOne: 'Das liest du gerade',
+        empty: 'Daraus ist noch keine weitere Arbeit entstanden. Sobald ein Studio es auf etwas Eigenes anwendet, erscheint die Kette hier.',
       },
       lineage: {
-        derivedFrom: 'Abgeleitet von',
-        derivedInto: 'Hat dies weiterentwickelt',
+        derivedFrom: 'Kam aus',
+        derivedInto: 'Führte zu',
         related: 'Verwandte Idee',
-        appliedBy: 'Hat es übernommen',
         empty: 'Noch mit keinem anderen Wissen verbunden',
+      },
+      applyFlow: {
+        title: 'Mit deiner Arbeit verknüpfen',
+        source: (title) => `Aus „${title}“`,
+        step: (n, total) => `Schritt ${n} von ${total}`,
+        q1: 'Wo hast du es angewendet?',
+        q1Hint: 'Wähle etwas, das dein Studio schon geschrieben hat, oder beginne ein neues Update.',
+        q1Empty: 'Dein Studio hat noch nichts zum Verknüpfen — schreib stattdessen ein kurzes Update.',
+        newUpdate: 'Lieber ein kurzes Update schreiben',
+        newUpdatePlaceholder: 'Eine Zeile — was du damit gemacht hast.',
+        q2: 'Was für eine Verbindung ist das?',
+        q3: 'Was war anders?',
+        q3Hint: 'Optional. Eine Zeile für alle, die die Kette später lesen.',
+        notePlaceholder: 'Timing beibehalten, Belohnung halbiert.',
+        cancel: 'Abbrechen',
+        back: 'Zurück',
+        next: 'Weiter',
+        save: 'Verbindung speichern',
+        saved: 'Verknüpft.',
+        failed: 'Diese Verbindung konnte nicht gespeichert werden.',
       },
       applyButton: 'Das haben wir auch übernommen',
       applyButtonDone: '✓ Übernommen',
@@ -5545,6 +5944,7 @@ const TRANSLATIONS = {
       backToNetwork: 'Zurück zum Netzwerk',
       justNow: 'Gerade eben',
       justNowInline: 'gerade eben',
+      recently: 'Kürzlich',
       deleteLink: 'Diese Karte löschen',
       editLink: 'Bearbeiten',
       editHeading: 'Geteiltes bearbeiten',
@@ -5744,7 +6144,6 @@ const TRANSLATIONS = {
       },
       sinceLastVisit: {
         title: 'Son ziyaretinizden bu yana',
-        none: 'Son geldiğinizden beri yeni bir şey yok.',
       },
       fields: {
         update: {
@@ -5838,15 +6237,17 @@ const TRANSLATIONS = {
         aria: 'Size gelenler',
         ariaUnread: (n) => `Size gelenler — ${n} yeni`,
         title: 'Size gelenler',
+        earlier: 'Daha önce',
         markAll: 'Tümünü okundu say',
         emptyTitle: 'Şu anda yeni bir şey yok.',
         emptyBody: 'Başka bir stüdyo paylaştığınız bir şeyi uyguladığında, tepki verdiğinde ya da stüdyonuza soru sorduğunda burada görünür.',
         gone: 'O artık burada değil.',
         lines: {
-          applied: (who, studio, title) => `${studio} stüdyosundan ${who}, "${title}" yaklaşımınızı uyguladı`,
-          reaction: (who, studio, kind, title) => `${studio} stüdyosundan ${who}, "${title}" için "${kind}" bıraktı`,
-          reply: (who, studio, title) => `${studio} stüdyosundan ${who}, "${title}" başlığındaki konuşmaya yanıt verdi`,
-          asked: (who, studio, title) => `${studio} stüdyosundan ${who} stüdyonuza sordu: "${title}"`,
+          applied: (who, studio, title) => `${studio} stüdyosundan ${who} yaklaşımınızı uyguladı — “${title}”`,
+          reaction: (who, studio, kind, title) => `${studio} stüdyosundan ${who} işinize “${kind}” bıraktı — “${title}”`,
+          reply: (who, studio, title) => `${studio} stüdyosundan ${who} işinizdeki sohbete yanıt verdi — “${title}”`,
+          replyToQuestion: (who, studio, title) => `${studio} stüdyosundan ${who} sorunuzu yanıtladı — “${title}”`,
+          asked: (who, studio, title) => `${studio} stüdyosundan ${who} stüdyonuza sordu — “${title}”`,
         },
       },
       cardStatus: {
@@ -5854,21 +6255,48 @@ const TRANSLATIONS = {
         reactions: (n) => (n === 0 ? 'Henüz tepki yok' : `${n} kişi tepki verdi`),
         applied: (names) => (names.length === 0 ? 'Henüz hiçbir yerde uygulanmadı' : `${names.join(' ve ')} uyguladı`),
       },
-      appliedLabel: 'Nerede uygulandı',
-      appliedCount: (n) => (n === 0 ? 'Henüz başka stüdyo tarafından uygulanmadı' : `${n} stüdyo tarafından uygulandı`),
+      reactionsCaption: 'Yanıtlar ve tepkiler. Bir sohbet — iki işi birbirine bağlamaz.',
+      appliedLabel: 'Nereye yayıldı',
+      lineageCaption: 'Bunun gerçekten dönüştüğü diğer işler.',
+      lineageSummary: (works, studios) => (works === 0
+        ? 'Henüz başka bir işle bağlantılı değil'
+        : `${studios} stüdyodan ${works} işle bağlantılı`),
+      lineageRelations: {
+        appliedFrom: { back: 'Şuradan uygulandı', forward: 'Şurada uygulandı' },
+        inspiredBy: { back: 'Şundan esinlenildi', forward: 'Esin verdi' },
+        continuedFrom: { back: 'Şuradan devam etti', forward: 'Şurada devam etti' },
+        builtOn: { back: 'Şunun üzerine kuruldu', forward: 'Üzerine kuruldu' },
+        solvedThrough: { back: 'Şununla çözüldü', forward: 'Şurada çözüldü' },
+      },
       lineageStrip: {
-        thisOne: 'Bu bilgi',
-        inspiredBy: 'Şuradan esinlendi',
-        continuedBy: 'Şuraya devam etti',
-        appliedBy: 'Uygulayan',
-        empty: 'Buna henüz bir şey bağlı değil. Başka bir stüdyonun yaklaşımını uygularsanız burada görünür.',
+        thisOne: 'Şu an okuduğunuz',
+        empty: 'Bu henüz başka bir işe dönüşmedi. Bir stüdyo kendi işine uyguladığında zincir burada görünür.',
       },
       lineage: {
-        derivedFrom: 'Şuradan türetildi',
-        derivedInto: 'Bunu daha ileri götürdü',
+        derivedFrom: 'Şuradan geldi',
+        derivedInto: 'Şuna yol açtı',
         related: 'İlgili fikir',
-        appliedBy: 'Uyguladı',
         empty: 'Henüz başka bir bilgiyle bağlantılı değil',
+      },
+      applyFlow: {
+        title: 'Bunu kendi işinize bağlayın',
+        source: (title) => `“${title}” işinden`,
+        step: (n, total) => `${total} adımdan ${n}. adım`,
+        q1: 'Nerede uyguladınız?',
+        q1Hint: 'Stüdyonuzun daha önce yazdığı bir şeyi seçin ya da yeni bir Update başlatın.',
+        q1Empty: 'Stüdyonuzun bağlayacak bir işi yok — bunun yerine hızlı bir Update yazın.',
+        newUpdate: 'Bunun yerine hızlı bir Update yaz',
+        newUpdatePlaceholder: 'Tek satır — bununla ne yaptınız.',
+        q2: 'Nasıl bir bağ bu?',
+        q3: 'Ne değişti?',
+        q3Hint: 'İsteğe bağlı. Zinciri sonra okuyacaklar için tek satır.',
+        notePlaceholder: 'Zamanlamayı koruduk, ödülü yarıya indirdik.',
+        cancel: 'Vazgeç',
+        back: 'Geri',
+        next: 'İleri',
+        save: 'Bağlantıyı kaydet',
+        saved: 'Bağlandı.',
+        failed: 'Bu bağlantı kaydedilemedi.',
       },
       applyButton: 'Biz de bunu uyguladık',
       applyButtonDone: '✓ Uygulandı',
@@ -5877,6 +6305,7 @@ const TRANSLATIONS = {
       backToNetwork: 'Ağa geri dön',
       justNow: 'Az önce',
       justNowInline: 'az önce',
+      recently: 'Yakın zamanda',
       deleteLink: 'Bu kartı sil',
       editLink: 'Düzenle',
       editHeading: 'Paylaştığınızı düzenleyin',
@@ -6492,15 +6921,19 @@ function fieldStrings(type, key) {
 }
 
 const CARDS = [
-  { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: 'assets/card-first-payment-reward.jpg', relatedTo: [], derivedFrom: null },
+  /* c15 → c1 → c5 → u1 is the seeded chain the lineage strip is built to show:
+     a Question that got answered by a Project, applied by another studio into a
+     Project of their own, and still running as an Update. Every node is a piece
+     of writing — a studio is never a node, only a label inside one. */
+  { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: 'assets/card-first-payment-reward.jpg', relatedTo: [], derivedFrom: 'c15', derivedRelation: 'solvedThrough', derivedNote: 'We stopped asking before the reward and built the reward moment first.' },
   { id: 'c2', studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 5, timeUnit: 'day', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: null },
   { id: 'c3', studio: 'paxie', type: 'question', author: 'Sena Oh', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion' },
   { id: 'c4', studio: 'doubleu', type: 'experiment', author: 'Haeun Lee', timeValue: 1, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: ['c1'], derivedFrom: null },
-  { id: 'c5', studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: 'assets/card-event-teaser.jpg', relatedTo: [], derivedFrom: 'c1' },
+  { id: 'c5', studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: 'assets/card-event-teaser.jpg', relatedTo: [], derivedFrom: 'c1', derivedRelation: 'appliedFrom', derivedNote: 'Same reward moment, moved three days before the event instead of after the tutorial.' },
   { id: 'c6', studio: 'paxie', type: 'project', author: 'Yuna Choi', timeValue: 3, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c13'], derivedFrom: null },
   { id: 'c7', studio: 'doubleu', type: 'project', author: 'Jiho Baek', timeValue: 3, timeUnit: 'week', appliedBy: ['whow', 'paxie'], image: null, relatedTo: ['c13'], derivedFrom: null },
   { id: 'c8', studio: 'whow', type: 'experiment', author: 'Mira Keller', timeValue: 4, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: ['c2'], derivedFrom: null },
-  { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: 'assets/card-reward-reveal-speed.jpg', relatedTo: [], derivedFrom: 'c1' },
+  { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: 'assets/card-reward-reveal-speed.jpg', relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
   { id: 'c10', studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', conversation: [
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 1, timeUnit: 'month' },
     { author: 'Lena Fischer', studio: 'whow', timeValue: 3, timeUnit: 'week' },
@@ -6525,7 +6958,7 @@ const CARDS = [
   // Updates. Deliberately unfinished-sounding: the strip only works as
   // permission to post if what is already in it looks like something you could
   // have written in a minute.
-  { id: 'u1', studio: 'whow', type: 'update', author: 'Bengt Larsson', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'u1', studio: 'whow', type: 'update', author: 'Bengt Larsson', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c5', derivedRelation: 'continuedFrom', derivedNote: 'The teaser worked; the countdown on the reward screen is the part still fighting us.' },
   { id: 'u2', studio: 'doubleu', type: 'update', author: 'Haeun Lee', timeValue: 2, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
   { id: 'u3', studio: 'whow', type: 'update', author: 'Mira Keller', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
 ];
@@ -6726,10 +7159,14 @@ function connectedIndices(data) {
   return indices;
 }
 
-// The richer, relation-aware version used to draw the lineage graph: each
-// entry keeps *why* it's connected (derivedFrom/derivedInto/related), plus
-// separate studio-level "applied it" nodes — appliedBy has no specific card
-// to point at, so it can only ever produce a studio node, not a card one.
+/* The full spell-it-out list under the strip: every card this one links to and
+   why (derivedFrom / derivedInto / related), including the branches the linear
+   strip has no room for.
+
+   Cards only. `appliedBy` used to add studio-shaped nodes here, which made a
+   company look like a step in the lineage; it is a fact about who picked
+   something up, and it belongs to the "how it has travelled" line and the
+   exchange traces, not to a chain of works. */
 function buildLineageNodes(data) {
   const nodes = [];
   const seen = new Set([data.id]);
@@ -6745,7 +7182,8 @@ function buildLineageNodes(data) {
       id,
       index: idx,
       title: cardText(c).title,
-      color: STUDIOS[c.studio].color,
+      studioName: STUDIOS[c.studio] ? STUDIOS[c.studio].name : '',
+      color: STUDIOS[c.studio] ? STUDIOS[c.studio].color : 'var(--ink)',
       relation,
     });
   };
@@ -6754,10 +7192,6 @@ function buildLineageNodes(data) {
   ALL_CARDS.forEach((c) => { if (c.derivedFrom === data.id) addCardNode(c.id, 'derivedInto'); });
   (data.relatedTo || []).forEach((id) => addCardNode(id, 'related'));
   ALL_CARDS.forEach((c) => { if ((c.relatedTo || []).includes(data.id)) addCardNode(c.id, 'related'); });
-
-  visibleAppliedBy(data).forEach((studioKey) => {
-    nodes.push({ kind: 'studio', studioKey, name: STUDIOS[studioKey].name, color: STUDIOS[studioKey].color, relation: 'appliedBy' });
-  });
 
   return nodes;
 }
@@ -6793,8 +7227,13 @@ function lineageHintFor(data) {
   if (!data.derivedFrom) return '';
   const idx = findCardIndexById(data.derivedFrom);
   if (idx === -1) return '';
-  const originStudio = STUDIOS[ALL_CARDS[idx].studio];
-  return `${t().lineage.derivedFrom} ${originStudio.name}`;
+  // The work it came out of, not the company that wrote that work — same rule
+  // the lineage strip follows. "Came from DoubleU" is an attribution; "came
+  // from this particular piece" is a lineage.
+  const origin = ALL_CARDS[idx];
+  const title = truncateForSummary(cardText(origin).title || '', 44);
+  if (!title) return '';
+  return `${t().lineage.derivedFrom} “${title}”`;
 }
 
 function isOpenQuestion(data) {
@@ -9093,27 +9532,31 @@ function persistAppliedBy(card) {
   saveSeedEdit(card.id, patch);
 }
 
-function renderLineageList(data) {
+/* The rows under the strip are what the strip could not show: a sibling
+   branch, a related idea. Anything already drawn as a node above would just be
+   the same fact twice, so it is filtered out here — and when nothing is left,
+   nothing is drawn, because the strip has already said whether this is
+   connected to anything at all. */
+function renderLineageList(data, preferId) {
   const wrap = document.getElementById('lineageListWrap');
   wrap.innerHTML = '';
-  const nodes = buildLineageNodes(data);
 
-  if (nodes.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'lineage-empty';
-    empty.textContent = t().lineage.empty;
-    wrap.appendChild(empty);
-    return;
-  }
+  const chain = lineageChain(data, 2, preferId);
+  const inStrip = new Set(chain.before.concat(chain.after).map((n) => n.card.id));
+  const nodes = buildLineageNodes(data).filter((n) => !inStrip.has(n.id));
+  if (!nodes.length) return;
 
   nodes.forEach((node) => {
     const row = document.createElement('div');
     row.className = 'lineage-row';
-    const relationLabel = node.kind === 'studio' ? t().lineage.appliedBy : t().lineage[node.relation];
-    const nameLabel = node.kind === 'studio' ? node.name : truncateForSummary(node.title, 64);
-    row.innerHTML = `<span class="lineage-row-dot" style="background:${node.color}"></span>` +
-      `<span class="lineage-row-relation">${relationLabel}</span>` +
-      `<span class="lineage-row-name">${nameLabel}</span>`;
+    row.innerHTML = `<span class="lineage-row-dot"></span>` +
+      `<span class="lineage-row-relation"></span>` +
+      `<span class="lineage-row-name"></span>` +
+      `<span class="lineage-row-studio"></span>`;
+    row.querySelector('.lineage-row-dot').style.background = node.color;
+    row.querySelector('.lineage-row-relation').textContent = t().lineage[node.relation] || '';
+    row.querySelector('.lineage-row-name').textContent = truncateForSummary(node.title || '', 64);
+    row.querySelector('.lineage-row-studio').textContent = node.studioName;
     wrap.appendChild(row);
   });
 }
@@ -9172,9 +9615,11 @@ function populateExpanded(data, index) {
   applyDetailTone(data);
   renderCardStatus(document.getElementById('cardStatusBlock'), data);
   document.getElementById('labelReactions').textContent = t().reactions.label;
+  document.getElementById('captionReactions').textContent = t().reactionsCaption;
   renderReactionArea(data.id);
   document.getElementById('labelApplied').textContent = t().appliedLabel;
-  document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(data).length);
+  document.getElementById('captionLineage').textContent = t().lineageCaption;
+  document.getElementById('appliedSummary').textContent = lineageSummaryText(data);
   renderLineageStrip(data);
   renderLineageList(data);
   renderLangPendingBadge(document.getElementById('expandedLangBadge'), data);
@@ -9186,9 +9631,7 @@ function populateExpanded(data, index) {
     renderAttachmentsInto(document.getElementById('expandedAttachmentsWrap'), data);
   }
 
-  const applyBtn = document.getElementById('applyBtn');
-  applyBtn.classList.remove('is-applied');
-  applyBtn.textContent = t().applyButton;
+  syncApplyButton(data);
 
   // Delete is only ever offered on cards this session itself shared
   // (author "You"). There's no login in this prototype, so `isShared` is
@@ -9693,13 +10136,19 @@ const NOTIFICATIONS_STORAGE_KEY = 'loom_notifications_v1';
 // 'reaction' — someone left one of the three reactions on your card
 // 'reply'    — someone answered a reaction in a thread you are part of
 // 'asked'    — a question was addressed to your studio
+const NOTIFICATION_KINDS = ['applied', 'reaction', 'reply', 'asked'];
+
 const SEED_NOTIFICATIONS = [
   { id: 'nt-1', kind: 'reaction', cardId: 'c1', actor: 'Bengt Larsson', studio: 'whow',
     detail: 'sameProblem', minsAgo: 60 * 26, read: false },
-  { id: 'nt-2', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
+  { id: 'nt-2', kind: 'reaction', cardId: 'c13', actor: 'Lena Fischer', studio: 'whow',
+    detail: 'tryThis', minsAgo: 60 * 14, read: false },
+  { id: 'nt-3', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
     detail: '', minsAgo: 60 * 9, read: false },
-  { id: 'nt-3', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
+  { id: 'nt-4', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
     detail: '', minsAgo: 60 * 4, read: false },
+  { id: 'nt-5', kind: 'reply', cardId: 'c10', actor: 'Jonas Weber', studio: 'whow',
+    detail: '', minsAgo: 60 * 3, read: false },
 ];
 
 function seedNotifications() {
@@ -9707,10 +10156,35 @@ function seedNotifications() {
   return SEED_NOTIFICATIONS.map((n) => Object.assign({}, n, { at: now - n.minsAgo * 60 * 1000 }));
 }
 
+/* Anything read back out of storage was written by an older build, by a hand
+   in devtools, or by this one — and only the last of those can be trusted. A
+   row that has lost its actor, its studio or its timestamp cannot be turned
+   into a sentence, so it is dropped here rather than rendered as "undefined at
+   undefined, NaN days ago". */
+function sanitizeStoredNotification(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (NOTIFICATION_KINDS.indexOf(raw.kind) < 0) return null;
+  if (typeof raw.cardId !== 'string' || !raw.cardId) return null;
+  if (typeof raw.actor !== 'string' || !raw.actor.trim()) return null;
+  if (!STUDIOS[raw.studio]) return null;
+  const at = Number(raw.at);
+  if (!isFinite(at) || at <= 0) return null;
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : localId('nt'),
+    kind: raw.kind,
+    cardId: raw.cardId,
+    actor: raw.actor.trim(),
+    studio: raw.studio,
+    detail: typeof raw.detail === 'string' ? raw.detail : '',
+    at,
+    read: !!raw.read,
+  };
+}
+
 function loadNotifications() {
   try {
     const parsed = JSON.parse(localStorage.getItem(NOTIFICATIONS_STORAGE_KEY));
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) return parsed.map(sanitizeStoredNotification).filter(Boolean);
   } catch (err) {
     console.error('[Loom feed] could not read notifications:', err);
   }
@@ -9723,13 +10197,72 @@ function persistNotifications() {
   return safeSetItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications)).ok;
 }
 
-function unreadNotifications() {
-  return notifications.filter((n) => !n.read);
+/* ---- one row, or nothing ----
+   A notification is six things: who, which studio they are in, what they did,
+   which piece of writing they did it to, when, and somewhere to go when it is
+   clicked. Miss any one of them and there is no sentence to write, so this
+   returns null and the row is never built. The alternative — rendering the
+   parts that survived — is how "undefined left "" on your """ reaches a screen.
+
+   The card doubles as the destination: no card, no row, which also handles a
+   notification about something that has since been deleted. */
+function notificationView(n) {
+  if (!n || typeof n !== 'object') return null;
+  if (NOTIFICATION_KINDS.indexOf(n.kind) < 0) return null;
+
+  const actor = typeof n.actor === 'string' ? n.actor.trim() : '';
+  if (!actor) return null;
+
+  const studio = STUDIOS[n.studio];
+  if (!studio || !isStudioEnabled(n.studio)) return null;
+
+  const card = cardById(n.cardId);
+  if (!card) return null;
+
+  const title = truncateForSummary(cardText(card).title || '', 46);
+  if (!title) return null;
+
+  const at = Number(n.at);
+  const s = t().forYou.lines;
+  let text = '';
+
+  if (n.kind === 'reaction') {
+    // Which of the three it was is the verb of the sentence. Without it there
+    // is no sentence, only a name and a card.
+    const kindLabel = t().reactions.kinds[n.detail];
+    if (!kindLabel) return null;
+    text = s.reaction(actor, studio.name, kindLabel, title);
+  } else if (n.kind === 'reply') {
+    // "replied to your question" on a question, "replied in the thread"
+    // anywhere else — same event, and only one of those is true at a time.
+    text = (isOpenQuestion(card) ? s.replyToQuestion : s.reply)(actor, studio.name, title);
+  } else {
+    text = s[n.kind](actor, studio.name, title);
+  }
+  if (!text) return null;
+
+  return {
+    id: n.id,
+    read: !!n.read,
+    studioKey: n.studio,
+    studio,
+    cardId: card.id,
+    text,
+    when: relativeFromStamp(at),
+    at: isFinite(at) ? at : 0,
+  };
 }
 
 // Newest first — this is a "what happened while I was away" list, not a log.
-function sortedNotifications() {
-  return notifications.slice().sort((a, b) => b.at - a.at);
+// Everything downstream reads these views, never the raw rows, so the count in
+// the corner and the rows in the panel can never disagree about how many there
+// are.
+function renderableNotifications() {
+  return notifications.map(notificationView).filter(Boolean).sort((a, b) => b.at - a.at);
+}
+
+function unreadNotifications() {
+  return renderableNotifications().filter((v) => !v.read);
 }
 
 /* Adds one and announces it. `silent` skips the toast for anything generated
@@ -9737,7 +10270,10 @@ function sortedNotifications() {
    things that happened yesterday. */
 function pushNotification(entry, opts) {
   const options = opts || {};
-  const full = Object.assign({ id: localId('nt'), at: Date.now(), read: false }, entry);
+  // Same gate as storage: a row that cannot become a sentence is not worth
+  // keeping, and refusing it here means the panel never has to cope with one.
+  const full = sanitizeStoredNotification(Object.assign({ id: localId('nt'), at: Date.now(), read: false }, entry));
+  if (!full) return null;
   notifications.push(full);
   if (!persistNotifications()) {
     notifications.pop();
@@ -9799,22 +10335,6 @@ function notifyOfReply(reaction, reply) {
   pushNotification({ kind: 'reply', cardId: reaction.cardId, actor: reply.author, studio: reply.studio, detail: '' });
 }
 
-/* ---- the sentence ----
-   A person, doing something, to a named piece of your work. The card's title is
-   part of the sentence: "left a question on your reward flow" is news, "left a
-   question" is a database row. */
-function notificationText(n) {
-  const s = t().forYou.lines;
-  const card = cardById(n.cardId);
-  const title = card ? truncateForSummary(cardText(card).title, 46) : '';
-  const studio = STUDIOS[n.studio] ? STUDIOS[n.studio].name : n.studio;
-
-  if (n.kind === 'applied') return s.applied(n.actor, studio, title);
-  if (n.kind === 'reply') return s.reply(n.actor, studio, title);
-  if (n.kind === 'asked') return s.asked(n.actor, studio, title);
-  return s.reaction(n.actor, studio, t().reactions.kinds[n.detail] || '', title);
-}
-
 /* ---------- the indicator ----------
    Top-right, opposite the hamburger, on every screen. It carries a count so
    you know whether to look, and a dot per studio the news came from so you
@@ -9836,7 +10356,7 @@ function renderNotificationIndicator() {
   // One dot per studio with something waiting, in a stable order so the row
   // does not reshuffle every time something arrives.
   dotsEl.innerHTML = '';
-  const studios = enabledStudioKeys().filter((k) => unread.some((n) => n.studio === k));
+  const studios = enabledStudioKeys().filter((k) => unread.some((n) => n.studioKey === k));
   studios.forEach((k) => {
     const dot = document.createElement('span');
     dot.className = 'notify-dot';
@@ -9855,10 +10375,15 @@ function showNotificationToast(n) {
   const toast = document.getElementById('notifyToast');
   if (!toast) return;
 
-  const studio = STUDIOS[n.studio];
-  toast.style.setProperty('--notify-studio', studio ? studio.color : 'var(--ink)');
-  document.getElementById('notifyToastDot').style.background = studio ? studio.color : 'var(--ink)';
-  document.getElementById('notifyToastText').textContent = notificationText(n);
+  // Nothing to preview if the event cannot be phrased — the count still moves,
+  // which is the honest amount of noise to make about it.
+  const view = notificationView(n);
+  if (!view) return;
+
+  const studio = view.studio;
+  toast.style.setProperty('--notify-studio', studio.color);
+  document.getElementById('notifyToastDot').style.background = studio.color;
+  document.getElementById('notifyToastText').textContent = view.text;
 
   clearTimeout(notifyToastTimer);
   toast.classList.add('is-open');
@@ -9894,44 +10419,17 @@ function closeForYou() {
 
 function renderForYouList() {
   const list = document.getElementById('forYouList');
-  const items = sortedNotifications();
+  const items = renderableNotifications();
   list.innerHTML = '';
 
   document.getElementById('forYouTitle').textContent = t().forYou.title;
   const markAll = document.getElementById('forYouMarkAll');
   markAll.textContent = t().forYou.markAll;
-  markAll.style.display = unreadNotifications().length ? '' : 'none';
+  markAll.style.display = items.some((n) => !n.read) ? '' : 'none';
 
-  /* What happened while you were away, above everything else. Same rows, just
-     gathered under their own heading — the value is in "these are the ones you
-     have not seen", not in a different kind of item. */
-  const since = notificationsSinceLastVisit();
-  if (lastVisitAt) {
-    const label = document.createElement('div');
-    label.className = 'for-you-section-label';
-    label.textContent = t().sinceLastVisit.title;
-    list.appendChild(label);
-
-    if (!since.length) {
-      const none = document.createElement('p');
-      none.className = 'for-you-since-none';
-      none.textContent = t().sinceLastVisit.none;
-      list.appendChild(none);
-    } else {
-      since.forEach((n) => list.appendChild(forYouItemEl(n)));
-    }
-
-    const rest = items.filter((n) => since.indexOf(n) < 0);
-    if (rest.length) {
-      const earlier = document.createElement('div');
-      earlier.className = 'for-you-section-label';
-      earlier.textContent = t().forYou.title;
-      list.appendChild(earlier);
-      rest.forEach((n) => list.appendChild(forYouItemEl(n)));
-    }
-    return;
-  }
-
+  // Empty means empty. This is the only place the panel is allowed to say
+  // nothing has happened, so it can never say that above a list of things that
+  // happened — which is what the "Since your last visit" branch used to do.
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'for-you-empty';
@@ -9942,34 +10440,54 @@ function renderForYouList() {
     return;
   }
 
-  items.forEach((n) => list.appendChild(forYouItemEl(n)));
+  const sectionLabel = (text) => {
+    const label = document.createElement('div');
+    label.className = 'for-you-section-label';
+    label.textContent = text;
+    list.appendChild(label);
+  };
+
+  /* What happened while you were away, above everything else — but only when
+     there is something to put under the heading. A heading with nothing under
+     it is a claim, and it was contradicting the rows below it. */
+  // Split the one list rather than building a second one: two independent
+  // queries would be two sets of objects, and "is this row in the other list"
+  // would silently always be false.
+  const since = lastVisitAt ? items.filter((n) => n.at > lastVisitAt) : [];
+  const rest = items.filter((n) => since.indexOf(n) < 0);
+
+  if (since.length) {
+    sectionLabel(t().sinceLastVisit.title);
+    since.forEach((n) => list.appendChild(forYouItemEl(n)));
+    if (rest.length) sectionLabel(t().forYou.earlier);
+  }
+
+  rest.forEach((n) => list.appendChild(forYouItemEl(n)));
 }
 
-function forYouItemEl(n) {
-  const studio = STUDIOS[n.studio];
+// Takes a view, never a raw notification: everything it needs has already been
+// proved to exist by notificationView.
+function forYouItemEl(view) {
   const row = document.createElement('button');
   row.type = 'button';
-  row.className = 'for-you-item' + (n.read ? '' : ' is-unread');
-  row.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+  row.className = 'for-you-item' + (view.read ? '' : ' is-unread');
+  row.style.setProperty('--item-studio', view.studio.color);
 
   row.innerHTML = `
     <span class="for-you-mark"></span>
+    <span class="for-you-dot"></span>
     <span class="for-you-body">
-      <span class="for-you-text"></span>
-      <span class="for-you-meta">
-        <span class="card-dot" style="background:${studio ? studio.color : '#999'}"></span>
-        <span>${studio ? studio.name : ''}</span>
-        <span class="sep">·</span>
-        <span>${relativeFromStamp(n.at)}</span>
-      </span>
+      <span class="for-you-text"><span class="for-you-sentence"></span><span class="for-you-time"></span></span>
     </span>
   `;
-  row.querySelector('.for-you-text').textContent = notificationText(n);
+  row.querySelector('.for-you-dot').style.background = view.studio.color;
+  row.querySelector('.for-you-sentence').textContent = view.text;
+  row.querySelector('.for-you-time').textContent = ' · ' + view.when;
 
   row.addEventListener('click', () => {
-    markNotificationRead(n.id);
+    markNotificationRead(view.id);
     closeForYou();
-    openCardById(n.cardId);
+    openCardById(view.cardId);
   });
 
   return row;
@@ -10038,7 +10556,12 @@ function renderEditedStamp(el, data) {
 // Reuses formatRelativeTime so an edit, a reaction and a card's age are all
 // phrased the same way.
 function relativeFromStamp(stamp) {
-  const secs = Math.max(0, Math.round((Date.now() - stamp) / 1000));
+  // A missing or unreadable stamp is the one case where being vague is the
+  // honest answer. Arithmetic on it produces NaN, and "NaN days ago" tells the
+  // reader nothing except that something broke.
+  const ms = Number(stamp);
+  if (!isFinite(ms) || ms <= 0) return t().recently;
+  const secs = Math.max(0, Math.round((Date.now() - ms) / 1000));
   if (secs < 60) return t().justNowInline;
   const mins = Math.round(secs / 60);
   if (mins < 60) return formatRelativeTime(currentLang, mins, 'minute');
@@ -10362,96 +10885,193 @@ function initLastVisit() {
 // would, and "18 things happened" as a welcome is not a welcome.
 function notificationsSinceLastVisit() {
   if (!lastVisitAt) return [];
-  return sortedNotifications().filter((n) => n.at > lastVisitAt);
+  return renderableNotifications().filter((n) => n.at > lastVisitAt);
 }
 
 /* ---------- the lineage strip ----------
-   Origin on the left, this knowledge in the middle, what came after on the
-   right. Two to four nodes, laid out with flex, no pan, no zoom, no automatic
-   layout. If it does not fit on one line it scrolls sideways, and that is the
-   entire interaction model.
+   A chain of *writing*: what this piece came out of, and what came out of it.
+   Every node is a card someone wrote — an Update, a Project, an Experiment, a
+   Question. A studio is never a node.
 
-   The alternative — a full-screen graph — answers a question nobody asks. What
-   somebody wants to know while reading a card is "did this come from
-   somewhere" and "did anything come of it", and that is three boxes. */
-function lineageStripNodes(data) {
-  const before = [];
-  const after = [];
-  const seen = new Set([data.id]);
+   That distinction is the whole point. "This knowledge → DoubleU → Whow" looks
+   like a lineage and is really an attendance list: a company is who wrote
+   something, not a step in how an idea travelled. The step is the other piece
+   of work, and if there is no other piece of work then nothing travelled yet
+   and the strip should say so. Which studio and which person is metadata
+   *inside* a node, next to its colour dot, where authorship belongs.
 
-  const push = (list, id, relation) => {
-    if (seen.has(id)) return;
-    const idx = findCardIndexById(id);
-    if (idx === -1) return;
-    seen.add(id);
-    const c = ALL_CARDS[idx];
-    list.push({ id, index: idx, relation, card: c });
-  };
+   Reactions are deliberately absent. "We'll try this" is a conversation, and a
+   conversation is not a derivation — see the reactions block above, which is
+   where that lives and stays.
 
-  // where it came from
-  if (data.derivedFrom) push(before, data.derivedFrom, 'inspiredBy');
+   Laid out with flex, no pan, no zoom, no automatic layout; if it overflows it
+   scrolls sideways, and that is the entire interaction model. */
+const LINEAGE_RELATIONS = ['appliedFrom', 'inspiredBy', 'continuedFrom', 'builtOn', 'solvedThrough'];
+const LINEAGE_DEFAULT_RELATION = 'continuedFrom';
 
-  // what came of it
-  ALL_CARDS.forEach((c) => { if (c.derivedFrom === data.id) push(after, c.id, 'continuedBy'); });
-  (data.relatedTo || []).forEach((id) => push(after, id, 'continuedBy'));
-  ALL_CARDS.forEach((c) => { if ((c.relatedTo || []).includes(data.id)) push(after, c.id, 'continuedBy'); });
-
-  // studios that applied it but wrote nothing of their own — they are still
-  // part of where this went, and a strip with only the author on it would say
-  // "nothing happened" when something did
-  visibleAppliedBy(data).forEach((key) => {
-    after.push({ studioKey: key, relation: 'appliedBy' });
-  });
-
-  // Two either side at most. Past that this stops being a sentence you can
-  // read at a glance, which is the only thing it is for.
-  return { before: before.slice(0, 2), after: after.slice(0, 3) };
+// The relation a card claims about its own parent, or the neutral one. Seeded
+// cards written before relations existed simply say "continued from".
+function lineageRelationOf(card) {
+  const r = card && card.derivedRelation;
+  return LINEAGE_RELATIONS.indexOf(r) >= 0 ? r : LINEAGE_DEFAULT_RELATION;
 }
 
-function lineageNodeEl(node, isSelf, selfCard) {
-  const el = document.createElement(isSelf || node.studioKey ? 'div' : 'button');
-  if (!isSelf && !node.studioKey) el.type = 'button';
-  el.className = 'lineage-node' + (isSelf ? ' is-self' : '') + (node.studioKey ? ' is-studio' : '');
+function lineageParentOf(card) {
+  if (!card || !card.derivedFrom) return null;
+  const parent = cardById(card.derivedFrom);
+  return parent && parent.id !== card.id ? parent : null;
+}
 
-  const card = isSelf ? selfCard : node.card;
-  const studio = STUDIOS[node.studioKey || card.studio];
+function lineageChildrenOf(card) {
+  return ALL_CARDS.filter((c) => c.derivedFrom === card.id && c.id !== card.id);
+}
 
-  el.style.setProperty('--node-studio', studio.color);
+// How much further this branch goes. Used to pick which child continues the
+// strip: a chain that carries on for two more steps is a better answer to
+// "where did this go" than one that stops immediately.
+function lineageBranchDepth(card, blocked) {
+  const visited = new Set(blocked);
+  const walk = (c) => {
+    if (visited.has(c.id)) return 0;
+    visited.add(c.id);
+    let deepest = 0;
+    lineageChildrenOf(c).forEach((kid) => { deepest = Math.max(deepest, 1 + walk(kid)); });
+    return deepest;
+  };
+  return walk(card);
+}
 
-  const label = document.createElement('span');
-  label.className = 'lineage-node-relation';
-  label.textContent = isSelf ? t().lineageStrip.thisOne : t().lineageStrip[node.relation];
+/* The chain around one card. Each entry carries the card and the relation of
+   the edge that *precedes* it reading left to right, so the strip can be laid
+   out as node, arrow-with-a-label, node without any of the callers knowing
+   which direction they are walking. */
+function lineageChain(data, maxEach, preferId) {
+  const cap = maxEach || 2;
+  const seen = new Set([data.id]);
 
-  const body = document.createElement('span');
-  body.className = 'lineage-node-body';
+  const before = [];
+  let cursor = data;
+  while (before.length < cap) {
+    const parent = lineageParentOf(cursor);
+    if (!parent || seen.has(parent.id)) break;
+    seen.add(parent.id);
+    // the edge parent → cursor is described by cursor's own relation
+    before.unshift({ card: parent, relationAfter: lineageRelationOf(cursor) });
+    cursor = parent;
+  }
 
-  const dot = document.createElement('span');
-  dot.className = 'card-dot';
-  dot.style.background = studio.color;
+  const after = [];
+  cursor = data;
+  while (after.length < cap) {
+    const kids = lineageChildrenOf(cursor).filter((c) => !seen.has(c.id));
+    if (!kids.length) break;
+    kids.sort((a, b) => lineageBranchDepth(b, seen) - lineageBranchDepth(a, seen));
+    // A link you just made goes first whatever its depth. Pressing save and
+    // watching the strip not change is indistinguishable from it not working.
+    const next = kids.find((c) => c.id === preferId) || kids[0];
+    seen.add(next.id);
+    after.push({ card: next, relationBefore: lineageRelationOf(next) });
+    cursor = next;
+  }
+
+  return { before, after };
+}
+
+/* Everything this card is connected to by an actual link, for the summary line
+   underneath: the chain, plus any sibling branch or related idea the linear
+   strip had no room for. Cards, never studios. */
+function lineageConnectedCards(data) {
+  const byId = new Map();
+  const add = (card) => { if (card && card.id !== data.id) byId.set(card.id, card); };
+
+  const { before, after } = lineageChain(data);
+  before.forEach((n) => add(n.card));
+  after.forEach((n) => add(n.card));
+  connectedIndices(data).forEach((i) => add(ALL_CARDS[i]));
+
+  return Array.from(byId.values());
+}
+
+function lineageSummaryText(data) {
+  const works = lineageConnectedCards(data);
+  const studios = new Set(works.map((c) => c.studio));
+  return t().lineageSummary(works.length, studios.size);
+}
+
+/* One node: what kind of writing it is, what it says, and — as metadata, in
+   small type — whose it is. */
+function lineageNodeEl(card, isSelf, note) {
+  const el = document.createElement(isSelf ? 'div' : 'button');
+  if (!isSelf) el.type = 'button';
+  el.className = 'lineage-node' + (isSelf ? ' is-self' : '');
+
+  const studio = STUDIOS[card.studio];
+  const color = studio ? studio.color : 'var(--ink)';
+  el.style.setProperty('--node-studio', color);
+
+  const type = document.createElement('span');
+  type.className = 'lineage-node-type';
+  type.textContent = t().types[card.type] || card.type;
 
   const title = document.createElement('span');
   title.className = 'lineage-node-title';
-  // A studio that applied it has no card of its own to name, so it is named
-  // by the studio — which is the whole content of that node.
-  title.textContent = node.studioKey ? studio.name : truncateForSummary(cardText(card).title, 52);
+  title.textContent = truncateForSummary(cardText(card).title || '', 64);
 
-  body.appendChild(dot);
-  body.appendChild(title);
-  el.appendChild(label);
-  el.appendChild(body);
+  const meta = document.createElement('span');
+  meta.className = 'lineage-node-meta';
+  const dot = document.createElement('span');
+  dot.className = 'lineage-node-dot';
+  dot.style.background = color;
+  meta.appendChild(dot);
+  const who = document.createElement('span');
+  who.textContent = (studio ? studio.name : '') + (card.author ? ' · ' + card.author : '');
+  meta.appendChild(who);
 
-  if (!isSelf && !node.studioKey) {
-    el.addEventListener('click', () => openCardById(node.id));
+  el.appendChild(type);
+  el.appendChild(title);
+  el.appendChild(meta);
+
+  // What the studio that made this link says changed. Only on the node the
+  // link belongs to, and only when they bothered to write one.
+  if (note) {
+    const n = document.createElement('span');
+    n.className = 'lineage-node-note';
+    n.textContent = note;
+    el.appendChild(n);
+  }
+
+  if (isSelf) {
+    const here = document.createElement('span');
+    here.className = 'lineage-node-here';
+    here.textContent = t().lineageStrip.thisOne;
+    el.insertBefore(here, type);
+  } else {
+    el.addEventListener('click', () => openCardById(card.id));
   }
   return el;
 }
 
-function renderLineageStrip(data) {
+function lineageArrowEl(relation) {
+  const wrap = document.createElement('span');
+  wrap.className = 'lineage-arrow';
+  const label = document.createElement('span');
+  label.className = 'lineage-arrow-label';
+  const rel = t().lineageRelations[relation] || t().lineageRelations[LINEAGE_DEFAULT_RELATION];
+  label.textContent = rel.forward;
+  const glyph = document.createElement('span');
+  glyph.className = 'lineage-arrow-glyph';
+  glyph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg>';
+  wrap.appendChild(glyph);
+  wrap.appendChild(label);
+  return wrap;
+}
+
+function renderLineageStrip(data, preferId) {
   const wrap = document.getElementById('lineageStrip');
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  const { before, after } = lineageStripNodes(data);
+  const { before, after } = lineageChain(data, 2, preferId);
 
   if (!before.length && !after.length) {
     const empty = document.createElement('p');
@@ -10461,16 +11081,15 @@ function renderLineageStrip(data) {
     return;
   }
 
-  const arrow = () => {
-    const a = document.createElement('span');
-    a.className = 'lineage-arrow';
-    a.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg>';
-    return a;
-  };
-
-  before.forEach((n) => { wrap.appendChild(lineageNodeEl(n, false)); wrap.appendChild(arrow()); });
-  wrap.appendChild(lineageNodeEl({}, true, data));
-  after.forEach((n) => { wrap.appendChild(arrow()); wrap.appendChild(lineageNodeEl(n, false)); });
+  before.forEach((n) => {
+    wrap.appendChild(lineageNodeEl(n.card, false, ''));
+    wrap.appendChild(lineageArrowEl(n.relationAfter));
+  });
+  wrap.appendChild(lineageNodeEl(data, true, data.derivedFrom ? data.derivedNote : ''));
+  after.forEach((n) => {
+    wrap.appendChild(lineageArrowEl(n.relationBefore));
+    wrap.appendChild(lineageNodeEl(n.card, false, n.card.derivedNote || ''));
+  });
 }
 
 function renderBodySections(wrap, data, text) {
@@ -10752,43 +11371,386 @@ function closeCard() {
   }, CONFIG.MODE_SWAP_MS);
 }
 
+/* ======================================================================
+   "We applied this too" — the three questions
+   ----------------------------------------------------------------------
+   The old button appended MY_STUDIO_KEY to a list and redrew the strip, which
+   is where "…→ DoubleU → Whow" came from: a company name with nothing behind
+   it, sitting in a chain of ideas. Applying something is not a fact about a
+   company, it is an edge between two pieces of writing, and an edge needs a
+   second endpoint. So the button asks for one.
+
+   (a) where did you apply it — one of your studio's own Projects, Experiments
+       or Updates, or a one-line Update written here and now, which is exactly
+       what the Update type is for
+   (b) what kind of connection — the five relations in LINEAGE_RELATIONS
+   (c) what changed — optional, one line, for whoever reads the chain later
+
+   Nothing is written until Save. Cancel, Escape and the backdrop all leave the
+   data exactly as it was.
+
+   TODO(backend): the edge belongs on the server, created by the account that
+   made it, and the author of the source gets told. Here it is a field on the
+   deriving card, persisted the same way any other edit to that card is.
+   ====================================================================== */
+const APPLY_FLOW_STEPS = 3;
+
+let applyFlowState = null;
+
+// Walking up from a card, so a link can never be offered that would make the
+// chain point at itself.
+function lineageAncestorIds(card) {
+  const ids = new Set();
+  let cursor = lineageParentOf(card);
+  while (cursor && !ids.has(cursor.id)) {
+    ids.add(cursor.id);
+    cursor = lineageParentOf(cursor);
+  }
+  return ids;
+}
+
+/* What your studio could connect this to. Questions are left out — a question
+   is something you asked, not somewhere you applied an idea — and so is
+   anything that already derives from something else, because a card has one
+   parent and quietly replacing it would delete a link somebody made. */
+function applyFlowTargets(source) {
+  const ancestors = lineageAncestorIds(source);
+  return ALL_CARDS.filter((c) =>
+    c.studio === MY_STUDIO_KEY &&
+    c.id !== source.id &&
+    c.type !== 'question' &&
+    !c.derivedFrom &&
+    !ancestors.has(c.id));
+}
+
+// Writes the edge onto the deriving card, wherever that card keeps its state.
+function persistLineageLink(child, parentId, relation, note) {
+  const patch = { derivedFrom: parentId, derivedRelation: relation, derivedNote: note || '' };
+
+  if (child.isShared) {
+    const stored = sharedCards.find((c) => c.id === child.id);
+    if (!stored) return false;
+    const previous = { derivedFrom: stored.derivedFrom, derivedRelation: stored.derivedRelation, derivedNote: stored.derivedNote };
+    Object.assign(stored, patch);
+    if (!writeSharedCards(sharedCards)) { Object.assign(stored, previous); return false; }
+  } else {
+    const merged = Object.assign({}, seedEditsMap()[child.id] || {}, patch);
+    if (!saveSeedEdit(child.id, merged)) return false;
+  }
+
+  Object.assign(child, patch);
+  return true;
+}
+
+// The one-line Update, made on the spot and linked in the same breath. Same
+// shape as anything Share mode produces, so nothing downstream can tell them
+// apart.
+function buildQuickUpdateEntry(line, parentId, relation, note) {
+  const text = line.trim();
+  return {
+    id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    studio: MY_STUDIO_KEY,
+    type: 'update',
+    author: 'You',
+    justNow: true,
+    appliedBy: [],
+    relatedTo: [],
+    derivedFrom: parentId,
+    derivedRelation: relation,
+    derivedNote: note || '',
+    sourceLang: currentLang,
+    image: null,
+    imageName: null,
+    imageFocal: {},
+    attachments: [],
+    text: { title: truncateForSummary(text, 100), summary: truncateForSummary(text, 100), note: text },
+  };
+}
+
+function isApplyFlowOpen() {
+  return document.getElementById('applyFlow').classList.contains('is-open');
+}
+
+function openApplyFlow(source) {
+  if (!source) return;
+  applyFlowState = { sourceId: source.id, step: 1, targetId: '', newUpdate: false, newUpdateText: '', relation: '', note: '' };
+
+  const s = t().applyFlow;
+  document.getElementById('applyFlowTitle').textContent = s.title;
+  document.getElementById('applyFlowSource').textContent = s.source(truncateForSummary(cardText(source).title || '', 70));
+  document.getElementById('applyQ1').textContent = s.q1;
+  document.getElementById('applyQ1Hint').textContent = s.q1Hint;
+  document.getElementById('applyNewUpdateLabel').textContent = s.newUpdate;
+  document.getElementById('applyNewUpdateInput').placeholder = s.newUpdatePlaceholder;
+  document.getElementById('applyQ2').textContent = s.q2;
+  document.getElementById('applyQ3').textContent = s.q3;
+  document.getElementById('applyQ3Hint').textContent = s.q3Hint;
+  document.getElementById('applyNoteInput').placeholder = s.notePlaceholder;
+  document.getElementById('applyNoteInput').value = '';
+  document.getElementById('applyNewUpdateInput').value = '';
+  document.getElementById('applyNewUpdateBox').style.display = 'none';
+  document.getElementById('applyFlowClose').setAttribute('aria-label', t().closeAria);
+
+  renderApplyTargets(source);
+  renderApplyRelations();
+  renderApplyStep();
+
+  document.getElementById('applyFlow').classList.add('is-open');
+}
+
+function closeApplyFlow() {
+  document.getElementById('applyFlow').classList.remove('is-open');
+  applyFlowState = null;
+}
+
+function renderApplyTargets(source) {
+  const wrap = document.getElementById('applyTargetList');
+  wrap.innerHTML = '';
+  const targets = applyFlowTargets(source);
+
+  if (!targets.length) {
+    const empty = document.createElement('p');
+    empty.className = 'apply-empty';
+    empty.textContent = t().applyFlow.q1Empty;
+    wrap.appendChild(empty);
+    return;
+  }
+
+  targets.forEach((card) => {
+    const studio = STUDIOS[card.studio];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'apply-option';
+    btn.dataset.cardId = card.id;
+    btn.innerHTML = `<span class="apply-option-dot"></span>
+      <span class="apply-option-text">
+        <span class="apply-option-meta"></span>
+        <span class="apply-option-title"></span>
+      </span>`;
+    btn.querySelector('.apply-option-dot').style.background = studio ? studio.color : 'var(--ink)';
+    btn.querySelector('.apply-option-meta').textContent = t().types[card.type] || card.type;
+    btn.querySelector('.apply-option-title').textContent = truncateForSummary(cardText(card).title || '', 80);
+    btn.addEventListener('click', () => {
+      applyFlowState.targetId = card.id;
+      applyFlowState.newUpdate = false;
+      document.getElementById('applyNewUpdateBox').style.display = 'none';
+      renderApplyStep();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function renderApplyRelations() {
+  const wrap = document.getElementById('applyRelationList');
+  wrap.innerHTML = '';
+  LINEAGE_RELATIONS.forEach((key) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'apply-option';
+    btn.dataset.relation = key;
+    btn.innerHTML = `<span class="apply-option-text"><span class="apply-option-title"></span></span>`;
+    btn.querySelector('.apply-option-title').textContent = t().lineageRelations[key].back;
+    btn.addEventListener('click', () => {
+      applyFlowState.relation = key;
+      renderApplyStep();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function applyFlowTargetLabel() {
+  if (!applyFlowState) return '';
+  if (applyFlowState.newUpdate) return truncateForSummary(applyFlowState.newUpdateText || '', 70);
+  const card = cardById(applyFlowState.targetId);
+  return card ? truncateForSummary(cardText(card).title || '', 70) : '';
+}
+
+function applyFlowCanAdvance() {
+  if (!applyFlowState) return false;
+  if (applyFlowState.step === 1) {
+    if (applyFlowState.newUpdate) return !!applyFlowState.newUpdateText.trim();
+    return !!cardById(applyFlowState.targetId);
+  }
+  if (applyFlowState.step === 2) return LINEAGE_RELATIONS.indexOf(applyFlowState.relation) >= 0;
+  return true;
+}
+
+function renderApplyStep() {
+  if (!applyFlowState) return;
+  const s = t().applyFlow;
+  const step = applyFlowState.step;
+
+  document.querySelectorAll('.apply-step').forEach((el) => {
+    el.classList.toggle('is-active', Number(el.dataset.step) === step);
+  });
+  document.getElementById('applyFlowProgress').textContent = s.step(step, APPLY_FLOW_STEPS);
+
+  document.querySelectorAll('#applyTargetList .apply-option').forEach((el) => {
+    el.classList.toggle('is-picked', !applyFlowState.newUpdate && el.dataset.cardId === applyFlowState.targetId);
+  });
+  document.getElementById('applyNewUpdateBtn').classList.toggle('is-picked', applyFlowState.newUpdate);
+  document.querySelectorAll('#applyRelationList .apply-option').forEach((el) => {
+    el.classList.toggle('is-picked', el.dataset.relation === applyFlowState.relation);
+  });
+
+  // What you are about to save, in the order it will read on the strip.
+  if (step === APPLY_FLOW_STEPS) {
+    const source = cardById(applyFlowState.sourceId);
+    const rel = t().lineageRelations[applyFlowState.relation];
+    const summary = document.getElementById('applySummary');
+    summary.innerHTML = '';
+    const line = document.createElement('span');
+    line.textContent = `${source ? truncateForSummary(cardText(source).title || '', 48) : ''}  →  ${rel ? rel.forward : ''}  →  ${applyFlowTargetLabel()}`;
+    summary.appendChild(line);
+  }
+
+  document.getElementById('applyFlowCancel').textContent = s.cancel;
+  const back = document.getElementById('applyFlowBack');
+  back.textContent = s.back;
+  back.style.display = step > 1 ? '' : 'none';
+  const next = document.getElementById('applyFlowNext');
+  next.textContent = step === APPLY_FLOW_STEPS ? s.save : s.next;
+  next.disabled = !applyFlowCanAdvance();
+}
+
+function commitApplyFlow() {
+  if (!applyFlowState) return;
+  const source = cardById(applyFlowState.sourceId);
+  if (!source) { closeApplyFlow(); return; }
+
+  const relation = applyFlowState.relation;
+  const note = applyFlowState.note.trim();
+  let ok = false;
+  let linkedId = '';
+
+  if (applyFlowState.newUpdate) {
+    const entry = buildQuickUpdateEntry(applyFlowState.newUpdateText, source.id, relation, note);
+    if (saveSharedCard(entry)) {
+      sharedCards.unshift(entry);
+      linkedId = entry.id;
+      ok = true;
+    }
+  } else {
+    const target = cardById(applyFlowState.targetId);
+    if (target) {
+      ok = persistLineageLink(target, source.id, relation, note);
+      linkedId = target.id;
+    }
+  }
+
+  if (!ok) { showToast(t().applyFlow.failed); return; }
+
+  /* The studio-level "who picked this up" fact is still true and still drives
+     the traces and the how-it-has-travelled line — it just no longer pretends
+     to be a node in the lineage. */
+  const list = source.appliedBy || (source.appliedBy = []);
+  if (list.indexOf(MY_STUDIO_KEY) < 0) { list.push(MY_STUDIO_KEY); persistAppliedBy(source); }
+
+  closeApplyFlow();
+
+  // A new card shifts every index after it, and currentOpenIndex is an index.
+  ALL_CARDS = buildAllCards();
+  const fresh = cardById(source.id);
+  const idx = findCardIndexById(source.id);
+  if (idx >= 0) currentOpenIndex = idx;
+
+  const shown = fresh || source;
+  renderLineageStrip(shown, linkedId);
+  renderLineageList(shown, linkedId);
+  document.getElementById('appliedSummary').textContent = lineageSummaryText(shown);
+  renderCardStatus(document.getElementById('cardStatusBlock'), shown);
+  syncApplyButton(shown);
+
+  renderDiscover();
+  renderBrowse();
+  renderQuestions();
+  renderNowStrip();
+  showToast(t().applyFlow.saved);
+}
+
+// Applied means "something of ours points at this", which is now a fact about
+// cards rather than a flag on a button.
+function hasMyLineageLink(card) {
+  if (!card) return false;
+  if ((card.appliedBy || []).indexOf(MY_STUDIO_KEY) >= 0) return true;
+  return ALL_CARDS.some((c) => c.studio === MY_STUDIO_KEY && c.derivedFrom === card.id);
+}
+
+function syncApplyButton(card) {
+  const btn = document.getElementById('applyBtn');
+  if (!btn) return;
+  const applied = hasMyLineageLink(card);
+  btn.classList.toggle('is-applied', applied);
+  btn.textContent = applied ? t().applyButtonDone : t().applyButton;
+}
+
+function initApplyFlow() {
+  document.getElementById('applyFlowClose').addEventListener('click', closeApplyFlow);
+  document.getElementById('applyFlowCancel').addEventListener('click', closeApplyFlow);
+  document.getElementById('applyFlowBackdrop').addEventListener('click', closeApplyFlow);
+
+  document.getElementById('applyFlowBack').addEventListener('click', () => {
+    if (!applyFlowState || applyFlowState.step === 1) return;
+    applyFlowState.step -= 1;
+    renderApplyStep();
+  });
+
+  document.getElementById('applyFlowNext').addEventListener('click', () => {
+    if (!applyFlowState || !applyFlowCanAdvance()) return;
+    if (applyFlowState.step < APPLY_FLOW_STEPS) {
+      applyFlowState.step += 1;
+      renderApplyStep();
+      return;
+    }
+    commitApplyFlow();
+  });
+
+  document.getElementById('applyNewUpdateBtn').addEventListener('click', () => {
+    if (!applyFlowState) return;
+    applyFlowState.newUpdate = true;
+    applyFlowState.targetId = '';
+    document.getElementById('applyNewUpdateBox').style.display = '';
+    renderApplyStep();
+    document.getElementById('applyNewUpdateInput').focus();
+  });
+
+  document.getElementById('applyNewUpdateInput').addEventListener('input', function () {
+    if (!applyFlowState) return;
+    applyFlowState.newUpdateText = this.value;
+    renderApplyStep();
+  });
+
+  document.getElementById('applyNoteInput').addEventListener('input', function () {
+    if (!applyFlowState) return;
+    applyFlowState.note = this.value;
+  });
+
+  // Escape closes this before it closes the card underneath — see the keydown
+  // handler in initExpandCard, which checks isApplyFlowOpen() first.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isApplyFlowOpen()) { e.stopPropagation(); closeApplyFlow(); }
+  }, true);
+}
+
 function initExpandCard() {
   document.getElementById('expandedClose').setAttribute('aria-label', t().closeAria);
   document.getElementById('expandedClose').addEventListener('click', closeCard);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (isApplyFlowOpen()) return; // its own handler already took this
     if (isCardExpanded) closeCard();
     else if (isShareMode) exitShareMode();
     else if (isMenuOverlayOpen()) closeMenuOverlay();
   });
-  /* Applying something is the one action that changes the lineage, so it has
-     to redraw it — otherwise the strip you are looking at is a description of
-     the state you were in before you pressed the button.
 
-     TODO(backend): a real service records this against the account and tells
-     the author. Here it is written onto the card's own appliedBy and persisted
-     with the rest of the shared/seed-edit state. */
-  document.getElementById('applyBtn').addEventListener('click', function () {
+  /* The button no longer changes anything by itself. It opens the three
+     questions, and the lineage only moves once those are answered and saved —
+     see openApplyFlow / commitApplyFlow. */
+  document.getElementById('applyBtn').addEventListener('click', () => {
     if (currentOpenIndex === null) return;
     const card = ALL_CARDS[currentOpenIndex];
     if (!card) return;
-
-    const applied = !this.classList.contains('is-applied');
-    this.classList.toggle('is-applied', applied);
-    this.textContent = applied ? t().applyButtonDone : t().applyButton;
-
-    const list = card.appliedBy || (card.appliedBy = []);
-    const at = list.indexOf(MY_STUDIO_KEY);
-    if (applied && at < 0) list.push(MY_STUDIO_KEY);
-    if (!applied && at > -1) list.splice(at, 1);
-
-    persistAppliedBy(card);
-    renderLineageStrip(card);
-    renderLineageList(card);
-    document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(card).length);
-    renderCardStatus(document.getElementById('cardStatusBlock'), card);
-    renderDiscover();
-    renderBrowse();
+    openApplyFlow(card);
   });
 }
 
@@ -12613,6 +13575,7 @@ safeInit('hero controls', initHeroControls);
 safeInit('browse scroll', initBrowseScroll);
 safeInit('feed wheel snap', initFeedWheelSnap);
 safeInit('card expand', initExpandCard);
+safeInit('apply flow', initApplyFlow);
 safeInit('card delete', initDeleteCard);
 safeInit('question detail', initQuestionDetail);
 safeInit('type picker', renderTypePicker);
