@@ -226,7 +226,14 @@
     filter:
       drop-shadow(0 0 1px rgba(255, 255, 255, 0.85))
       drop-shadow(0 2px 8px rgba(20, 20, 20, 0.28));
-    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, color 0.25s ease;
+    /* colour and the shadow pair fade together — the cover rotates every five
+       seconds and a mark that snapped from black to white would read as a
+       flicker rather than as an adjustment */
+    transition:
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.25s ease,
+      color 0.42s ease,
+      filter 0.42s ease;
   }
   .icon-ghost:hover { transform: scale(1.1); }
   .icon-ghost:active { transform: scale(0.93); }
@@ -709,24 +716,36 @@
      the title's words to have finished rising */
   .hero-slide.is-active .card-lineage-hint { transition-delay: 0.42s; }
 
-  /* the arrows are the mark alone: this sits over a full-bleed photo that can
-     be any brightness, so it carries the .on-dark shadow pair, not a plate */
+/* The same arrows the Designers roster uses — same size, same stroke, same
+     lane, same hover. They were 30px at stroke-width 2 against the roster's
+     clamp(38px, 3.4vw, 54px) at 1.6, which read as a different control doing
+     the same job on the neighbouring screen.
+
+     The mark alone, no plate: this sits over a full-bleed photo that can be any
+     brightness, so it carries the .on-dark shadow pair (see setHeroChromeTone)
+     rather than a white disc. */
   .hero-arrow {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     z-index: 3;
-    width: 30px;
-    height: 30px;
+    width: clamp(38px, 3.4vw, 54px);
+    height: clamp(38px, 3.4vw, 54px);
+    padding: 0;
     opacity: 0;
   }
-  .hero-arrow svg { width: 26px; height: 26px; }
-  .hero-arrow:hover { transform: translateY(-50%) scale(1.14); }
+  .hero-arrow svg { width: 100%; height: 100%; stroke-width: 1.6; }
+  .hero-arrow:hover { transform: translateY(-50%) scale(1.12); }
+  .hero-arrow-prev:hover { transform: translateY(-50%) scale(1.12) translateX(-3px); }
+  .hero-arrow-next:hover { transform: translateY(-50%) scale(1.12) translateX(3px); }
+  .hero-arrow:active { transform: translateY(-50%) scale(0.95); }
   .hero-arrow:active { transform: translateY(-50%) scale(0.94); }
-  .hero-arrow-prev { left: 30px; }
-  .hero-arrow-next { right: 30px; }
+  .hero-arrow-prev { left: clamp(20px, 2.6vw, 48px); }
+  .hero-arrow-next { right: clamp(20px, 2.6vw, 48px); }
   .discover-hero:hover .hero-arrow { opacity: 0.85; }
   .discover-hero .hero-arrow:hover { opacity: 1; }
+  /* the cover's arrows belong to the cover: off it, they do not exist */
+  .discover-hero.is-chrome-hidden .hero-arrow { opacity: 0 !important; pointer-events: none; }
 
   /* Raised clear of the bottom-centre stack and the corner marks. */
   .hero-dots {
@@ -753,6 +772,11 @@
     transition: width 0.3s ease, background 0.3s ease;
   }
   .hero-dot.is-active { width: 22px; background: #ffffff; }
+  /* The dots sit in the same band as the bottom corner marks and were the one
+     thing the tone system did not reach — white on white on a Question cover,
+     which is where you can least afford not to see how many there are. */
+  .hero-dots.on-light .hero-dot { background: rgba(28, 28, 30, 0.28); }
+  .hero-dots.on-light .hero-dot.is-active { background: var(--ink); }
 
   /* NEW badge + relative time, top-right (the small type-icon badge for
      real images already lives top-left) — the freshness signal Discover
@@ -3761,11 +3785,11 @@
     <section class="discover-section">
       <div class="discover-hero" id="discoverHero">
         <div class="hero-slides" id="heroSlides"></div>
-        <button type="button" class="hero-arrow hero-arrow-prev" id="heroPrevBtn" aria-label="Previous">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <button type="button" class="icon-ghost hero-arrow hero-arrow-prev" id="heroPrevBtn" aria-label="Previous">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <button type="button" class="hero-arrow hero-arrow-next" id="heroNextBtn" aria-label="Next">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        <button type="button" class="icon-ghost hero-arrow hero-arrow-next" id="heroNextBtn" aria-label="Next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div class="hero-dots" id="heroDots"></div>
       </div>
@@ -4317,7 +4341,7 @@ const TRANSLATIONS = {
       filterAll: 'All',
       types: { project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { share: 'New knowledge', browse: 'Browse everything', question: 'Questions', designers: 'Designers', tools: 'Tools' },
+      menu: { newest: 'New knowledge', browse: 'Browse everything', question: 'Questions', designers: 'Designers', tools: 'Tools' },
       // What each kind of card is asked, and the example that shows the kind
       // of answer that is actually useful to another studio.
       fields: {
@@ -4602,7 +4626,7 @@ const TRANSLATIONS = {
       filterAll: '전체',
       types: { project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { share: '새 지식 공유', browse: '전체 둘러보기', question: '질문', designers: '디자이너', tools: '툴' },
+      menu: { newest: '새로 올라온 지식', browse: '전체 둘러보기', question: '질문', designers: '디자이너', tools: '툴' },
       fields: {
         project: {
           made: { label: '무엇을 만들었나', placeholder: '만든 것 자체 — 플로우, 화면, 시스템. 한두 문장으로.' },
@@ -4883,7 +4907,7 @@ const TRANSLATIONS = {
       filterAll: 'Alle',
       types: { project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { share: 'Neues Wissen', browse: 'Alles durchsehen', question: 'Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      menu: { newest: 'Neues Wissen', browse: 'Alles durchsehen', question: 'Fragen', designers: 'Designer', tools: 'Werkzeuge' },
       fields: {
         project: {
           made: { label: 'Was wir gebaut haben', placeholder: 'Die Sache selbst — ein Flow, ein Screen, ein System. Ein oder zwei Sätze.' },
@@ -5164,7 +5188,7 @@ const TRANSLATIONS = {
       filterAll: 'Tümü',
       types: { project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { share: 'Yeni bilgi', browse: 'Hepsine göz at', question: 'Sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menu: { newest: 'Yeni bilgi', browse: 'Hepsine göz at', question: 'Sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
       fields: {
         project: {
           made: { label: 'Ne yaptık', placeholder: 'İşin kendisi — bir akış, bir ekran, bir sistem. Bir iki cümle.' },
@@ -5667,7 +5691,11 @@ const WEAVE_STUDIOS = Object.keys(STUDIOS)
    Tools has no destination yet and says so in place rather than looking
    identical to the four that work. */
 const MENU_ITEMS = [
-  { key: 'share', share: true },
+  // "New knowledge" is the newest knowledge — the cover on floor 1 — not the
+  // form for writing some. Writing is the pencil in the bottom-left corner,
+  // which is on every screen; a menu item that opened a composer under a name
+  // that reads as a destination sent people somewhere they had not asked to go.
+  { key: 'newest', tier: 0 },
   { key: 'browse', tier: 1 },
   { key: 'question', tier: 2 },
   { key: 'designers', designers: true },
@@ -6328,13 +6356,15 @@ function renderMenuOverlay() {
     btn.addEventListener('click', () => {
       closeMenuOverlay();
       if (item.comingSoon) { showToast(t().toolsComingSoon); return; }
-      if (item.share) {
-        // Both of these are surfaces, and only one surface can hold the screen
-        // — the close animation has to finish before the next one starts.
-        setTimeout(enterShareMode, MENU_CLOSE_DUR_MS);
-        return;
-      }
+      // Designers is a surface, and only one surface can hold the screen — the
+      // menu's close animation has to finish before the next one starts.
       if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
+
+      // The three floors: leaving whatever surface is up first, or goToFloor
+      // moves a feed nobody can see.
+      if (isShareMode) { exitShareMode(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
+      if (isDesignersMode) { exitDesignersMode(() => goToFloor(item.tier)); return; }
+      if (isCardExpanded) { closeCard(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
       // Browse means all of it: arriving from the menu shouldn't land you on a
       // floor still filtered down by a choice made minutes ago.
       if (item.key === 'browse' && selectedTypeFilter !== 'all') {
@@ -6736,6 +6766,7 @@ function renderDiscover() {
       </div>
     `;
     renderHeroTitle(slide.querySelector('.card-title'), text.title);
+    applyHeroTone(slide, data);
     slide.addEventListener('click', () => openCard(slide));
     slidesWrap.appendChild(slide);
     applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
@@ -6782,6 +6813,9 @@ function goToHeroSlide(i) {
   document.querySelectorAll('#heroDots .hero-dot').forEach((el, idx) => {
     el.classList.toggle('is-active', idx === heroIndex);
   });
+  // Each cover has its own brightness, so the marks in the corners are
+  // re-coloured for the one that just arrived.
+  updateChrome();
 }
 
 function startHeroAutoplay() {
@@ -8108,6 +8142,12 @@ function initFeedWheelSnap() {
   // leave it parked between floors — re-derive it from the floor we're on.
   window.addEventListener('resize', () => {
     fitAllHeroTitles(); // the cover title is sized against the banner, not the font
+    // A different window shape crops the photo differently, which can change
+    // what is behind the corners.
+    document.querySelectorAll('#heroSlides .hero-slide').forEach((slide, i) => {
+      const data = ALL_CARDS[heroIndices[i]];
+      if (data) applyHeroTone(slide, data);
+    });
     if (feedSnapAnimating) return;
     setStageOffset(currentFloor * floorHeight());
   });
@@ -8146,29 +8186,219 @@ function refreshCornerDockText() {
    And the corner marks: they have no plate behind them, so on floor 1 they sit
    directly on the banner's dark scrim and have to invert. Everywhere else the
    page is white and they don't. */
-function updateChrome() {
-  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
-  const onToolFloor = onFeed && currentFloor > 0;
+/* ======================================================================
+   Chrome
+   ----------------------------------------------------------------------
+   Two kinds of fixed element, and confusing them is what put floor 2's search
+   box on top of the Designers roster:
 
-  const dock = document.getElementById('floorDock');
-  if (dock) {
-    dock.classList.toggle('is-visible', onToolFloor);
-    document.getElementById('dockBrowse').classList.toggle('is-active', currentFloor === 1);
-    document.getElementById('dockQuestions').classList.toggle('is-active', currentFloor === 2);
-  }
+   ALWAYS — on every floor and every full-screen surface. The hamburger
+   (top-left), the notification bell (top-right), Share and the way out
+   (bottom-left), the language switcher (bottom-right). These are how you get
+   anywhere, so they cannot depend on where you are.
 
-  // the wordmark keeps the dock company — both say "you are in the archive"
-  const brand = document.getElementById('brandFooter');
-  if (brand) brand.classList.toggle('is-visible', onToolFloor);
+   PER-FLOOR — the tools that belong to one floor and are meaningless off it.
+   Floor 2's search and studio filters; floor 3's waiting-questions count; the
+   Loom wordmark that keeps them company. These are part of the floor, not part
+   of the app, and they leave with it.
 
-  const overDarkBanner = onFeed && currentFloor === 0;
-  ['cornerDock', 'langBtn'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.classList.toggle('on-dark', overDarkBanner);
-    el.querySelectorAll('.icon-ghost').forEach((b) => b.classList.toggle('on-dark', overDarkBanner));
+   Anything that changes which of those is true has to call updateChrome():
+   a floor change, and every enter/exit of Share, Designers and a detail.
+   ====================================================================== */
+
+/* ---- what colour a mark should be ----
+   The bottom corners used to go white for the whole of floor 1, on the
+   assumption that floor 1 always means "over the banner's dark scrim". A
+   Question cover has no scrim — it is paper-toned top to bottom — so the marks
+   turned white on a near-white background and vanished.
+
+   So tone is per REGION of the current screen rather than per floor, and on a
+   cover with a photo it is measured from the photo itself. */
+const TONE_LIGHT = 'light'; // light background -> dark marks
+const TONE_DARK = 'dark';   // dark background -> light marks
+
+const LIGHT_SURFACE_TONE = { top: TONE_LIGHT, mid: TONE_LIGHT, bottom: TONE_LIGHT };
+
+// Sampled tones, keyed by image URL. Measuring is cheap but not free, and the
+// cover rotates every five seconds through the same handful of images.
+const imageToneCache = new Map();
+
+/* Average luminance of one horizontal band of an image AS RENDERED — cover
+   scaling and the author's focal point included, because that crop is what the
+   marks are actually sitting on. Rec. 709 coefficients: green carries most of
+   perceived brightness, and a flat RGB mean calls a saturated blue much lighter
+   than it looks.
+
+   `aspect` is the display box's width/height. Cached per image+shape, since the
+   cover rotates every five seconds through the same handful of pictures. */
+function measureImageTone(url, aspect, focal) {
+  const fx = focal && typeof focal.x === 'number' ? focal.x : 50;
+  const fy = focal && typeof focal.y === 'number' ? focal.y : 50;
+  const key = url + '|' + aspect.toFixed(2) + '|' + fx + ',' + fy;
+  if (imageToneCache.has(key)) return Promise.resolve(imageToneCache.get(key));
+
+  return new Promise((resolve) => {
+    const done = (tone) => { imageToneCache.set(key, tone); resolve(tone); };
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        const W = 48;
+        const H = Math.max(8, Math.round(W / Math.max(0.2, aspect)));
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // The same maths the browser does for background-size: cover plus
+        // background-position — scale to fill, then slide by the focal point.
+        const iw = img.naturalWidth || 1;
+        const ih = img.naturalHeight || 1;
+        const scale = Math.max(W / iw, H / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        ctx.drawImage(img, -(dw - W) * (fx / 100), -(dh - H) * (fy / 100), dw, dh);
+
+        const px = ctx.getImageData(0, 0, W, H).data;
+        const bandLuma = (from, to) => {
+          const y0 = Math.max(0, Math.min(H - 1, Math.floor(from * H)));
+          const y1 = Math.max(y0 + 1, Math.min(H, Math.ceil(to * H)));
+          let sum = 0, n = 0;
+          for (let y = y0; y < y1; y++) {
+            for (let x = 0; x < W; x++) {
+              const i = (y * W + x) * 4;
+              sum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+              n++;
+            }
+          }
+          return n ? sum / n : 1;
+        };
+
+        // 0.58, not 0.5: a mid-grey takes dark marks better than light ones,
+        // because a dark mark also carries a light halo (see .icon-ghost).
+        const toneOf = (luma) => (luma > 0.58 ? TONE_LIGHT : TONE_DARK);
+        done({
+          // the band the top marks sit in: y 24-50px of a 1000px banner
+          top: toneOf(bandLuma(0, 0.1)),
+          mid: toneOf(bandLuma(0.42, 0.58)),
+          bottom: TONE_DARK,
+        });
+      } catch (err) {
+        // getImageData throws on a tainted canvas (a cross-origin image with no
+        // CORS headers). Everything here is same-origin or a data: URL, but a
+        // wrong guess beats a broken screen.
+        console.warn('[Loom feed] could not measure image tone:', err);
+        done(LIGHT_SURFACE_TONE);
+      }
+    };
+
+    img.onerror = () => done(LIGHT_SURFACE_TONE);
+    img.src = url;
   });
 }
+
+
+/* The detail's banner is a 22vh strip across the top, and the hamburger and
+   the bell sit inside it — a different shape from the cover, so it is measured
+   separately rather than assumed light. Nothing else on that screen is dark, so
+   only the top band matters. */
+let detailTone = TONE_LIGHT;
+
+function applyDetailTone(data) {
+  detailTone = TONE_LIGHT;
+  if (!data || !data.image || isOpenQuestion(data)) { updateChrome(); return; }
+  const media = document.getElementById('expandedMedia');
+  const r = media ? media.getBoundingClientRect() : null;
+  const aspect = r && r.height ? r.width / r.height : 7;
+  measureImageTone(data.image, aspect, data.imageFocal).then((tone) => {
+    detailTone = tone.top;
+    if (isCardExpanded) updateChrome();
+  });
+  updateChrome();
+}
+
+/* The tone of the cover currently showing. Synchronous, because updateChrome
+   runs on every floor tween — a slide whose photo has not been measured yet
+   carries the type's default until the measurement lands and re-runs this. */
+function heroToneNow() {
+  const slide = document.querySelector('#heroSlides .hero-slide.is-active');
+  if (!slide) return LIGHT_SURFACE_TONE;
+  return {
+    top: slide.dataset.toneTop || TONE_LIGHT,
+    mid: slide.dataset.toneMid || TONE_LIGHT,
+    // Every cover except a Question has the dark scrim across its lower third,
+    // whatever the photo is doing up top.
+    bottom: slide.dataset.toneBottom || TONE_DARK,
+  };
+}
+
+/* Measures one slide and stores the answer on the element. The defaults are
+   what the design guarantees without looking at any pixels:
+     - a Question cover is paper, top to bottom
+     - a cover with no photo is the studio gradient: light at the top, and the
+       scrim takes the bottom
+   Only a real photograph needs measuring. */
+function applyHeroTone(slide, data) {
+  const openQ = isOpenQuestion(data);
+  slide.dataset.toneTop = TONE_LIGHT;
+  slide.dataset.toneMid = TONE_LIGHT;
+  slide.dataset.toneBottom = openQ ? TONE_LIGHT : TONE_DARK;
+  if (openQ || !data.image) return;
+
+  // The cover fills the window, so its shape is the window's.
+  measureImageTone(data.image, window.innerWidth / Math.max(1, window.innerHeight), data.imageFocal).then((tone) => {
+    slide.dataset.toneTop = tone.top;
+    slide.dataset.toneMid = tone.mid;
+    slide.dataset.toneBottom = TONE_DARK;
+    if (slide.classList.contains('is-active')) updateChrome();
+  });
+}
+
+function setTone(el, tone) {
+  if (!el) return;
+  const dark = tone === TONE_DARK;
+  el.classList.toggle('on-dark', dark);
+  el.querySelectorAll('.icon-ghost').forEach((b) => b.classList.toggle('on-dark', dark));
+}
+
+function updateChrome() {
+  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
+  const onCover = onFeed && currentFloor === 0;
+
+  // ---- per-floor: the tools that belong to one floor ----
+  const dock = document.getElementById('floorDock');
+  if (dock) {
+    // onFeed, not just "currentFloor > 0" — the floor number does not change
+    // when Designers takes the screen, so a dock keyed only on the floor
+    // followed the roster in and sat on top of it.
+    const onToolFloor = onFeed && currentFloor > 0;
+    dock.classList.toggle('is-visible', onToolFloor);
+    document.getElementById('dockBrowse').classList.toggle('is-active', onFeed && currentFloor === 1);
+    document.getElementById('dockQuestions').classList.toggle('is-active', onFeed && currentFloor === 2);
+
+    const brand = document.getElementById('brandFooter');
+    if (brand) brand.classList.toggle('is-visible', onToolFloor);
+  }
+
+  // the cover's own arrows are part of floor 1 and nothing else
+  const hero = document.getElementById('discoverHero');
+  if (hero) hero.classList.toggle('is-chrome-hidden', !onCover);
+
+  // ---- always: how you get anywhere ----
+  let tone = LIGHT_SURFACE_TONE;
+  if (onCover) tone = heroToneNow();
+  // a detail's banner runs under the two top marks and can be any photograph
+  else if (isCardExpanded) tone = { top: detailTone, mid: TONE_LIGHT, bottom: TONE_LIGHT };
+  setTone(document.getElementById('menuToggleBtn'), tone.top);
+  setTone(document.getElementById('notifyBtn'), tone.top);
+  setTone(document.getElementById('cornerDock'), tone.bottom);
+  setTone(document.getElementById('langBtn'), tone.bottom);
+  // the cover's dots live in that same bottom band
+  const dots = document.getElementById('heroDots');
+  if (dots) dots.classList.toggle('on-light', tone.bottom === TONE_LIGHT);
+  document.querySelectorAll('.hero-arrow').forEach((a) => setTone(a, tone.mid));
+}
+
 
 /* ======================================================================
    7. Hero autoplay pause/resume — shared by initHeroControls (hover),
@@ -8242,6 +8472,7 @@ function populateExpanded(data, index) {
     expandedMedia.style.display = 'none';
     panes.style.display = 'none';
     questionDetail.style.display = 'flex';
+    applyDetailTone(data); // no banner on a question — plain light
     populateQuestionDetail(data);
     return;
   }
@@ -8265,6 +8496,7 @@ function populateExpanded(data, index) {
   document.getElementById('expandedStatusBadge').innerHTML = statusBadgeHTML(data);
   document.getElementById('expandedTitle').textContent = text.title;
   renderBodySections(document.getElementById('expandedBodySections'), data, text);
+  applyDetailTone(data);
   renderCardStatus(document.getElementById('cardStatusBlock'), data);
   document.getElementById('labelReactions').textContent = t().reactions.label;
   renderReactionArea(data.id);
@@ -11053,6 +11285,8 @@ function enterDesignersMode() {
   closeDesignerEditor();
   renderDesigners();
 
+  updateChrome(); // floor 2's search box does not belong on the roster
+
   gallery.classList.add('mode-fade-out');
   setTimeout(() => {
     gallery.style.display = 'none';
@@ -11070,6 +11304,7 @@ function enterDesignersMode() {
 function exitDesignersMode(onShown) {
   if (!isDesignersMode) return;
   isDesignersMode = false;
+  updateChrome(); // and back it comes with the floor it belongs to
 
   const gallery = document.getElementById('feedMain');
   const designers = document.getElementById('designersViewport');
@@ -11110,6 +11345,7 @@ function enterShareMode() {
   // share-viewport swap below — hide it explicitly so a stray click while
   // composing can't discard the moment by leaving the app entirely.
   document.getElementById('cornerDock').classList.add('is-hidden-in-share');
+  updateChrome();
 
   const gallery = leaving;
   const share = document.getElementById('shareViewport');
@@ -11147,6 +11383,7 @@ function exitShareMode() {
   editingCardId = null;
 
   document.getElementById('cornerDock').classList.remove('is-hidden-in-share');
+  updateChrome();
 
   const gallery = document.getElementById('feedMain');
   const share = document.getElementById('shareViewport');
