@@ -228,9 +228,15 @@
     cursor: pointer;
     color: var(--ink);
     text-decoration: none;
+    /* Two shadows doing different jobs: a tight white rim that separates the
+       mark from anything directly behind it, and a soft dark spread that gives
+       it weight. Together they mean a borderline tone call is still legible
+       rather than invisible — the measurement decides which is better, not
+       whether the mark can be seen at all. */
     filter:
-      drop-shadow(0 0 1px rgba(255, 255, 255, 0.85))
-      drop-shadow(0 2px 8px rgba(20, 20, 20, 0.28));
+      drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+      drop-shadow(0 1px 3px rgba(255, 255, 255, 0.6))
+      drop-shadow(0 2px 10px rgba(20, 20, 20, 0.35));
     /* colour and the shadow pair fade together — the cover rotates every five
        seconds and a mark that snapped from black to white would read as a
        flicker rather than as an adjustment */
@@ -247,8 +253,9 @@
   .icon-ghost.on-dark {
     color: #ffffff;
     filter:
-      drop-shadow(0 0 1px rgba(0, 0, 0, 0.5))
-      drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
+      drop-shadow(0 0 2px rgba(0, 0, 0, 0.6))
+      drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45))
+      drop-shadow(0 2px 12px rgba(0, 0, 0, 0.5));
   }
 
   /* top-left: the one piece of chrome on every floor and every surface */
@@ -685,8 +692,15 @@
     margin-right: 2px;
   }
   .hero-slide .card-media-icon svg { width: 96px; height: 96px; }
-  .hero-slide .card-media-badge { width: 44px; height: 44px; top: 24px; left: 30px; }
-  .hero-slide .card-media-badge svg { width: 20px; height: 20px; }
+  /* Hidden on the cover. It sat at (30, 24) — exactly where the hamburger is
+     fixed — and only appears on a slide with a photograph, so every cover in
+     the seed data being a gradient kept it invisible until somebody posted a
+     picture and it landed on top of the menu button.
+
+     It is redundant there anyway: the caption already names the type in words
+     ("Project"), a few inches below. The poster keeps its badge, where there is
+     no fixed chrome to collide with. */
+  .hero-slide .card-media-badge { display: none; }
 
   /* ---------- word-by-word rise ----------
      Each word is a clipping box with the word itself inside it, so the letters
@@ -1859,6 +1873,75 @@
      ranking of cards against each other */
   .card-came-back { display: inline-flex; gap: 4px; margin-top: 9px; }
   .card-came-back .card-dot { width: 7px; height: 7px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); }
+
+  /* ---------- the lineage strip ----------
+     Origin, this, what came after — in a row, and that is all. No pan, no
+     zoom, no layout engine: if it overflows it scrolls sideways. */
+  .lineage-strip {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .lineage-strip::-webkit-scrollbar { display: none; }
+
+  .lineage-node {
+    flex: 0 0 auto;
+    max-width: 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .lineage-node:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-resting); }
+  /* the one you are reading: filled in its own studio's colour, so the strip
+     reads as a sentence with a subject rather than a row of equal boxes */
+  .lineage-node.is-self {
+    cursor: default;
+    border-color: var(--node-studio);
+    box-shadow: inset 0 0 0 1px var(--node-studio);
+  }
+  .lineage-node.is-self:hover { transform: none; box-shadow: inset 0 0 0 1px var(--node-studio); }
+  .lineage-node.is-studio { cursor: default; background: rgba(20, 20, 20, 0.025); }
+  .lineage-node.is-studio:hover { transform: none; box-shadow: none; border-color: var(--border); }
+
+  .lineage-node-relation {
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+  .lineage-node-body { display: flex; align-items: flex-start; gap: 6px; }
+  .lineage-node-body .card-dot { width: 6px; height: 6px; margin-top: 5px; flex-shrink: 0; box-shadow: none; }
+  .lineage-node-title {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .lineage-arrow {
+    flex: 0 0 auto;
+    align-self: center;
+    display: flex;
+    color: var(--ink-faint);
+    opacity: 0.55;
+  }
+  .lineage-arrow svg { width: 15px; height: 15px; }
 
   /* ======================================================================
      Reactions, replies, emoji
@@ -3261,14 +3344,66 @@
 
   /* ---------- the preview column ---------- */
   .preview-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .preview-pane-label {
+  .preview-pane-head {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .preview-modes { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: rgba(20, 20, 20, 0.05); }
+  .preview-mode {
+    padding: 4px 11px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .preview-mode:hover { color: var(--ink-dim); }
+  .preview-mode.is-active { background: #ffffff; color: var(--ink); box-shadow: 0 1px 3px rgba(20, 20, 20, 0.1); }
+
+  /* ---------- banner mode ----------
+     The floor-1 cover at preview size: wide, the title set as large as the
+     frame allows, and the same scrim underneath it. Not a scaled screenshot —
+     the same .card-media / .card-scrim / .card-content pieces, so what you see
+     here is what floor 1 will do with it. */
+  /* Top of the column, not floating in the middle of it. The banner is much
+     shorter than the card, and centring it in the leftover height made the
+     preview look like it had come loose from its own heading. */
+  .preview-card-wrap.is-banner { align-items: flex-start; }
+  .preview-card.is-banner {
+    flex: 0 0 auto;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    min-height: 0;
+    align-self: flex-start;
+  }
+  .preview-card.is-banner .card-content { padding: 16px 18px 18px; }
+  .preview-card.is-banner .card-title {
+    font-size: clamp(15px, 2.1vw, 24px);
+    line-height: 1.14;
+    letter-spacing: -0.015em;
+    /* the cover's title is the loudest thing on the screen; past four lines
+       this preview would be nothing but type */
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .preview-card.is-banner .card-meta { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .preview-card.is-banner .preview-focus { display: none; }
+
+  .preview-pane-label {
     font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-weight: 650;
     color: var(--ink-faint);
-    margin-bottom: 10px;
   }
   .preview-card-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
 
@@ -4187,7 +4322,16 @@
              what they need, side by side. -->
         <div class="compose-right">
           <div class="preview-pane">
-            <div class="preview-pane-label" id="previewLabel"></div>
+            <div class="preview-pane-head">
+              <div class="preview-pane-label" id="previewLabel"></div>
+              <!-- Card is the default: it is the shape most things end up in,
+                   and the banner is the one worth checking rather than the one
+                   worth living in. -->
+              <div class="preview-modes" id="previewModes">
+                <button type="button" class="preview-mode is-active" data-mode="card" id="previewModeCard"></button>
+                <button type="button" class="preview-mode" data-mode="banner" id="previewModeBanner"></button>
+              </div>
+            </div>
             <div class="preview-card-wrap">
               <div class="preview-card" id="previewCard">
                 <div class="card-media preview-media" id="previewMedia">
@@ -4403,6 +4547,7 @@
 
         <div class="expanded-section reveal-on-open">
           <div class="label" id="labelApplied"></div>
+          <div class="lineage-strip" id="lineageStrip"></div>
           <div class="lineage-list-wrap" id="lineageListWrap"></div>
         </div>
 
@@ -4539,11 +4684,14 @@ const CONFIG = {
       content) lives here, grouped by language, so adding a language or
       editing a string never touches rendering code.
    ====================================================================== */
+/* `label` is what the menu shows; `short` is what the corner button shows.
+   They were one field, so picking a language rewrote the button from "EN" to
+   "English" and the corner quietly grew to four times its width. */
 const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'ko', label: '한국어' },
-  { code: 'de', label: 'Deutsch' },
-  { code: 'tr', label: 'Türkçe' },
+  { code: 'en', label: 'English', short: 'EN' },
+  { code: 'ko', label: '한국어', short: 'KO' },
+  { code: 'de', label: 'Deutsch', short: 'DE' },
+  { code: 'tr', label: 'Türkçe', short: 'TR' },
 ];
 
 const TRANSLATIONS = {
@@ -4617,6 +4765,7 @@ const TRANSLATIONS = {
       },
       imageChosenFallback: 'Image attached',
       previewLabel: 'Live preview',
+      previewModes: { card: 'Card', banner: 'Banner' },
       previewTitlePlaceholder: 'Your title will appear here',
       previewEmptyField: 'Whatever you type in that field shows up here.',
       previewDragHint: 'Drag to reposition',
@@ -4703,6 +4852,13 @@ const TRANSLATIONS = {
       },
       appliedLabel: 'Where it spread',
       appliedCount: (n) => (n === 0 ? 'Not yet applied elsewhere' : `Applied by ${n} studio${n > 1 ? 's' : ''}`),
+      lineageStrip: {
+        thisOne: 'This knowledge',
+        inspiredBy: 'Inspired by',
+        continuedBy: 'Continued by',
+        appliedBy: 'Applied by',
+        empty: 'Nothing is connected to this yet. Apply another studio\u2019s approach and it will show up here.',
+      },
       lineage: {
         derivedFrom: 'Derived from',
         derivedInto: 'Went further with this',
@@ -4770,6 +4926,7 @@ const TRANSLATIONS = {
         deleteCancel: 'Cancel',
         deleteConfirmButton: 'Remove',
         saveFailed: "Storage is full — this change won't survive a reload.",
+        savedWithoutPhotos: 'Storage was full — names and roles were saved, photos were not.',
         roles: {
           productDesigner: 'Product Designer',
           motionDesigner: 'Motion Designer',
@@ -4942,6 +5099,7 @@ const TRANSLATIONS = {
       },
       imageChosenFallback: '이미지 첨부됨',
       previewLabel: '실시간 미리보기',
+      previewModes: { card: '카드', banner: '배너' },
       previewTitlePlaceholder: '제목이 여기 표시됩니다',
       previewEmptyField: '그 칸에 쓰는 내용이 여기 보입니다.',
       previewDragHint: '드래그해서 위치 조절',
@@ -5028,6 +5186,13 @@ const TRANSLATIONS = {
       },
       appliedLabel: '적용된 곳',
       appliedCount: (n) => (n === 0 ? '아직 다른 스튜디오에 적용되지 않음' : `${n}개 스튜디오에서 적용함`),
+      lineageStrip: {
+        thisOne: '이 지식',
+        inspiredBy: '여기서 출발했어요',
+        continuedBy: '여기로 이어졌어요',
+        appliedBy: '적용한 곳',
+        empty: '아직 이어진 지식이 없어요. 다른 스튜디오의 접근을 응용하면 여기에 나타나요.',
+      },
       lineage: {
         derivedFrom: '여기서 파생됨',
         derivedInto: '이걸 더 발전시킴',
@@ -5093,6 +5258,7 @@ const TRANSLATIONS = {
         deleteCancel: '취소',
         deleteConfirmButton: '제거',
         saveFailed: '저장 공간이 가득 차서 이 변경은 새로고침 후 사라집니다.',
+        savedWithoutPhotos: '저장 공간이 가득 차서 이름과 역할만 저장하고 사진은 저장하지 못했어요.',
         roles: {
           productDesigner: '프로덕트 디자이너',
           motionDesigner: '모션 디자이너',
@@ -5265,6 +5431,7 @@ const TRANSLATIONS = {
       },
       imageChosenFallback: 'Bild angehängt',
       previewLabel: 'Live-Vorschau',
+      previewModes: { card: 'Karte', banner: 'Banner' },
       previewTitlePlaceholder: 'Dein Titel erscheint hier',
       previewEmptyField: 'Was du in dieses Feld schreibst, steht hier.',
       previewDragHint: 'Zum Verschieben ziehen',
@@ -5351,6 +5518,13 @@ const TRANSLATIONS = {
       },
       appliedLabel: 'Wo es übernommen wurde',
       appliedCount: (n) => (n === 0 ? 'Noch von keinem Studio übernommen' : `Von ${n} Studio${n > 1 ? 's' : ''} übernommen`),
+      lineageStrip: {
+        thisOne: 'Dieses Wissen',
+        inspiredBy: 'Angeregt durch',
+        continuedBy: 'Fortgeführt von',
+        appliedBy: 'Übernommen von',
+        empty: 'Damit ist noch nichts verknüpft. Wenn du den Ansatz eines anderen Studios übernimmst, erscheint er hier.',
+      },
       lineage: {
         derivedFrom: 'Abgeleitet von',
         derivedInto: 'Hat dies weiterentwickelt',
@@ -5416,6 +5590,7 @@ const TRANSLATIONS = {
         deleteCancel: 'Abbrechen',
         deleteConfirmButton: 'Entfernen',
         saveFailed: 'Änderung überlebt kein Neuladen — der Speicher ist voll.',
+        savedWithoutPhotos: 'Der Speicher war voll — Namen und Rollen wurden gespeichert, Fotos nicht.',
         roles: {
           productDesigner: 'Produktdesigner',
           motionDesigner: 'Motion Designer',
@@ -5588,6 +5763,7 @@ const TRANSLATIONS = {
       },
       imageChosenFallback: 'Görsel eklendi',
       previewLabel: 'Canlı önizleme',
+      previewModes: { card: 'Kart', banner: 'Afiş' },
       previewTitlePlaceholder: 'Başlığınız burada görünecek',
       previewEmptyField: 'O alana yazdığınız burada görünür.',
       previewDragHint: 'Konumlandırmak için sürükleyin',
@@ -5674,6 +5850,13 @@ const TRANSLATIONS = {
       },
       appliedLabel: 'Nerede uygulandı',
       appliedCount: (n) => (n === 0 ? 'Henüz başka stüdyo tarafından uygulanmadı' : `${n} stüdyo tarafından uygulandı`),
+      lineageStrip: {
+        thisOne: 'Bu bilgi',
+        inspiredBy: 'Şuradan esinlendi',
+        continuedBy: 'Şuraya devam etti',
+        appliedBy: 'Uygulayan',
+        empty: 'Buna henüz bir şey bağlı değil. Başka bir stüdyonun yaklaşımını uygularsanız burada görünür.',
+      },
       lineage: {
         derivedFrom: 'Şuradan türetildi',
         derivedInto: 'Bunu daha ileri götürdü',
@@ -5739,6 +5922,7 @@ const TRANSLATIONS = {
         deleteCancel: 'Vazgeç',
         deleteConfirmButton: 'Kaldır',
         saveFailed: 'Depolama dolu — bu değişiklik sayfa yenilenince kaybolacak.',
+        savedWithoutPhotos: 'Depolama doluydu — isimler ve roller kaydedildi, fotoğraflar kaydedilmedi.',
         roles: {
           productDesigner: 'Ürün Tasarımcısı',
           motionDesigner: 'Motion Tasarımcısı',
@@ -6170,17 +6354,34 @@ function loadDesigners() {
 
 let designerRoster = loadDesigners();
 
+/* Photos are downscaled hard on the way in (DESIGNER_PHOTO_MAX_DIM), so a full
+   roster is a few hundred KB and this normally writes first time.
+
+   When it does not, the roster gives ground the same way saveSharedCard does
+   rather than losing the edit outright: photos are the expensive part and the
+   names, roles and links are the part that matters, so the pictures go and the
+   people stay. Losing somebody's job title because somebody else uploaded a
+   large photograph is not a trade worth making silently. */
 function persistDesigners() {
-  const res = safeSetItem(DESIGNERS_STORAGE_KEY, JSON.stringify(designerRoster));
-  if (res.ok) {
+  if (safeSetItem(DESIGNERS_STORAGE_KEY, JSON.stringify(designerRoster)).ok) {
     logStorageUsage('designer roster saved');
     return true;
   }
-  // Photos are downscaled hard on the way in (see DESIGNER_PHOTO_MAX_DIM), so
-  // this should not happen — but a full origin budget must be said out loud
-  // rather than leaving an edit that quietly won't survive a reload.
+
+  const stripped = designerRoster.map((d) => Object.assign({}, d, { photo: null, photoPos: null }));
+  if (safeSetItem(DESIGNERS_STORAGE_KEY, JSON.stringify(stripped)).ok) {
+    // in-memory too, or the screen would show photos that are already gone
+    designerRoster.forEach((d) => { d.photo = null; d.photoPos = null; });
+    logStorageUsage('designer roster saved without photos');
+    showToast(t().designers.savedWithoutPhotos);
+    renderDesigners();
+    return true;
+  }
+
   // safeSetItem has already put the previous roster back, so storage still
   // matches what was there before this edit rather than holding half of it.
+  console.error('[Loom feed] could not persist the designer roster at all');
+  logStorageUsage('roster save failed');
   showToast(t().designers.saveFailed);
   return false;
 }
@@ -6968,7 +7169,9 @@ function renderLanguageSwitcher() {
 }
 
 function updateLanguageButtonUI() {
-  document.getElementById('langBtnLabel').textContent = LANGUAGES.find((l) => l.code === currentLang).label;
+  const lang = LANGUAGES.find((l) => l.code === currentLang);
+  // .short, not .label — this is a 34px corner mark, not a menu row.
+  document.getElementById('langBtnLabel').textContent = lang.short;
   document.querySelectorAll('.lang-menu-item').forEach((el) => {
     el.classList.toggle('is-active', el.dataset.lang === currentLang);
   });
@@ -8640,7 +8843,7 @@ function refreshCornerDockText() {
 const TONE_LIGHT = 'light'; // light background -> dark marks
 const TONE_DARK = 'dark';   // dark background -> light marks
 
-const LIGHT_SURFACE_TONE = { top: TONE_LIGHT, mid: TONE_LIGHT, bottom: TONE_LIGHT };
+const LIGHT_SURFACE_TONE = { topLeft: TONE_LIGHT, topRight: TONE_LIGHT, mid: TONE_LIGHT, bottom: TONE_LIGHT };
 
 // Sampled tones, keyed by image URL. Measuring is cheap but not free, and the
 // cover rotates every five seconds through the same handful of images.
@@ -8683,12 +8886,18 @@ function measureImageTone(url, aspect, focal) {
         ctx.drawImage(img, -(dw - W) * (fx / 100), -(dh - H) * (fy / 100), dw, dh);
 
         const px = ctx.getImageData(0, 0, W, H).data;
-        const bandLuma = (from, to) => {
-          const y0 = Math.max(0, Math.min(H - 1, Math.floor(from * H)));
-          const y1 = Math.max(y0 + 1, Math.min(H, Math.ceil(to * H)));
+
+        /* Mean luminance of a rectangle, in fractions of the frame. Rectangles
+           rather than full-width bands, because the two top marks are in
+           opposite corners and a busy photograph averages to something neither
+           of them is sitting on — a bright sky on the left and a dark building
+           on the right reads as "mid" and picks the wrong colour for both. */
+        const areaLuma = (x0f, y0f, x1f, y1f) => {
+          const x0 = Math.max(0, Math.floor(x0f * W)), x1 = Math.min(W, Math.ceil(x1f * W));
+          const y0 = Math.max(0, Math.floor(y0f * H)), y1 = Math.min(H, Math.ceil(y1f * H));
           let sum = 0, n = 0;
-          for (let y = y0; y < y1; y++) {
-            for (let x = 0; x < W; x++) {
+          for (let y = y0; y < Math.max(y0 + 1, y1); y++) {
+            for (let x = x0; x < Math.max(x0 + 1, x1); x++) {
               const i = (y * W + x) * 4;
               sum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
               n++;
@@ -8697,13 +8906,16 @@ function measureImageTone(url, aspect, focal) {
           return n ? sum / n : 1;
         };
 
-        // 0.58, not 0.5: a mid-grey takes dark marks better than light ones,
-        // because a dark mark also carries a light halo (see .icon-ghost).
-        const toneOf = (luma) => (luma > 0.58 ? TONE_LIGHT : TONE_DARK);
+        // 0.55: the marks carry a two-tone halo (see .icon-ghost), so a dark
+        // mark survives a mid background better than a light one does. Bias
+        // towards dark rather than sitting exactly on the fence.
+        const toneOf = (luma) => (luma > 0.55 ? TONE_LIGHT : TONE_DARK);
         done({
-          // the band the top marks sit in: y 24-50px of a 1000px banner
-          top: toneOf(bandLuma(0, 0.1)),
-          mid: toneOf(bandLuma(0.42, 0.58)),
+          // the actual corners the two top marks occupy, ~26-96px into a
+          // 1600px-wide banner and 24-50px down
+          topLeft: toneOf(areaLuma(0, 0, 0.09, 0.075)),
+          topRight: toneOf(areaLuma(0.91, 0, 1, 0.075)),
+          mid: toneOf(areaLuma(0, 0.42, 1, 0.58)),
           bottom: TONE_DARK,
         });
       } catch (err) {
@@ -8734,7 +8946,9 @@ function applyDetailTone(data) {
   const r = media ? media.getBoundingClientRect() : null;
   const aspect = r && r.height ? r.width / r.height : 7;
   measureImageTone(data.image, aspect, data.imageFocal).then((tone) => {
-    detailTone = tone.top;
+    // The detail's banner is one wide strip and both marks sit in it; the
+    // darker of the two corners wins, so neither can be the one that vanishes.
+    detailTone = (tone.topLeft === TONE_DARK || tone.topRight === TONE_DARK) ? TONE_DARK : TONE_LIGHT;
     if (isCardExpanded) updateChrome();
   });
   updateChrome();
@@ -8747,7 +8961,8 @@ function heroToneNow() {
   const slide = document.querySelector('#heroSlides .hero-slide.is-active');
   if (!slide) return LIGHT_SURFACE_TONE;
   return {
-    top: slide.dataset.toneTop || TONE_LIGHT,
+    topLeft: slide.dataset.toneTopLeft || TONE_LIGHT,
+    topRight: slide.dataset.toneTopRight || TONE_LIGHT,
     mid: slide.dataset.toneMid || TONE_LIGHT,
     // Every cover except a Question has the dark scrim across its lower third,
     // whatever the photo is doing up top.
@@ -8763,14 +8978,16 @@ function heroToneNow() {
    Only a real photograph needs measuring. */
 function applyHeroTone(slide, data) {
   const openQ = isOpenQuestion(data);
-  slide.dataset.toneTop = TONE_LIGHT;
+  slide.dataset.toneTopLeft = TONE_LIGHT;
+  slide.dataset.toneTopRight = TONE_LIGHT;
   slide.dataset.toneMid = TONE_LIGHT;
   slide.dataset.toneBottom = openQ ? TONE_LIGHT : TONE_DARK;
   if (openQ || !data.image) return;
 
   // The cover fills the window, so its shape is the window's.
   measureImageTone(data.image, window.innerWidth / Math.max(1, window.innerHeight), data.imageFocal).then((tone) => {
-    slide.dataset.toneTop = tone.top;
+    slide.dataset.toneTopLeft = tone.topLeft;
+    slide.dataset.toneTopRight = tone.topRight;
     slide.dataset.toneMid = tone.mid;
     slide.dataset.toneBottom = TONE_DARK;
     if (slide.classList.contains('is-active')) updateChrome();
@@ -8811,9 +9028,10 @@ function updateChrome() {
   let tone = LIGHT_SURFACE_TONE;
   if (onCover) tone = heroToneNow();
   // a detail's banner runs under the two top marks and can be any photograph
-  else if (isCardExpanded) tone = { top: detailTone, mid: TONE_LIGHT, bottom: TONE_LIGHT };
-  setTone(document.getElementById('menuToggleBtn'), tone.top);
-  setTone(document.getElementById('notifyBtn'), tone.top);
+  else if (isCardExpanded) tone = { topLeft: detailTone, topRight: detailTone, mid: TONE_LIGHT, bottom: TONE_LIGHT };
+  // each top mark takes the colour of its own corner
+  setTone(document.getElementById('menuToggleBtn'), tone.topLeft);
+  setTone(document.getElementById('notifyBtn'), tone.topRight);
   setTone(document.getElementById('cornerDock'), tone.bottom);
   setTone(document.getElementById('langBtn'), tone.bottom);
   // the cover's dots and the Update strip live in that same bottom band
@@ -8856,6 +9074,19 @@ let currentQuestionData = null; // the card currently shown in the Question deta
 // it didn't earn its keep once the bigger Discover cards became the star of
 // the page (see .card-lineage-hint there instead) — this is the "spell it
 // all out" detail view, deliberately just text and a color dot.
+/* Where an applied-by change is written depends on which kind of card it is:
+   a shared card keeps its own copy, a seed card gets a patch over the seed.
+   Both already have a home — this just picks the right one. */
+function persistAppliedBy(card) {
+  if (card.isShared) {
+    const stored = sharedCards.find((c) => c.id === card.id);
+    if (stored) { stored.appliedBy = card.appliedBy.slice(); writeSharedCards(sharedCards); }
+    return;
+  }
+  const patch = Object.assign({}, seedEditsMap()[card.id] || {}, { appliedBy: card.appliedBy.slice() });
+  saveSeedEdit(card.id, patch);
+}
+
 function renderLineageList(data) {
   const wrap = document.getElementById('lineageListWrap');
   wrap.innerHTML = '';
@@ -8938,6 +9169,7 @@ function populateExpanded(data, index) {
   renderReactionArea(data.id);
   document.getElementById('labelApplied').textContent = t().appliedLabel;
   document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(data).length);
+  renderLineageStrip(data);
   renderLineageList(data);
   renderLangPendingBadge(document.getElementById('expandedLangBadge'), data);
 
@@ -10127,6 +10359,114 @@ function notificationsSinceLastVisit() {
   return sortedNotifications().filter((n) => n.at > lastVisitAt);
 }
 
+/* ---------- the lineage strip ----------
+   Origin on the left, this knowledge in the middle, what came after on the
+   right. Two to four nodes, laid out with flex, no pan, no zoom, no automatic
+   layout. If it does not fit on one line it scrolls sideways, and that is the
+   entire interaction model.
+
+   The alternative — a full-screen graph — answers a question nobody asks. What
+   somebody wants to know while reading a card is "did this come from
+   somewhere" and "did anything come of it", and that is three boxes. */
+function lineageStripNodes(data) {
+  const before = [];
+  const after = [];
+  const seen = new Set([data.id]);
+
+  const push = (list, id, relation) => {
+    if (seen.has(id)) return;
+    const idx = findCardIndexById(id);
+    if (idx === -1) return;
+    seen.add(id);
+    const c = ALL_CARDS[idx];
+    list.push({ id, index: idx, relation, card: c });
+  };
+
+  // where it came from
+  if (data.derivedFrom) push(before, data.derivedFrom, 'inspiredBy');
+
+  // what came of it
+  ALL_CARDS.forEach((c) => { if (c.derivedFrom === data.id) push(after, c.id, 'continuedBy'); });
+  (data.relatedTo || []).forEach((id) => push(after, id, 'continuedBy'));
+  ALL_CARDS.forEach((c) => { if ((c.relatedTo || []).includes(data.id)) push(after, c.id, 'continuedBy'); });
+
+  // studios that applied it but wrote nothing of their own — they are still
+  // part of where this went, and a strip with only the author on it would say
+  // "nothing happened" when something did
+  visibleAppliedBy(data).forEach((key) => {
+    after.push({ studioKey: key, relation: 'appliedBy' });
+  });
+
+  // Two either side at most. Past that this stops being a sentence you can
+  // read at a glance, which is the only thing it is for.
+  return { before: before.slice(0, 2), after: after.slice(0, 3) };
+}
+
+function lineageNodeEl(node, isSelf, selfCard) {
+  const el = document.createElement(isSelf || node.studioKey ? 'div' : 'button');
+  if (!isSelf && !node.studioKey) el.type = 'button';
+  el.className = 'lineage-node' + (isSelf ? ' is-self' : '') + (node.studioKey ? ' is-studio' : '');
+
+  const card = isSelf ? selfCard : node.card;
+  const studio = STUDIOS[node.studioKey || card.studio];
+
+  el.style.setProperty('--node-studio', studio.color);
+
+  const label = document.createElement('span');
+  label.className = 'lineage-node-relation';
+  label.textContent = isSelf ? t().lineageStrip.thisOne : t().lineageStrip[node.relation];
+
+  const body = document.createElement('span');
+  body.className = 'lineage-node-body';
+
+  const dot = document.createElement('span');
+  dot.className = 'card-dot';
+  dot.style.background = studio.color;
+
+  const title = document.createElement('span');
+  title.className = 'lineage-node-title';
+  // A studio that applied it has no card of its own to name, so it is named
+  // by the studio — which is the whole content of that node.
+  title.textContent = node.studioKey ? studio.name : truncateForSummary(cardText(card).title, 52);
+
+  body.appendChild(dot);
+  body.appendChild(title);
+  el.appendChild(label);
+  el.appendChild(body);
+
+  if (!isSelf && !node.studioKey) {
+    el.addEventListener('click', () => openCardById(node.id));
+  }
+  return el;
+}
+
+function renderLineageStrip(data) {
+  const wrap = document.getElementById('lineageStrip');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const { before, after } = lineageStripNodes(data);
+
+  if (!before.length && !after.length) {
+    const empty = document.createElement('p');
+    empty.className = 'lineage-empty';
+    empty.textContent = t().lineageStrip.empty;
+    wrap.appendChild(empty);
+    return;
+  }
+
+  const arrow = () => {
+    const a = document.createElement('span');
+    a.className = 'lineage-arrow';
+    a.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg>';
+    return a;
+  };
+
+  before.forEach((n) => { wrap.appendChild(lineageNodeEl(n, false)); wrap.appendChild(arrow()); });
+  wrap.appendChild(lineageNodeEl({}, true, data));
+  after.forEach((n) => { wrap.appendChild(arrow()); wrap.appendChild(lineageNodeEl(n, false)); });
+}
+
 function renderBodySections(wrap, data, text) {
   wrap.innerHTML = '';
   fieldsFor(data.type).forEach((key) => {
@@ -10415,9 +10755,34 @@ function initExpandCard() {
     else if (isShareMode) exitShareMode();
     else if (isMenuOverlayOpen()) closeMenuOverlay();
   });
+  /* Applying something is the one action that changes the lineage, so it has
+     to redraw it — otherwise the strip you are looking at is a description of
+     the state you were in before you pressed the button.
+
+     TODO(backend): a real service records this against the account and tells
+     the author. Here it is written onto the card's own appliedBy and persisted
+     with the rest of the shared/seed-edit state. */
   document.getElementById('applyBtn').addEventListener('click', function () {
-    this.classList.toggle('is-applied');
-    this.textContent = this.classList.contains('is-applied') ? t().applyButtonDone : t().applyButton;
+    if (currentOpenIndex === null) return;
+    const card = ALL_CARDS[currentOpenIndex];
+    if (!card) return;
+
+    const applied = !this.classList.contains('is-applied');
+    this.classList.toggle('is-applied', applied);
+    this.textContent = applied ? t().applyButtonDone : t().applyButton;
+
+    const list = card.appliedBy || (card.appliedBy = []);
+    const at = list.indexOf(MY_STUDIO_KEY);
+    if (applied && at < 0) list.push(MY_STUDIO_KEY);
+    if (!applied && at > -1) list.splice(at, 1);
+
+    persistAppliedBy(card);
+    renderLineageStrip(card);
+    renderLineageList(card);
+    document.getElementById('appliedSummary').textContent = t().appliedCount(visibleAppliedBy(card).length);
+    renderCardStatus(document.getElementById('cardStatusBlock'), card);
+    renderDiscover();
+    renderBrowse();
   });
 }
 
@@ -10534,18 +10899,33 @@ function renderTypePicker() {
   renderComposeFields();
 }
 
-/* Changing the type changes which questions you are asked, so the fields are
-   rebuilt — but anything already typed into a field the new type also has is
-   kept. Switching project -> experiment to fix a mislabelled card should not
-   silently empty three paragraphs. */
+/* One draft per type, held for as long as the composer is open.
+
+   Carrying values across by field name was not enough: the types barely share
+   any names, so writing three paragraphs as a Project and then trying Update
+   to see what it looked like threw all three away — and switching back gave you
+   an empty form, because there was nothing left to switch back to.
+
+   So each type keeps its own answers, and coming back to one restores it.
+   The title is deliberately NOT in here: it is the same sentence whatever you
+   decide the thing is, and retyping it after changing your mind is the same
+   annoyance in miniature. (An Update has no title field at all — see
+   updateComposeChrome — so it simply ignores the shared one.) */
+const composeDrafts = {};
+
+function stashCurrentDraft() {
+  composeDrafts[selectedType] = readComposeFields();
+}
+
 function setComposeType(key) {
   if (key === selectedType) return;
-  const carried = readComposeFields();
+  stashCurrentDraft();
   selectedType = key;
   document.querySelectorAll('#typePicker .type-pill').forEach((b) =>
     b.classList.toggle('is-active', b.dataset.type === selectedType));
-  renderComposeFields(carried);
+  renderComposeFields(composeDrafts[key]);
   updateComposeChrome();
+  updateSubmitGate();
   refreshPreview();
 }
 
@@ -10915,6 +11295,22 @@ function renderAttachmentsInto(wrapEl, data) {
    read on a card", and that question has one field in it.
    ====================================================================== */
 let previewFocusKey = null;
+// 'card' or 'banner'. Card by default — it is the shape most things end up in.
+let previewMode = 'card';
+
+function setPreviewMode(mode) {
+  if (mode === previewMode) return;
+  previewMode = mode;
+  document.querySelectorAll('.preview-mode').forEach((b) =>
+    b.classList.toggle('is-active', b.dataset.mode === mode));
+  refreshPreview();
+}
+
+function initPreviewModes() {
+  document.querySelectorAll('.preview-mode').forEach((btn) => {
+    btn.addEventListener('click', () => setPreviewMode(btn.dataset.mode));
+  });
+}
 
 function setPreviewFocus(key) {
   if (!key || key === previewFocusKey) return;
@@ -10972,6 +11368,12 @@ function refreshPreview() {
   icon.innerHTML = ICONS[selectedType];
   icon.style.color = studio.color;
 
+  /* The banner is a different shape, so the same picture is cropped
+     differently — which is the whole reason this toggle exists. */
+  const banner = previewMode === 'banner';
+  card.classList.toggle('is-banner', banner);
+  document.querySelector('.preview-card-wrap').classList.toggle('is-banner', banner);
+
   const media = document.getElementById('previewMedia');
   applyCardMedia(media, selectedImageUrl, studio.color, selectedImageFocal);
   card.classList.toggle('has-image', !!selectedImageUrl);
@@ -10981,6 +11383,9 @@ function refreshPreview() {
   // preview body on a fresh form says nothing about what the preview is for.
   if (!previewFocusKey) previewFocusKey = fieldsFor(selectedType)[0];
   paintPreviewFocus();
+  // Banner mode shows no body at all, matching floor 1 — the cover carries a
+  // title and nothing else.
+  if (banner) document.getElementById('previewFocus').style.display = 'none';
 }
 
 /* Dragging the preview moves the image inside its frame, and that position is
@@ -11122,6 +11527,8 @@ function resetComposeForm() {
 
   titleInput.value = '';
   document.getElementById('linkInput').value = '';
+  // A new compose is a blank sheet for every type, not just the one showing.
+  Object.keys(composeDrafts).forEach((k) => { delete composeDrafts[k]; });
   selectedType = 'project';
   selectedAskedTo = 'all';
   document.querySelectorAll('#typePicker .type-pill').forEach((btn) => {
@@ -11184,6 +11591,8 @@ function prefillComposeFrom(card) {
   // three slots, and the form has to load what is actually in it.
   const values = {};
   fieldsFor(selectedType).forEach((key) => { values[key] = bodyValue(text, selectedType, key); });
+  Object.keys(composeDrafts).forEach((k) => { delete composeDrafts[k]; });
+  composeDrafts[selectedType] = values;
   renderComposeFields(values);
   updateComposeChrome();
 
@@ -11945,12 +12354,15 @@ function refreshShareText() {
   // them rather than writing into ids that only exist for one type. Whatever
   // is already typed is carried across — switching language mid-sentence must
   // not empty the form.
-  renderComposeFields(readComposeFields());
+  stashCurrentDraft();
+  renderComposeFields(composeDrafts[selectedType]);
   setText('askedToLabel', t().askedTo.label);
   renderAskedToPicker();
   updateComposeChrome();
 
   setText('previewLabel', t().previewLabel);
+  setText('previewModeCard', t().previewModes.card);
+  setText('previewModeBanner', t().previewModes.banner);
   setText('previewDragHint', t().previewDragHint);
   refreshPreview();
 
@@ -12202,6 +12614,7 @@ safeInit('upload stub', initUploadStub);
 safeInit('attachment upload', initAttachmentUpload);
 safeInit('submit gate', initSubmitGate);
 safeInit('preview drag', initPreviewImageDrag);
+safeInit('preview modes', initPreviewModes);
 safeInit('submit handler', initSubmit);
 safeInit('weave canvas', initWeaveCanvas);
 safeInit('see full weave stub', initSeeFullWeave);
