@@ -367,15 +367,6 @@
     box-shadow: 0 4px 16px -6px rgba(20, 20, 20, 0.12);
   }
 
-  /* ---------- top bar right cluster: studio filter + language switch ---------- */
-  .topbar-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    transition: opacity 0.22s ease;
-  }
-
   .studio-filter { display: flex; align-items: center; gap: 8px; }
 
   .studio-chip {
@@ -3296,7 +3287,6 @@
   .designer-link-icon { flex-shrink: 0; display: flex; color: var(--studio-color, var(--ink-dim)); }
   .designer-link-icon svg { width: clamp(12px, 1vw, 15px); height: clamp(12px, 1vw, 15px); }
   .designer-link-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .designer-links-empty { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-faint); }
 
   /* the only thing on this screen that navigates — deliberately a button you
      have to aim at, not the whole card (see buildDesignerCard) */
@@ -3628,7 +3618,6 @@
      Appears on the Browse and Questions floors once someone is picked in
      Designers, and is the only way that filter is ever visible — an invisible
      filter is how a page ends up quietly lying about how much it's showing. */
-  .questions-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .author-chip {
     display: inline-flex;
     align-items: center;
@@ -4173,123 +4162,9 @@
   .share-viewport textarea:focus { border-color: var(--border-strong); box-shadow: 0 4px 16px -8px rgba(20, 20, 20, 0.12); }
   .share-viewport textarea::placeholder { color: var(--ink-faint); }
 
-  .tag-input-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 14px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: #ffffff;
-    transition: border-color 0.3s ease;
-  }
-  .tag-input-wrap:focus-within { border-color: var(--border-strong); }
-  .tag-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12.5px;
-    font-weight: 500;
-    padding: 5px 8px 5px 12px;
-    border-radius: 999px;
-    background: rgba(20, 20, 20, 0.05);
-    color: var(--ink-dim);
-    white-space: nowrap;
-  }
-  .tag-chip button { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 12px; line-height: 1; padding: 2px; opacity: 0.55; }
-  .tag-chip button:hover { opacity: 1; }
-  #tagInput {
-    flex: 1;
-    min-width: 140px;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
-    padding: 5px 4px;
-    color: var(--ink);
-  }
-  #tagInput::placeholder { color: var(--ink-faint); }
-
-  .upload-dropzone {
-    position: relative;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 22px 20px;
-    border: 1.5px dashed var(--border-strong);
-    border-radius: 16px;
-    background: rgba(20, 20, 20, 0.015);
-    color: var(--ink-faint);
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .upload-dropzone:hover { border-color: var(--ink-dim); color: var(--ink-dim); background: rgba(20, 20, 20, 0.03); transform: translateY(-1px); }
-  .upload-dropzone:focus-visible { outline: 2px solid var(--ink-dim); outline-offset: 2px; }
-  .upload-dropzone svg { width: 22px; height: 22px; }
-  /* actively dragging a file over the zone — a clearer highlight than :hover
-     alone, so the drop target reads as "yes, here" while a file is over it */
-  .upload-dropzone.is-dragover { border-color: var(--ink); background: rgba(20, 20, 20, 0.045); color: var(--ink-dim); }
-  /* icon + hint text used to be direct flex children of .upload-dropzone
-     (stacked in its flex column); wrapping them so the preview media could
-     be a plain sibling means this wrapper needs the same column layout */
-  .upload-dropzone-default { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-
-  /* item 7 fix — a `background-image` div instead of an <img object-fit>,
-     matching the same technique every other image-bearing card in this app
-     already uses (see .card-media.has-image): a plain <img> with
-     object-fit inside a non-positioned ancestor was clipping inconsistently
-     for some source images, which is what read as "upload turns blank". */
-  .upload-preview-media { display: none; width: 100%; height: 170px; border-radius: 14px; background-size: cover; background-position: center; }
-  .upload-dropzone.has-preview {
-    padding: 0;
-    border-style: solid;
-    border-color: var(--border);
-    overflow: hidden;
-  }
-  .upload-dropzone.has-preview:hover { border-color: var(--border-strong); }
-  .upload-dropzone.has-preview .upload-dropzone-default { display: none; }
-  .upload-dropzone.has-preview .upload-preview-media { display: block; }
-
-  /* Replace/Remove — always-visible controls once an image is in, so the
-     border/frame plus these two buttons keep the upload area unmistakable
-     even when it's showing a photo rather than the empty dashed state. */
-  .upload-preview-actions {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    z-index: 2;
-    display: none;
-    gap: 8px;
-  }
-  .upload-dropzone.has-preview .upload-preview-actions { display: flex; }
-  .upload-action-btn {
-    padding: 7px 13px;
-    border-radius: 999px;
-    border: none;
-    background: rgba(15, 15, 12, 0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    color: #ffffff;
-    font-family: 'Inter', sans-serif;
-    font-size: 11.5px;
-    font-weight: 650;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .upload-action-btn:hover { background: rgba(15, 15, 12, 0.75); transform: translateY(-1px); }
-  .upload-action-btn-remove:hover { background: #b91c1c; }
-
   /* ---------- attachments (item 8) — a second, separate dropzone: file
      name/icon/size in a plain list instead of a visual preview, since these
      are meant to be opened (a PDF, a doc), not looked at inline. ---------- */
-  .attachment-dropzone { padding: 16px 20px; }
   .attachment-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .attachment-item {
     display: flex;
@@ -5484,6 +5359,10 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'What came back',
+        /* Shown in place of a name when a stored reaction or reply has lost its
+           author — an older build's row, or a hand-edit in devtools. "undefined"
+           is never an acceptable thing to put on screen next to a real name. */
+        someone: 'Someone',
         kinds: {
           tryThis: "We'll try this",
           sameProblem: 'Same problem here',
@@ -5909,6 +5788,10 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: '돌아온 반응',
+        /* Shown in place of a name when a stored reaction or reply has lost its
+           author — an older build's row, or a hand-edit in devtools. "undefined"
+           is never an acceptable thing to put on screen next to a real name. */
+        someone: '누군가',
         kinds: {
           tryThis: '우리도 해볼게요',
           sameProblem: '같은 문제를 겪고 있어요',
@@ -6313,6 +6196,10 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'Was zurückkam',
+        /* Shown in place of a name when a stored reaction or reply has lost its
+           author — an older build's row, or a hand-edit in devtools. "undefined"
+           is never an acceptable thing to put on screen next to a real name. */
+        someone: 'Jemand',
         kinds: {
           tryThis: 'Das probieren wir',
           sameProblem: 'Kennen wir auch',
@@ -6717,6 +6604,10 @@ const TRANSLATIONS = {
       },
       reactions: {
         label: 'Geri gelenler',
+        /* Shown in place of a name when a stored reaction or reply has lost its
+           author — an older build's row, or a hand-edit in devtools. "undefined"
+           is never an acceptable thing to put on screen next to a real name. */
+        someone: 'Biri',
         kinds: {
           tryThis: 'Biz de deneyeceğiz',
           sameProblem: 'Aynı sorun bizde de var',
@@ -6979,7 +6870,35 @@ const TRANSLATIONS = {
   },
 };
 
-let currentLang = 'en';
+/* The chosen language outlives the tab. Without this every reload dropped a
+   German or Korean reader back into English, which is the one thing a
+   four-language prototype must not do while being demonstrated.
+
+   Read before first paint (it decides what every render below emits) and
+   written by setLanguage. An earlier build stored this under `loom_lang`, so
+   that value is adopted once and the old key retired. */
+const LANGUAGE_STORAGE_KEY = 'loom_language';
+const LEGACY_LANGUAGE_STORAGE_KEY = 'loom_lang';
+
+function readStoredLanguage() {
+  let stored = null;
+  try {
+    stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (!stored) {
+      const legacy = localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY);
+      if (legacy && TRANSLATIONS[legacy]) {
+        stored = legacy;
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, legacy);
+        localStorage.removeItem(LEGACY_LANGUAGE_STORAGE_KEY);
+      }
+    }
+  } catch (err) { /* storage blocked — fall through to the default */ }
+  // Validated, not trusted: a hand-edited or retired code must not leave t()
+  // reading properties off undefined.
+  return stored && TRANSLATIONS[stored] ? stored : 'en';
+}
+
+let currentLang = readStoredLanguage();
 function t() { return TRANSLATIONS[currentLang].ui; }
 function ct(index) { return TRANSLATIONS[currentLang].cards[index]; }
 
@@ -7464,7 +7383,7 @@ const CARDS = [
   { id: 'c7', studio: 'doubleu', type: 'project', author: 'Jiho Baek', timeValue: 3, timeUnit: 'week', appliedBy: ['whow', 'paxie'], image: null, relatedTo: ['c13'], derivedFrom: null },
   { id: 'c8', studio: 'whow', type: 'experiment', author: 'Mira Keller', timeValue: 4, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: ['c2'], derivedFrom: null },
   { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: 'assets/card-reward-reveal-speed.jpg', relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
-  { id: 'c10', studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', conversation: [
+  { id: 'c10', studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', askedTo: 'whow', conversation: [
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 1, timeUnit: 'month' },
     { author: 'Lena Fischer', studio: 'whow', timeValue: 3, timeUnit: 'week' },
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 3, timeUnit: 'week' },
@@ -8147,6 +8066,13 @@ function renderLanguageSwitcher() {
   });
   document.addEventListener('click', () => switcher.classList.remove('is-open'));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') switcher.classList.remove('is-open'); });
+
+  // The corner mark has to agree with `currentLang` from the first frame. It
+  // used to be left at the "EN" in the markup, which was right only because
+  // the page always started in English — now that the language is restored
+  // from storage, a German session would render entirely in German under a
+  // button still claiming EN.
+  updateLanguageButtonUI();
 }
 
 function updateLanguageButtonUI() {
@@ -8178,6 +8104,10 @@ function setLanguage(lang) {
 
   setTimeout(() => {
     currentLang = lang;
+    // Not via safeSetItem's read-back check: a language that fails to persist
+    // is a preference lost on reload, not corrupt state, and it must never
+    // stop the switch itself from happening.
+    try { localStorage.setItem(LANGUAGE_STORAGE_KEY, lang); } catch (err) { /* preference only */ }
     refreshAllText();
     fadeEls.forEach((el) => { if (el) el.style.opacity = '1'; });
   }, CONFIG.LANG_FADE_MS);
@@ -10462,6 +10392,16 @@ function bodyEmojiFor(cardId) {
    own studio's roster — which at least makes "You" read as a person to anyone
    being shown this, rather than as a placeholder.
    TODO(auth): the signed-in account's display name. */
+/* Any author name on its way to the screen goes through here. A reaction or
+   reply written by an older build can be missing `author` entirely, and
+   escapeHtml(undefined) renders the literal text "undefined" — which is how a
+   tooltip ends up reading "undefined, Minwoo Heo". Same principle as
+   sanitizeStoredNotification: never render a row you cannot phrase. */
+function displayNameOr(name) {
+  const clean = typeof name === 'string' ? name.trim() : '';
+  return clean || t().reactions.someone;
+}
+
 function myDisplayName() {
   const mine = designerRoster.find((d) => d.studio === MY_STUDIO_KEY);
   return (mine && mine.name) || 'You';
@@ -10539,7 +10479,7 @@ function reactionItemEl(r, onChange) {
   head.className = 'reaction-item-head';
   head.innerHTML = `
     <span class="card-dot" style="background:${studio.color}"></span>
-    <span class="reaction-author">${escapeHtml(r.author)}</span>
+    <span class="reaction-author">${escapeHtml(displayNameOr(r.author))}</span>
     <span class="reaction-studio">${studio.name}</span>
     <span class="reaction-kind">${REACTION_ICONS[r.kind]}${t().reactions.kinds[r.kind]}</span>
     <span class="reaction-time">${relativeFromStamp(r.at)}</span>
@@ -10624,7 +10564,7 @@ function replyEl(p, onChange) {
   el.innerHTML = `
     <div class="reply-head">
       <span class="card-dot" style="background:${studio.color}"></span>
-      <span class="reply-author">${escapeHtml(p.author)}</span>
+      <span class="reply-author">${escapeHtml(displayNameOr(p.author))}</span>
       <span class="reply-studio">${studio.name}</span>
       <span class="reply-time">${relativeFromStamp(p.at)}</span>
     </div>
@@ -10653,7 +10593,10 @@ function emojiRowEl(map, onChange) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'emoji-chip' + (mine ? ' is-mine' : '');
-    btn.title = who.map((k) => STUDIOS[k].name).join(', ');
+    // Names only for keys that really are studios. `who` is already filtered,
+    // but a map written by an older build could hold a person's name where a
+    // studio key belongs — omit those rather than title="undefined".
+    btn.title = who.map((k) => (STUDIOS[k] || {}).name).filter(Boolean).join(', ');
     btn.innerHTML = `<span class="emoji-glyph">${emoji}</span><span class="emoji-count">${who.length}</span>`;
     btn.addEventListener('click', () => { if (toggleEmojiIn(map, emoji)) onChange(); });
     row.appendChild(btn);
@@ -10737,22 +10680,44 @@ const NOTIFICATIONS_STORAGE_KEY = 'loom_notifications_v1';
 // 'asked'    — a question was addressed to your studio
 const NOTIFICATION_KINDS = ['applied', 'reaction', 'reply', 'asked'];
 
-const SEED_NOTIFICATIONS = [
-  { id: 'nt-1', kind: 'reaction', cardId: 'c1', actor: 'Bengt Larsson', studio: 'whow',
-    detail: 'sameProblem', minsAgo: 60 * 26, read: false },
-  { id: 'nt-2', kind: 'reaction', cardId: 'c13', actor: 'Lena Fischer', studio: 'whow',
-    detail: 'tryThis', minsAgo: 60 * 14, read: false },
-  { id: 'nt-3', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
-    detail: '', minsAgo: 60 * 9, read: false },
-  { id: 'nt-4', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
-    detail: '', minsAgo: 60 * 4, read: false },
-  { id: 'nt-5', kind: 'reply', cardId: 'c10', actor: 'Jonas Weber', studio: 'whow',
-    detail: '', minsAgo: 60 * 3, read: false },
-];
+/* Keyed by who you signed in as, because every one of these is a sentence
+   about *your* studio's work. The old single list was written from DoubleU's
+   chair — Whow people acting on DoubleU cards — so signing in as Whow was told
+   that Whow had reacted to Whow's own work, about cards Whow does not own.
+   Each set therefore names cards that studio actually wrote, and actors from a
+   different studio. notificationView enforces the same rule at render time, so
+   a wrong row can never reach the panel even if this table drifts. */
+const SEED_NOTIFICATIONS_BY_STUDIO = {
+  doubleu: [
+    { id: 'nt-du-1', kind: 'reaction', cardId: 'c1', actor: 'Bengt Larsson', studio: 'whow',
+      detail: 'sameProblem', minsAgo: 60 * 26, read: false },
+    { id: 'nt-du-2', kind: 'reaction', cardId: 'c13', actor: 'Lena Fischer', studio: 'whow',
+      detail: 'tryThis', minsAgo: 60 * 14, read: false },
+    { id: 'nt-du-3', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
+      detail: '', minsAgo: 60 * 9, read: false },
+    { id: 'nt-du-4', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
+      detail: '', minsAgo: 60 * 4, read: false },
+    { id: 'nt-du-5', kind: 'reply', cardId: 'c10', actor: 'Jonas Weber', studio: 'whow',
+      detail: '', minsAgo: 60 * 3, read: false },
+  ],
+  whow: [
+    { id: 'nt-wh-1', kind: 'reaction', cardId: 'c5', actor: 'Doyoon Kim', studio: 'doubleu',
+      detail: 'sameProblem', minsAgo: 60 * 22, read: false },
+    { id: 'nt-wh-2', kind: 'reaction', cardId: 'c11', actor: 'Minji Yoon', studio: 'doubleu',
+      detail: 'tryThis', minsAgo: 60 * 13, read: false },
+    { id: 'nt-wh-3', kind: 'applied', cardId: 'c5', actor: 'Jiho Baek', studio: 'doubleu',
+      detail: '', minsAgo: 60 * 8, read: false },
+    { id: 'nt-wh-4', kind: 'asked', cardId: 'c10', actor: 'Soomin Jang', studio: 'doubleu',
+      detail: '', minsAgo: 60 * 5, read: false },
+    { id: 'nt-wh-5', kind: 'reply', cardId: 'c14', actor: 'Haeun Lee', studio: 'doubleu',
+      detail: '', minsAgo: 60 * 2, read: false },
+  ],
+};
 
 function seedNotifications() {
   const now = Date.now();
-  return SEED_NOTIFICATIONS.map((n) => Object.assign({}, n, { at: now - n.minsAgo * 60 * 1000 }));
+  const set = SEED_NOTIFICATIONS_BY_STUDIO[MY_STUDIO_KEY] || [];
+  return set.map((n) => Object.assign({}, n, { at: now - n.minsAgo * 60 * 1000 }));
 }
 
 /* Anything read back out of storage was written by an older build, by a hand
@@ -10817,6 +10782,17 @@ function notificationView(n) {
 
   const card = cardById(n.cardId);
   if (!card) return null;
+
+  /* Two rules the panel's whole premise rests on, enforced here so no seed
+     table, stored row or future write path can break them:
+       - it is about your own work. The one exception is 'asked', where the
+         point is a question pointed at your studio rather than a card you wrote.
+       - it did not come from your own studio. Being told your colleague
+         reacted to your colleague's card is noise, and phrasing it as "on your
+         work" makes it wrong as well as noisy. */
+  const relevant = n.kind === 'asked' ? askedToMe(card) : isMyCard(card);
+  if (!relevant) return null;
+  if (n.studio === MY_STUDIO_KEY) return null;
 
   const title = truncateForSummary(cardText(card).title || '', 46);
   if (!title) return null;
@@ -11560,13 +11536,6 @@ function initLastVisit() {
     lastVisitAt = 0;
   }
   safeSetItem(LAST_VISIT_STORAGE_KEY, String(Date.now()));
-}
-
-// Nothing counts as "while you were away" on a first visit — every seeded item
-// would, and "18 things happened" as a welcome is not a welcome.
-function notificationsSinceLastVisit() {
-  if (!lastVisitAt) return [];
-  return renderableNotifications().filter((n) => n.at > lastVisitAt);
 }
 
 /* ---------- the lineage strip ----------

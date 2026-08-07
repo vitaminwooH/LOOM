@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Loom</title>
+
+<!-- Why this file exists:
+     GitHub Pages serves this repository under /LOOM/, and a directory with no
+     index.html answers the bare URL with GitHub's own 404 page. Anyone sent
+     "vitaminwooh.github.io/LOOM/" — which is the address a person naturally
+     shortens a link to — landed on that 404 rather than on Loom.
+
+     The lobby is the front door (it is where you choose which studio you are),
+     so the bare URL forwards there. Both mechanisms are here on purpose:
+     the meta refresh works with JavaScript off, and the script fires first when
+     it is on, so nobody waits on the refresh interval. The link is the fallback
+     of the fallback.
+
+     Paths are relative — no leading slash — so this works identically at
+     /LOOM/, at a custom domain, and on a local server. -->
+<meta http-equiv="refresh" content="0; url=./loom_lobby.html" />
+<link rel="canonical" href="./loom_lobby.html" />
+
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #140e24; /* the lobby's own backdrop, so the hop doesn't flash white */
+    color: rgba(255, 255, 255, 0.62);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  main {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  a {
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+    padding-bottom: 2px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <a href="./loom_lobby.html">Enter Loom</a>
+</main>
+<script>
+  location.replace('./loom_lobby.html');
+</script>
+</body>
+</html>
