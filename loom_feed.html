@@ -1723,6 +1723,206 @@
      you have time to do it properly, and most of what a studio learns never
      survives that wait. So the first box is the form and the rest are behind
      one line of text — still there, no longer in the way. */
+  /* ---------- keywords, in the composer ----------
+     The wrap is the input: chips and the caret share one bordered box, so it
+     reads as one field you are filling rather than a list plus a text box. */
+  .keyword-input-wrap {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .keyword-input-wrap:focus-within {
+    border-color: var(--border-strong);
+    box-shadow: 0 4px 16px -8px rgba(20, 20, 20, 0.12);
+  }
+  .keyword-input-wrap.is-full #keywordInput { display: none; }
+  .keyword-chips { display: contents; }
+  #keywordInput {
+    flex: 1 1 120px;
+    min-width: 120px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    padding: 4px 2px;
+    color: var(--ink);
+  }
+  #keywordInput::placeholder { color: var(--ink-faint); }
+
+  /* A chip in the composer is editable — it carries its own remove button.
+     The read-only chips on cards and details are .keyword-tag below. */
+  .keyword-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px 4px 10px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.055);
+    color: var(--ink-dim);
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .keyword-chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0;
+    transition: opacity 0.18s ease, background 0.18s ease;
+  }
+  .keyword-chip-remove:hover { opacity: 1; background: rgba(20, 20, 20, 0.09); }
+  .keyword-chip-remove svg { width: 9px; height: 9px; }
+
+  .keyword-suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    max-height: 216px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 44px -22px rgba(20, 20, 20, 0.3);
+    display: none;
+  }
+  .keyword-suggestions.is-open { display: block; }
+  .keyword-suggestion-head {
+    padding: 5px 9px 6px;
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+  }
+  .keyword-suggestion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 9px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  /* is-active, not :hover alone — the arrow keys move this and the pointer
+     must not be the only way to see where you are */
+  .keyword-suggestion:hover,
+  .keyword-suggestion.is-active { background: rgba(20, 20, 20, 0.055); }
+  .keyword-suggestion-count { font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .keyword-suggestion.is-new { color: var(--ink-dim); }
+  .keyword-suggestion.is-new .keyword-suggestion-count { font-style: italic; }
+
+  /* ---------- keywords, on a card and in a detail ----------
+     Neutral on purpose. Every other mark on a card is studio-coloured because
+     it says whose the work is; a keyword says the opposite — that the work is
+     not only this studio's — so colouring it by studio would argue against the
+     one thing it is for. */
+  .keyword-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .keyword-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(20, 20, 20, 0.1);
+    background: rgba(20, 20, 20, 0.04);
+    color: var(--ink-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  /* On a poster/hero the tags sit on the dark scrim, not on paper. */
+  .card-content .keyword-tag {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .card-content .keyword-tags { margin-top: 9px; }
+  .poster-card .keyword-tag { font-size: 10.5px; padding: 2px 8px; }
+  .hero-slide .keyword-tag { font-size: clamp(11px, 0.85vw, 13px); padding: 4px 12px; }
+  /* In a detail the tags are buttons: each one is a way into everything else
+     under that word. */
+  button.keyword-tag { cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+  button.keyword-tag:hover { background: rgba(20, 20, 20, 0.09); border-color: rgba(20, 20, 20, 0.2); color: var(--ink); }
+  .question-card .keyword-tags { margin-top: 12px; }
+
+  /* ---------- same thread ---------- */
+  .expanded-section-thread .keyword-tags { margin-bottom: 12px; }
+  .same-thread-list { display: flex; flex-direction: column; gap: 2px; }
+  .same-thread-item {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 10px;
+    margin: 0 -10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .same-thread-item:hover { background: rgba(20, 20, 20, 0.045); }
+  /* The dot is the only studio colour in the block — whose it is, at a glance,
+     without the row itself being tinted. */
+  .same-thread-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    transform: translateY(-1px);
+  }
+  .same-thread-text { flex: 1 1 auto; min-width: 0; }
+  .same-thread-title {
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .same-thread-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  /* Which shared word put this row here — the block can be answering more than
+     one keyword at once, so the row has to say which. */
+  .same-thread-word { font-weight: 500; }
+
+  .keyword-hint {
+    margin: 7px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-faint);
+  }
+
   .compose-more {
     align-self: flex-start;
     display: inline-flex;
@@ -3726,6 +3926,9 @@
     background: var(--studio-color, rgba(255, 255, 255, 0.2));
   }
   .author-chip-clear { font-size: 11px; opacity: 0.65; }
+  /* No avatar, so the label carries the left padding the avatar used to. */
+  .keyword-filter-chip { padding-left: 13px; }
+  .keyword-filter-label { font-size: 12px; font-weight: 500; }
 
   /* ======================================================================
      Share mode — the gallery area (not a separate page) swaps into a
@@ -4585,6 +4788,12 @@
   <div class="floor-dock" id="floorDock">
     <div class="floor-dock-group" id="dockBrowse">
       <!-- only present while a person is picked in Designers -->
+      <!-- Same shape as the author chip: a filter you cannot see is how a floor
+           ends up quietly lying about how much it is showing. -->
+      <button type="button" class="author-chip keyword-filter-chip" id="keywordChipBrowse" style="display:none;">
+        <span class="keyword-filter-label"></span>
+        <span class="author-chip-clear">✕</span>
+      </button>
       <button type="button" class="author-chip" id="authorChipBrowse" style="display:none;">
         <span class="author-chip-avatar" id="authorChipBrowseAvatar"></span>
         <span class="author-chip-label" id="authorChipBrowseLabel"></span>
@@ -4610,6 +4819,12 @@
          read as a contradiction. Whichever of the two is the more useful thing
          to say goes in the single slot — see renderQuestionsDockLine. -->
     <div class="floor-dock-group" id="dockQuestions">
+      <!-- Same shape as the author chip: a filter you cannot see is how a floor
+           ends up quietly lying about how much it is showing. -->
+      <button type="button" class="author-chip keyword-filter-chip" id="keywordChipQuestions" style="display:none;">
+        <span class="keyword-filter-label"></span>
+        <span class="author-chip-clear">✕</span>
+      </button>
       <button type="button" class="author-chip" id="authorChipQuestions" style="display:none;">
         <span class="author-chip-avatar" id="authorChipQuestionsAvatar"></span>
         <span class="author-chip-label" id="authorChipQuestionsLabel"></span>
@@ -4835,6 +5050,24 @@
         <div class="compose-left">
           <div class="field field-title" id="titleField">
             <input id="titleInput" type="text" autocomplete="off" />
+          </div>
+
+          <!-- Under the title, above the type: still part of naming the
+               thing, rather than part of explaining it. Every type gets this
+               field, including Update — a one-line note is exactly the kind of
+               thing that otherwise never gets found again. -->
+          <div class="field field-keywords" id="keywordsField">
+            <div class="field-label" id="keywordsLabel"></div>
+            <div class="keyword-input-wrap" id="keywordInputWrap">
+              <div class="keyword-chips" id="keywordChips"></div>
+              <input id="keywordInput" type="text" autocomplete="off" role="combobox"
+                     aria-autocomplete="list" aria-expanded="false" aria-controls="keywordSuggestions" />
+              <!-- Absolutely positioned over the form, so opening it never
+                   reflows the fields underneath and the box it covers is still
+                   the box you were typing in. -->
+              <div class="keyword-suggestions" id="keywordSuggestions" role="listbox"></div>
+            </div>
+            <p class="keyword-hint" id="keywordHint"></p>
           </div>
 
           <div class="field field-type">
@@ -5099,6 +5332,17 @@
           <!-- one click each; the note is a second, optional step -->
           <div class="reaction-pills" id="reactionPills"></div>
           <div class="reaction-list" id="reactionList"></div>
+        </div>
+
+        <!-- SAME THREAD — the loose layer. Above the lineage because it is the
+             weaker claim of the two: these share a word, the ones below came out
+             of each other. Hidden entirely when this card has no keyword, or
+             when nothing else uses one of them. -->
+        <div class="expanded-section expanded-section-thread reveal-on-open" id="sameThreadSection" style="display:none;">
+          <div class="label" id="labelSameThread"></div>
+          <p class="section-caption" id="captionSameThread"></p>
+          <div class="keyword-tags" id="detailKeywords"></div>
+          <div class="same-thread-list" id="sameThreadList"></div>
         </div>
 
         <!-- WHERE IT SPREAD — work. Content to content, never company to
@@ -5483,6 +5727,18 @@ const TRANSLATIONS = {
       },
       reactionsCaption: 'Replies and reactions. A conversation \u2014 it does not connect two pieces of work.',
       appliedLabel: 'Where it spread',
+      keywordsLabel: 'Keywords',
+      /* "Same thread", not "related": nothing here was declared to belong
+         together. Sharing a word is a weaker claim than a link, and the caption
+         is what keeps it from being read as a stronger one. */
+      sameThread: {
+        label: 'Same thread',
+        caption: 'Other work under one of these keywords. Nobody linked these — they just used the same word.',
+      },
+      keywordFilter: {
+        showing: (word) => `Showing work tagged “${word}”`,
+        clear: 'Show everything again',
+      },
       lineageCaption: 'Other work this actually turned into.',
       // Plain, and deliberately not a score: the sentence is about reach, and a
       // bolded number would turn it into one.
@@ -5618,6 +5874,15 @@ const TRANSLATIONS = {
         heading: 'Share what you learned',
         intro: "A few honest sentences — what happened, what you tried, and what you'd tell the next studio. This isn't a report. It's a thread the whole company can pull on.",
         titlePlaceholder: 'Give it a clear, specific title',
+        /* Keywords sit under the title because that is where somebody is still
+           describing the thing, before they start explaining it. */
+        keywordsLabel: 'Keywords',
+        keywordsPlaceholder: '1–3 keywords that run through this work (e.g. Slack pipeline)',
+        keywordsHint: 'Pick one that already exists where you can — a keyword two studios share is what puts their work on the same page.',
+        keywordsFull: 'Three is the limit. Remove one to add another.',
+        keywordsExisting: 'Already in use',
+        keywordsCreate: (word) => `Add “${word}” as a new keyword`,
+        keywordsRemove: 'Remove this keyword',
         typeQuestion: 'What kind of knowledge is this?',
         problemLabel: 'Problem',
         problemPlaceholder: "What wasn't working, or what question were you chasing?",
@@ -5719,6 +5984,29 @@ const TRANSLATIONS = {
       { title: 'Rebuilding the daily-reward screen — the timer is the whole fight', summary: 'Rebuilding the daily-reward screen — the timer is the whole fight', note: 'Rebuilding the daily-reward screen this week. The countdown timer is turning out to be the whole design problem: too prominent and it nags, too quiet and nobody comes back.' },
       { title: 'Trying a shorter tutorial. Day-2 numbers look odd so far', summary: 'Trying a shorter tutorial. Day-2 numbers look odd so far', note: 'Trying a much shorter tutorial. Day-2 return looks fine but day-3 dropped, so we may just have moved the drop-off rather than removed it. Watching it another week before we say anything.' },
       { title: 'Our new icon set is 40% smaller after one pass with an optimiser', summary: 'Our new icon set is 40% smaller after one pass with an optimiser', note: 'Ran the whole icon set through an SVG optimiser and it came out 40% smaller with no visible difference. Nothing clever, just nobody had done it.' },
+      /* c18–c21 — the sample chain. Written in the new field sets rather than
+         the old problem/tried/result slots, so they read the way something
+         written today reads. */
+      { title: 'A Slack pipeline for AI video production', summary: 'Briefs in, finished videos out, without leaving Slack.',
+        made: 'A Slack workflow that turns a brief into a finished AI video without anyone opening a production tool. A bot watches #video-requests, collects the brief and reference links, queues the render, and posts each result back into the same channel for review.',
+        constraints: 'Two people making video part of the time, no budget for a dedicated production suite, and every stakeholder already living in Slack all day.',
+        solved: 'Built the bot on Slack\u2019s Events API. A slash command opens a request, the bot drafts a script, queues the render, and posts the result as an attachment. Approval is a reaction \u2014 a tick ships it, a repeat arrow sends it back with the reviewer\u2019s comment as the revision note.',
+        borrow: 'Keep the request and the result in the same place. The week we moved review into a document, turnaround went from a day to a week and nobody could say why.' },
+      { title: 'We rebuilt DoubleU\u2019s Slack video pipeline for German spots', summary: 'The same pipeline, with a second language and a second pair of eyes.',
+        made: 'DoubleU\u2019s Slack pipeline running on our side, for German and English event spots. Same bot shape, different model settings, and one extra approval for the German voice track.',
+        constraints: 'Our spots are bilingual and the German voice has to be signed off by somebody who speaks it. The original pipeline assumed one language and one reviewer.',
+        solved: 'Added a language flag to the slash command and a second approval gate: the render only ships once both the English and the German reaction are on the message. Everything else we left exactly as it was.',
+        borrow: 'Copy the pipeline before improving it. We tried to add the language split on day one and then could not tell which half was broken.' },
+      { title: 'Grouping every request into one Slack thread instead of a channel', summary: 'One thread per request turned out to be the unit of work.',
+        goal: 'Whether keeping a whole request inside a single thread would stop reviews getting lost, now that two languages meant three or four messages per spot.',
+        method: 'Four weeks with the bot opening a thread per request and posting every draft, render and approval inside it. Compared against the previous flat-channel weeks on time-to-approval and on how often a render was reviewed twice by mistake.',
+        happened: 'Time-to-approval fell by about a third. Duplicate reviews went from routine to almost none, because the whole history of a request was in one place.',
+        learned: 'The thread is the unit of work, not the message. Everything about one request belongs inside it \u2014 including the renders that failed. A thread holding only the good take is a thread nobody trusts.' },
+      { title: 'One thread per project, not per request', summary: 'The thread outlives the request when the project does.',
+        made: 'Whow\u2019s thread idea moved up a level: one Slack thread per project rather than per request, with every video for that title living inside it.',
+        constraints: 'We make eight to ten spots for the same title in a season. Per-request threads meant the same context \u2014 brand rules, voice, past feedback \u2014 got pasted in again every single time.',
+        solved: 'The bot opens a thread when a project starts and keeps it open. Each new request is a message inside it, so the brief is written once and every later render inherits it. A weekly digest posts what shipped.',
+        borrow: 'Match the thread to whatever the work actually repeats around. Per request was right for Whow\u2019s one-off spots and wrong for our seasons.' },
     ],
   },
   ko: {
@@ -5907,6 +6195,18 @@ const TRANSLATIONS = {
       },
       reactionsCaption: '답글과 반응이에요. 대화일 뿐, 두 글을 잇는 계보는 아닙니다.',
       appliedLabel: '어디로 이어졌나',
+      keywordsLabel: '키워드',
+      /* "Same thread", not "related": nothing here was declared to belong
+         together. Sharing a word is a weaker claim than a link, and the caption
+         is what keeps it from being read as a stronger one. */
+      sameThread: {
+        label: '같은 흐름',
+        caption: '이 키워드가 붙은 다른 글이에요. 누가 연결한 게 아니라, 같은 말을 썼을 뿐입니다.',
+      },
+      keywordFilter: {
+        showing: (word) => `“${word}” 키워드가 붙은 글만 보고 있어요`,
+        clear: '전체 다시 보기',
+      },
       lineageCaption: '이 글이 실제로 이어진 다른 글이에요.',
       lineageSummary: (works, studios) => (works === 0
         ? '아직 다른 글과 이어지지 않았어요'
@@ -6029,6 +6329,15 @@ const TRANSLATIONS = {
         heading: '배운 것을 공유하세요',
         intro: '있는 그대로 몇 문장이면 충분해요 — 무슨 일이 있었는지, 무엇을 시도했는지, 다음 스튜디오에 해주고 싶은 말. 보고서가 아니라, 회사 전체가 이어갈 수 있는 하나의 실입니다.',
         titlePlaceholder: '명확하고 구체적인 제목을 붙여주세요',
+        /* Keywords sit under the title because that is where somebody is still
+           describing the thing, before they start explaining it. */
+        keywordsLabel: '키워드',
+        keywordsPlaceholder: '이 작업을 관통하는 키워드 1~3개 (예: Slack pipeline)',
+        keywordsHint: '가능하면 이미 있는 키워드를 고르세요 — 두 스튜디오가 같은 키워드를 쓰면 그 지점에서 작업이 이어집니다.',
+        keywordsFull: '최대 3개예요. 하나를 빼고 추가해주세요.',
+        keywordsExisting: '이미 쓰이는 키워드',
+        keywordsCreate: (word) => `“${word}”를 새 키워드로 추가`,
+        keywordsRemove: '이 키워드 제거',
         typeQuestion: '어떤 종류의 지식인가요?',
         problemLabel: '문제',
         problemPlaceholder: '무엇이 안 됐나요, 혹은 어떤 질문을 쫓고 있었나요?',
@@ -6127,6 +6436,27 @@ const TRANSLATIONS = {
       { title: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', summary: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', note: '이번 주에 일일 보상 화면을 다시 만들고 있어요. 카운트다운 타이머가 사실상 디자인 문제 전부예요. 너무 눈에 띄면 잔소리 같고, 너무 조용하면 아무도 안 돌아와요.' },
       { title: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', summary: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', note: '튜토리얼을 많이 줄여봤어요. 2일차 복귀는 괜찮은데 3일차가 떨어져서, 이탈을 없앤 게 아니라 옮긴 것일 수도 있어요. 일주일 더 보고 얘기하려고요.' },
       { title: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', summary: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', note: 'SVG 최적화를 아이콘 세트 전체에 한 번 돌렸더니 눈에 띄는 차이 없이 용량이 40% 줄었어요. 대단한 건 아니고, 그냥 아무도 안 해봤던 거예요.' },
+      /* c18–c21 — 샘프을 사슬 */
+      { title: 'AI 영상 제작을 위한 Slack 파이프라인', summary: '요정은 들어가고 영상은 나오는데, Slack 밖으로 나가지 않습니다.',
+        made: '제작 도구를 열지 않고도 요정이 완성된 AI 영상이 되어 나오는 Slack 워플로우. 봇이 #video-requests 를 지키며 요정과 레퓌런스 링키를 모아 렌더를 옌리고, 결과를 같은 채널에 다시 올립니다.',
+        constraints: '영상을 겸하는 사람 둘, 전용 제작 도구 예산은 없음, 그리고 이해간계자 전원이 이밌 하루 종일 Slack에 있다는 사상.',
+        solved: 'Slack Events API로 봇을 만들었습니다. 슬래시 명령으로 요정을 여면 봇이 대본 초안을 지리고 렌더를 옌리고 결과를 첨부로 올립니다. 승인은 이모지 하나 — 체킹은 발행, 다시 돌림 화살표는 리뷰어 의건을 수정 지시로 붙여 되돌립니다.',
+        borrow: '요정과 결과를 같은 자리에 둔다. 리뷰를 문서로 엮긴 주, 횟수가 하루에서 일주일로 늦어지고 아무도 이유를 설명하지 못했어요.' },
+      { title: 'DoubleU의 Slack 영상 파이프라인을 독일어 스포트용으로 다시 만들었습니다', summary: '같은 파이프라인에, 언어 하나와 검토자 한 사람을 더했습니다.',
+        made: 'DoubleU의 Slack 파이프라인을 우리 족에서 돌립니다. 독일어·영어 이벤트 스포트용이고, 봇 구조는 그대로, 모델 설정과 독일어 보이스 승인 단계만 다릅니다.',
+        constraints: '우리 스포트는 이중 언어이고, 독일어 보이스는 독일어를 하는 사람이 승인해야 합니다. 원래 파이프라인은 언어 하나와 검토자 한 사람을 전제로 했었습니다.',
+        solved: '슬래시 명령에 언어 허우를 더하고 승인 게이트를 하나 늘렸습니다. 영어와 독일어 반응이 모둘 달렸을 때만 렌더가 발행됩니다. 나머지는 전혀 손대지 않았습니다.',
+        borrow: '개선하기 전에 그대로 복사하세요. 심짜에 언어 분기를 같이 넣었다가 둘 중 어느 썰이 고장인지 분별할 수 없었어요.' },
+      { title: '채널이 아니라 요정당 Slack 쓰레드 하나로 모으기', summary: '일의 단위는 메시지가 아니라 쓰레드여습니다.',
+        goal: '언어가 둘로 늦어나며 스포트 하나에 세네 개의 메시지가 생기게 된 지금, 요정 하나를 쓰레드 하나에 다 담으면 리뷰가 사라지는 일을 막을 수 있을지.',
+        method: '4주간 봇이 요정당 쓰레드를 여고 모든 초안·렌더·승인을 그 안에 올렸습니다. 이전의 평면 채널 주차와 승인까지 걸린 시간, 그리고 같은 렌더를 실수로 두 번 리뷰한 발생 횟수를 바교했습니다.',
+        happened: '승인까지 걸리는 시간이 약 3분의 1 줄었습니다. 중복 리뷰는 일상에서 거의 없음으로 바눲어요. 요정 하나의 이력 전부가 한 자리에 있었기 때문입니다.',
+        learned: '일의 단위는 메시지가 아니라 쓰레드입니다. 한 요정에 관한 모든 것이 그 안에 들어가야 해요 — 실패한 렌더까지. 성공한 췬영만 들어있는 쓰레드는 아무도 신뢰하지 않습니다.' },
+      { title: '요정당이 아니라 플로젝트당 쓰레드 하나', summary: '플로젝트가 계속되는 동안엔 쓰레드가 요정보다 오래 살아남습니다.',
+        made: 'Whow의 쓰레드 아이디어를 한 단계 위로 올렸습니다. 요정당이 아니라 플로젝트당 Slack 쓰레드 하나, 그 타이틀의 모든 영상이 그 안에 살아있습니다.',
+        constraints: '한 시즌에 같은 타이틀로 스포트 열 편 전후를 만듭니다. 요정당 쓰레드로는 밍그 룰·톤·지난번 피드백 같은 같은 맥맥이 매번 다시 붙여졌어요.',
+        solved: '봇은 플로젝트가 시작할 때 쓰레드를 여고 그대로 역어둡니다. 새 요정은 그 쓰레드 안의 메시지라서 밍그는 한 번만 쓰면 이후 렌더가 그것을 그대로 받아썽니다. 주 단위 다이제스트로 발행 내역을 올립니다.',
+        borrow: '쓰레드를 일이 실제로 반복되는 단위에 맞추세요. 요정당은 Whow의 단발 스포트에는 맞았고 우리 시즌에는 틀렸습니다.' },
     ],
   },
   de: {
@@ -6315,6 +6645,18 @@ const TRANSLATIONS = {
       },
       reactionsCaption: 'Antworten und Reaktionen. Ein Gespräch — es verknüpft keine zwei Arbeiten.',
       appliedLabel: 'Wohin es weitergegangen ist',
+      keywordsLabel: 'Schlagworte',
+      /* "Same thread", not "related": nothing here was declared to belong
+         together. Sharing a word is a weaker claim than a link, and the caption
+         is what keeps it from being read as a stronger one. */
+      sameThread: {
+        label: 'Gleicher Faden',
+        caption: 'Andere Arbeit unter einem dieser Schlagworte. Niemand hat sie verknüpft — sie haben nur dasselbe Wort benutzt.',
+      },
+      keywordFilter: {
+        showing: (word) => `Arbeit mit dem Schlagwort „${word}“`,
+        clear: 'Wieder alles zeigen',
+      },
       lineageCaption: 'Andere Arbeiten, zu denen dies tatsächlich geführt hat.',
       lineageSummary: (works, studios) => (works === 0
         ? 'Noch mit keiner anderen Arbeit verbunden'
@@ -6437,6 +6779,15 @@ const TRANSLATIONS = {
         heading: 'Teile, was du gelernt hast',
         intro: 'Ein paar ehrliche Sätze — was passiert ist, was du versucht hast, und was du dem nächsten Studio sagen würdest. Das ist kein Bericht. Es ist ein Faden, an dem das ganze Unternehmen weiterziehen kann.',
         titlePlaceholder: 'Gib ihm einen klaren, konkreten Titel',
+        /* Keywords sit under the title because that is where somebody is still
+           describing the thing, before they start explaining it. */
+        keywordsLabel: 'Schlagworte',
+        keywordsPlaceholder: '1–3 Schlagworte, die sich durch diese Arbeit ziehen (z. B. Slack pipeline)',
+        keywordsHint: 'Nimm möglichst eines, das es schon gibt — ein Schlagwort, das zwei Studios teilen, bringt ihre Arbeit zusammen.',
+        keywordsFull: 'Drei ist das Maximum. Nimm eines weg, um ein anderes hinzuzufügen.',
+        keywordsExisting: 'Schon in Verwendung',
+        keywordsCreate: (word) => `„${word}“ als neues Schlagwort`,
+        keywordsRemove: 'Dieses Schlagwort entfernen',
         typeQuestion: 'Um welche Art von Wissen handelt es sich?',
         problemLabel: 'Problem',
         problemPlaceholder: 'Was hat nicht funktioniert, oder welcher Frage bist du nachgegangen?',
@@ -6535,6 +6886,27 @@ const TRANSLATIONS = {
       { title: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', summary: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', note: 'Wir bauen diese Woche den Daily-Reward-Screen neu. Der Countdown-Timer ist praktisch das gesamte Designproblem: zu präsent und er nervt, zu leise und niemand kommt zurück.' },
       { title: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', summary: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', note: 'Wir testen ein deutlich kürzeres Tutorial. Tag 2 sieht gut aus, aber Tag 3 ist gefallen — vielleicht haben wir den Absprung nur verschoben statt beseitigt. Wir schauen noch eine Woche zu.' },
       { title: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', summary: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', note: 'Das ganze Icon-Set einmal durch einen SVG-Optimierer geschickt: 40% kleiner, kein sichtbarer Unterschied. Nichts Cleveres, es hatte nur nie jemand gemacht.' },
+      /* c18–c21 — die Beispielkette */
+      { title: 'Eine Slack-Pipeline f\u00fcr KI-Videoproduktion', summary: 'Briefings rein, fertige Videos raus, ohne Slack zu verlassen.',
+        made: 'Ein Slack-Workflow, der aus einem Briefing ein fertiges KI-Video macht, ohne dass jemand ein Produktionstool \u00f6ffnet. Ein Bot beobachtet #video-requests, sammelt Briefing und Referenzlinks, stellt den Render in die Warteschlange und postet jedes Ergebnis zur\u00fcck in denselben Kanal.',
+        constraints: 'Zwei Leute, die nebenbei Video machen, kein Budget f\u00fcr eine eigene Produktionssuite, und alle Beteiligten sitzen ohnehin den ganzen Tag in Slack.',
+        solved: 'Den Bot auf Slacks Events API gebaut. Ein Slash-Befehl \u00f6ffnet eine Anfrage, der Bot entwirft ein Skript, stellt den Render in die Warteschlange und postet das Ergebnis als Anhang. Freigabe ist eine Reaktion \u2014 ein H\u00e4kchen ver\u00f6ffentlicht, ein Wiederholungspfeil schickt es mit dem Kommentar als \u00c4nderungsnotiz zur\u00fcck.',
+        borrow: 'Anfrage und Ergebnis am selben Ort halten. In der Woche, in der die Abnahme in ein Dokument wanderte, wurde aus einem Tag eine Woche, und niemand konnte sagen warum.' },
+      { title: 'Wir haben DoubleUs Slack-Video-Pipeline f\u00fcr deutsche Spots neu gebaut', summary: 'Dieselbe Pipeline, mit einer zweiten Sprache und einem zweiten Paar Augen.',
+        made: 'DoubleUs Slack-Pipeline bei uns im Einsatz, f\u00fcr deutsche und englische Event-Spots. Gleiche Bot-Form, andere Modelleinstellungen und eine zus\u00e4tzliche Freigabe f\u00fcr die deutsche Tonspur.',
+        constraints: 'Unsere Spots sind zweisprachig, und die deutsche Stimme muss von jemandem abgenommen werden, der Deutsch spricht. Die urspr\u00fcngliche Pipeline ging von einer Sprache und einem Pr\u00fcfer aus.',
+        solved: 'Ein Sprachflag am Slash-Befehl und eine zweite Freigabestufe: Der Render geht erst raus, wenn die englische und die deutsche Reaktion beide an der Nachricht h\u00e4ngen. Alles andere blieb genau so, wie es war.',
+        borrow: 'Die Pipeline kopieren, bevor man sie verbessert. Wir wollten die Sprachtrennung am ersten Tag mit einbauen und konnten dann nicht sagen, welche H\u00e4lfte kaputt war.' },
+      { title: 'Jede Anfrage in einen Slack-Thread statt in einen Kanal', summary: 'Die Arbeitseinheit ist der Thread, nicht die Nachricht.',
+        goal: 'Ob eine komplette Anfrage in einem einzigen Thread daf\u00fcr sorgt, dass keine Abnahme mehr verloren geht \u2014 jetzt, wo zwei Sprachen drei bis vier Nachrichten pro Spot bedeuten.',
+        method: 'Vier Wochen, in denen der Bot pro Anfrage einen Thread \u00f6ffnete und jeden Entwurf, Render und jede Freigabe darin postete. Verglichen mit den Wochen im flachen Kanal, gemessen an der Zeit bis zur Freigabe und daran, wie oft ein Render versehentlich zweimal gepr\u00fcft wurde.',
+        happened: 'Die Zeit bis zur Freigabe sank um etwa ein Drittel. Doppelte Pr\u00fcfungen gingen von Routine auf fast null zur\u00fcck, weil die ganze Geschichte einer Anfrage an einem Ort lag.',
+        learned: 'Die Arbeitseinheit ist der Thread, nicht die Nachricht. Alles zu einer Anfrage geh\u00f6rt hinein \u2014 auch die Renders, die nichts wurden. Ein Thread mit nur der guten Aufnahme ist ein Thread, dem niemand traut.' },
+      { title: 'Ein Thread pro Projekt, nicht pro Anfrage', summary: 'Der Thread \u00fcberlebt die Anfrage, solange das Projekt l\u00e4uft.',
+        made: 'Whows Thread-Idee eine Ebene h\u00f6her: ein Slack-Thread pro Projekt statt pro Anfrage, mit allen Videos zu diesem Titel darin.',
+        constraints: 'Wir machen acht bis zehn Spots f\u00fcr denselben Titel pro Saison. Threads pro Anfrage hie\u00dfen, dass derselbe Kontext \u2014 Markenregeln, Tonalit\u00e4t, fr\u00fcheres Feedback \u2014 jedes Mal neu hineinkopiert wurde.',
+        solved: 'Der Bot \u00f6ffnet einen Thread, wenn ein Projekt startet, und l\u00e4sst ihn offen. Jede neue Anfrage ist eine Nachricht darin, das Briefing wird einmal geschrieben und jeder sp\u00e4tere Render erbt es. Ein w\u00f6chentlicher \u00dcberblick postet, was rausgegangen ist.',
+        borrow: 'Den Thread an das anpassen, worum sich die Arbeit tats\u00e4chlich wiederholt. Pro Anfrage war richtig f\u00fcr Whows einzelne Spots und falsch f\u00fcr unsere Saisons.' },
     ],
   },
   tr: {
@@ -6723,6 +7095,18 @@ const TRANSLATIONS = {
       },
       reactionsCaption: 'Yanıtlar ve tepkiler. Bir sohbet — iki işi birbirine bağlamaz.',
       appliedLabel: 'Nereye yayıldı',
+      keywordsLabel: 'Anahtar kelimeler',
+      /* "Same thread", not "related": nothing here was declared to belong
+         together. Sharing a word is a weaker claim than a link, and the caption
+         is what keeps it from being read as a stronger one. */
+      sameThread: {
+        label: 'Aynı akış',
+        caption: 'Bu anahtar kelimelerden birinin altındaki diğer işler. Kimse bağlamadı — sadece aynı kelimeyi kullandılar.',
+      },
+      keywordFilter: {
+        showing: (word) => `“${word}” anahtar kelimesine sahip işler`,
+        clear: 'Yeniden hepsini göster',
+      },
       lineageCaption: 'Bunun gerçekten dönüştüğü diğer işler.',
       lineageSummary: (works, studios) => (works === 0
         ? 'Henüz başka bir işle bağlantılı değil'
@@ -6845,6 +7229,15 @@ const TRANSLATIONS = {
         heading: 'Öğrendiklerini paylaş',
         intro: 'Birkaç içten cümle yeter — ne oldu, neyi denedin ve bir sonraki stüdyoya ne söylerdin. Bu bir rapor değil. Tüm şirketin üzerine ekleyebileceği bir iplik.',
         titlePlaceholder: 'Net ve spesifik bir başlık ver',
+        /* Keywords sit under the title because that is where somebody is still
+           describing the thing, before they start explaining it. */
+        keywordsLabel: 'Anahtar kelimeler',
+        keywordsPlaceholder: 'Bu işin içinden geçen 1–3 anahtar kelime (ör. Slack pipeline)',
+        keywordsHint: 'Mümkünse var olanlardan seç — iki stüdyonun paylaştığı bir anahtar kelime, işlerini aynı sayfaya getirir.',
+        keywordsFull: 'En fazla üç. Başka eklemek için birini çıkar.',
+        keywordsExisting: 'Zaten kullanımda',
+        keywordsCreate: (word) => `“${word}”’yi yeni anahtar kelime olarak ekle`,
+        keywordsRemove: 'Bu anahtar kelimeyi kaldır',
         typeQuestion: 'Bu ne tür bir bilgi?',
         problemLabel: 'Sorun',
         problemPlaceholder: 'Ne işe yaramıyordu, ya da hangi soruyu kovalıyordun?',
@@ -6943,6 +7336,27 @@ const TRANSLATIONS = {
       { title: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', summary: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', note: 'Bu hafta günlük ödül ekranını yeniden yapıyoruz. Geri sayım sayacı aslında tasarım probleminin tamamı: fazla belirgin olursa dırdır gibi, fazla sessiz olursa kimse dönmüyor.' },
       { title: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', summary: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', note: 'Çok daha kısa bir eğitim deniyoruz. 2. gün dönüş iyi ama 3. gün düştü, yani kopuşu ortadan kaldırmak yerine sadece ötelemiş olabiliriz. Bir hafta daha izleyeceğiz.' },
       { title: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', summary: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', note: 'Tüm ikon setini bir SVG optimize ediciden geçirdik, gözle görülür fark olmadan %40 küçüldü. Zekice bir şey değil, sadece kimse yapmamıştı.' },
+      /* c18–c21 — \u00f6rnek zincir */
+      { title: 'Yapay zek\u00e2 video \u00fcretimi i\u00e7in bir Slack hattı', summary: 'Brief girer, biten video \u00e7ıkar \u2014 Slack\u2019tan hi\u00e7 \u00e7ıkmadan.',
+        made: 'Kimse bir prod\u00fcksiyon aracı a\u00e7madan brief\u2019i biten bir yapay zek\u00e2 videosuna \u00e7eviren bir Slack ak\u0131\u015f\u0131. Bot #video-requests kanal\u0131n\u0131 izliyor, brief ve referans linklerini topluyor, render\u2019\u0131 s\u0131raya al\u0131yor ve her sonucu ayn\u0131 kanala geri g\u00f6nderiyor.',
+        constraints: 'Videoyu yar\u0131 zamanl\u0131 yapan iki ki\u015fi, ayr\u0131 bir prod\u00fcksiyon paketi i\u00e7in b\u00fct\u00e7e yok ve b\u00fct\u00fcn payda\u015flar zaten g\u00fcn boyu Slack\u2019te.',
+        solved: 'Botu Slack\u2019in Events API\u2019si \u00fczerine kurduk. Bir slash komutu istek a\u00e7\u0131yor, bot senaryo taslağı \u00e7\u0131kar\u0131yor, render\u2019\u0131 s\u0131raya al\u0131yor ve sonucu ek olarak payla\u015f\u0131yor. Onay bir tepki \u2014 tik yay\u0131nl\u0131yor, tekrar oku yorumu revizyon notu olarak ekleyip geri g\u00f6nderiyor.',
+        borrow: '\u0130stek ile sonucu ayn\u0131 yerde tutun. \u0130ncelemeyi bir dok\u00fcmana ta\u015f\u0131d\u0131\u011f\u0131m\u0131z hafta s\u00fcre bir g\u00fcnden bir haftaya \u00e7\u0131kt\u0131 ve kimse nedenini s\u00f6yleyemedi.' },
+      { title: 'DoubleU\u2019nun Slack video hatt\u0131n\u0131 Almanca spotlar i\u00e7in yeniden kurduk', summary: 'Ayn\u0131 hat; bir dil ve bir \u00e7ift g\u00f6z daha.',
+        made: 'DoubleU\u2019nun Slack hatt\u0131 bizde \u00e7al\u0131\u015f\u0131yor \u2014 Almanca ve \u0130ngilizce etkinlik spotlar\u0131 i\u00e7in. Ayn\u0131 bot yap\u0131s\u0131, farkl\u0131 model ayarlar\u0131 ve Almanca ses i\u00e7in bir onay daha.',
+        constraints: 'Spotlar\u0131m\u0131z iki dilli ve Almanca sesi Almanca bilen birinin onaylamas\u0131 gerekiyor. \u00d6zg\u00fcn hat tek dil ve tek incelemeci varsay\u0131yordu.',
+        solved: 'Slash komutuna bir dil bayra\u011f\u0131 ve ikinci bir onay kap\u0131s\u0131 ekledik: render ancak hem \u0130ngilizce hem Almanca tepki mesaja d\u00fc\u015ft\u00fc\u011f\u00fcnde yay\u0131nlan\u0131yor. Geri kalan her \u015feyi oldu\u011fu gibi b\u0131rakt\u0131k.',
+        borrow: '\u0130yile\u015ftirmeden \u00f6nce hatt\u0131 aynen kopyalay\u0131n. Dil ayr\u0131m\u0131n\u0131 ilk g\u00fcn eklemeye \u00e7al\u0131\u015ft\u0131k ve sonra hangi yar\u0131n\u0131n bozuk oldu\u011funu s\u00f6yleyemedik.' },
+      { title: 'Her iste\u011fi kanal yerine tek bir Slack thread\u2019inde toplamak', summary: '\u0130\u015fin birimi mesaj de\u011fil, thread \u00e7\u0131kt\u0131.',
+        goal: '\u0130ki dil spot ba\u015f\u0131na \u00fc\u00e7 d\u00f6rt mesaj demeye ba\u015flad\u0131ktan sonra, bir iste\u011fin tamam\u0131n\u0131 tek thread\u2019de tutmak incelemelerin kaybolmas\u0131n\u0131 engeller mi.',
+        method: 'D\u00f6rt hafta boyunca bot her istek i\u00e7in bir thread a\u00e7t\u0131 ve her taslak, render ve onay onun i\u00e7ine d\u00fc\u015ft\u00fc. Onaya kadar ge\u00e7en s\u00fcre ve bir render\u2019\u0131n yanl\u0131\u015fl\u0131kla iki kez incelenme s\u0131kl\u0131\u011f\u0131 a\u00e7\u0131s\u0131ndan \u00f6nceki d\u00fcz kanal haftalar\u0131yla kar\u015f\u0131la\u015ft\u0131rd\u0131k.',
+        happened: 'Onaya kadar ge\u00e7en s\u00fcre yakla\u015f\u0131k \u00fc\u00e7te bir azald\u0131. M\u00fckerrer incelemeler rutinden neredeyse s\u0131f\u0131ra indi, \u00e7\u00fcnk\u00fc bir iste\u011fin b\u00fct\u00fcn ge\u00e7mi\u015fi tek yerdeydi.',
+        learned: '\u0130\u015fin birimi mesaj de\u011fil thread. Bir istekle ilgili her \u015fey onun i\u00e7inde olmal\u0131 \u2014 tutmayan renderlar dahil. Sadece iyi \u00e7ekimi tutan bir thread, kimsenin g\u00fcvenmedi\u011fi bir thread\u2019dir.' },
+      { title: '\u0130stek ba\u015f\u0131na de\u011fil, proje ba\u015f\u0131na tek thread', summary: 'Proje s\u00fcrd\u00fck\u00e7e thread iste\u011fi a\u015far.',
+        made: 'Whow\u2019un thread fikrini bir seviye yukar\u0131 ta\u015f\u0131d\u0131k: istek ba\u015f\u0131na de\u011fil proje ba\u015f\u0131na bir Slack thread\u2019i, o yap\u0131m\u0131n b\u00fct\u00fcn videolar\u0131 i\u00e7inde.',
+        constraints: 'Bir sezonda ayn\u0131 yap\u0131m i\u00e7in sekiz on spot yap\u0131yoruz. \u0130stek ba\u015f\u0131na thread, ayn\u0131 ba\u011flam\u0131n \u2014 marka kurallar\u0131, ton, ge\u00e7mi\u015f geri bildirim \u2014 her seferinde yeniden yap\u0131\u015ft\u0131r\u0131lmas\u0131 demekti.',
+        solved: 'Bot bir proje ba\u015flad\u0131\u011f\u0131nda thread a\u00e7\u0131yor ve a\u00e7\u0131k tutuyor. Her yeni istek onun i\u00e7inde bir mesaj, b\u00f6ylece brief bir kez yaz\u0131l\u0131yor ve sonraki her render onu devral\u0131yor. Haftal\u0131k bir \u00f6zet neyin yay\u0131nland\u0131\u011f\u0131n\u0131 payla\u015f\u0131yor.',
+        borrow: 'Thread\u2019i i\u015fin ger\u00e7ekten neyin etraf\u0131nda tekrarland\u0131\u011f\u0131na g\u00f6re se\u00e7in. \u0130stek ba\u015f\u0131na Whow\u2019un tek seferlik spotlar\u0131 i\u00e7in do\u011fruydu, bizim sezonlar\u0131m\u0131z i\u00e7in yanl\u0131\u015f.' },
     ],
   },
 };
@@ -7439,6 +7853,120 @@ const LEGACY_FIELD_MAP = {
   question: { blocked: 'problem', triedSoFar: 'tried' },
 };
 
+/* ======================================================================
+   Keywords — the loose layer
+   ----------------------------------------------------------------------
+   A keyword is a word two people happened to use for the same concern. That is
+   the whole mechanism, and its looseness is the point: relatedTo/derivedFrom
+   require somebody to declare a link, and most work that belongs together
+   never gets that far. Sharing a word costs nothing and still puts two studios
+   on the same page.
+
+   There is deliberately no master list to maintain. Every keyword that exists
+   is one somebody typed onto a card (see allKeywords), so the vocabulary is
+   whatever the studios actually use rather than whatever a taxonomy predicted
+   they would need.
+
+   Case: compared folded, displayed as first written. "Slack pipeline" and
+   "slack pipeline" are one keyword, and the spelling the reader sees is the
+   one the first person to use it chose — not the last, which would mean a
+   keyword quietly changing shape under everyone who had already used it.
+   ====================================================================== */
+const MAX_KEYWORDS_PER_CARD = 3;
+
+// The comparison key. Also collapses runs of whitespace, so "Slack  pipeline"
+// typed with a stray space is not a second keyword.
+function keywordKey(word) {
+  return String(word == null ? '' : word).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// What a keyword looks like on screen: trimmed, inner whitespace collapsed,
+// and otherwise exactly as it was typed.
+function keywordLabel(word) {
+  return String(word == null ? '' : word).trim().replace(/\s+/g, ' ');
+}
+
+function keywordsOf(card) {
+  if (!card || !Array.isArray(card.keywords)) return [];
+  const seen = {};
+  const out = [];
+  card.keywords.forEach((raw) => {
+    const key = keywordKey(raw);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    out.push(keywordLabel(raw));
+  });
+  return out.slice(0, MAX_KEYWORDS_PER_CARD);
+}
+
+/* Every keyword in use, with the spelling of whichever card used it first.
+   Oldest card first, so "first" means first in time rather than first in
+   whatever order the surfaces happen to render.
+
+   Built on demand rather than cached: a card can be shared, edited or deleted
+   at any moment, and a stale vocabulary is worse than a recomputed one — this
+   is twenty-odd cards, not twenty thousand. */
+function allKeywords() {
+  const byKey = {};
+  // daysAgoOf is smaller for newer cards, so descending is oldest first.
+  const order = ALL_CARDS.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a));
+  order.forEach((card) => {
+    keywordsOf(card).forEach((label) => {
+      const key = keywordKey(label);
+      if (!byKey[key]) byKey[key] = { key: key, label: label, count: 0 };
+      byKey[key].count += 1;
+    });
+  });
+  return Object.keys(byKey)
+    .map((k) => byKey[k])
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+// The agreed spelling for a keyword typed any which way, so a card saved with
+// "slack pipeline" still displays as "Slack pipeline".
+function canonicalKeyword(word) {
+  const key = keywordKey(word);
+  if (!key) return '';
+  const found = allKeywords().find((k) => k.key === key);
+  return found ? found.label : keywordLabel(word);
+}
+
+function cardHasKeyword(card, word) {
+  const key = keywordKey(word);
+  if (!key) return false;
+  return keywordsOf(card).some((k) => keywordKey(k) === key);
+}
+
+/* Other pieces of writing that share a keyword with this one, newest first.
+   Not "related": nobody said these belong together, they just used the same
+   word — which is a weaker claim, and an honest one. */
+function sameThreadCards(card, limit) {
+  if (!card) return [];
+  const keys = keywordsOf(card).map(keywordKey);
+  if (!keys.length) return [];
+  return ALL_CARDS
+    .filter((c) => c.id !== card.id && keywordsOf(c).some((k) => keys.indexOf(keywordKey(k)) > -1))
+    .sort((a, b) => daysAgoOf(a) - daysAgoOf(b))
+    .slice(0, limit || 4);
+}
+
+function cardsWithKeyword(word) {
+  const key = keywordKey(word);
+  if (!key) return [];
+  return ALL_CARDS.filter((c) => keywordsOf(c).some((k) => keywordKey(k) === key));
+}
+
+/* Read-only chips for a card surface. Plain spans — a poster card is already
+   one big click target and a button inside it would fight that. The detail
+   builds interactive ones of its own (see renderDetailKeywords). */
+function keywordTagsHTML(card) {
+  const words = keywordsOf(card);
+  if (!words.length) return '';
+  return '<div class="keyword-tags">'
+    + words.map((w) => `<span class="keyword-tag">${escapeHtml(w)}</span>`).join('')
+    + '</div>';
+}
+
 function fieldsFor(type) {
   return FIELD_SETS[type] || FIELD_SETS.project;
 }
@@ -7461,26 +7989,26 @@ const CARDS = [
      a Question that got answered by a Project, applied by another studio into a
      Project of their own, and still running as an Update. Every node is a piece
      of writing — a studio is never a node, only a label inside one. */
-  { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: null, /* assets/card-first-payment-reward.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c15', derivedRelation: 'solvedThrough', derivedNote: 'We stopped asking before the reward and built the reward moment first.' },
-  { id: 'c2', studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 5, timeUnit: 'day', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c3', studio: 'paxie', type: 'question', author: 'Sena Oh', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion' },
-  { id: 'c4', studio: 'doubleu', type: 'experiment', author: 'Haeun Lee', timeValue: 1, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: ['c1'], derivedFrom: null },
-  { id: 'c5', studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: null, /* assets/card-event-teaser.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'appliedFrom', derivedNote: 'Same reward moment, moved three days before the event instead of after the tutorial.' },
-  { id: 'c6', studio: 'paxie', type: 'project', author: 'Yuna Choi', timeValue: 3, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c13'], derivedFrom: null },
-  { id: 'c7', studio: 'doubleu', type: 'project', author: 'Jiho Baek', timeValue: 3, timeUnit: 'week', appliedBy: ['whow', 'paxie'], image: null, relatedTo: ['c13'], derivedFrom: null },
-  { id: 'c8', studio: 'whow', type: 'experiment', author: 'Mira Keller', timeValue: 4, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: ['c2'], derivedFrom: null },
-  { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: null, /* assets/card-reward-reveal-speed.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
-  { id: 'c10', studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', askedTo: 'whow', conversation: [
+  { id: 'c1', keywords: ['First payment', 'Reward moment'], studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: null, /* assets/card-first-payment-reward.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c15', derivedRelation: 'solvedThrough', derivedNote: 'We stopped asking before the reward and built the reward moment first.' },
+  { id: 'c2', keywords: ['Board size', 'Session length'], studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 5, timeUnit: 'day', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c3', keywords: ['Cross-promo'], studio: 'paxie', type: 'question', author: 'Sena Oh', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion' },
+  { id: 'c4', keywords: ['Push timing', 'Return rate'], studio: 'doubleu', type: 'experiment', author: 'Haeun Lee', timeValue: 1, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: ['c1'], derivedFrom: null },
+  { id: 'c5', keywords: ['Live events', 'Reward moment'], studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: null, /* assets/card-event-teaser.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'appliedFrom', derivedNote: 'Same reward moment, moved three days before the event instead of after the tutorial.' },
+  { id: 'c6', keywords: ['Onboarding'], studio: 'paxie', type: 'project', author: 'Yuna Choi', timeValue: 3, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c13'], derivedFrom: null },
+  { id: 'c7', keywords: ['Daily rewards', 'Retention'], studio: 'doubleu', type: 'project', author: 'Jiho Baek', timeValue: 3, timeUnit: 'week', appliedBy: ['whow', 'paxie'], image: null, relatedTo: ['c13'], derivedFrom: null },
+  { id: 'c8', keywords: ['Session length'], studio: 'whow', type: 'experiment', author: 'Mira Keller', timeValue: 4, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: ['c2'], derivedFrom: null },
+  { id: 'c9', keywords: ['Reward moment'], studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: null, /* assets/card-reward-reveal-speed.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
+  { id: 'c10', keywords: ['Responsible gaming'], studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', askedTo: 'whow', conversation: [
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 1, timeUnit: 'month' },
     { author: 'Lena Fischer', studio: 'whow', timeValue: 3, timeUnit: 'week' },
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 3, timeUnit: 'week' },
     { author: 'Mira Keller', studio: 'whow', timeValue: 2, timeUnit: 'week' },
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 2, timeUnit: 'week' },
   ] },
-  { id: 'c11', studio: 'whow', type: 'project', author: 'Lena Fischer', timeValue: 5, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c12', studio: 'paxie', type: 'experiment', author: 'Yuna Choi', timeValue: 6, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c11'], derivedFrom: null },
-  { id: 'c13', studio: 'doubleu', type: 'experiment', author: 'Minji Yoon', timeValue: 2, timeUnit: 'month', appliedBy: ['whow', 'paxie'], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c14', studio: 'whow', type: 'question', author: 'Tobias Lang', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion', askedTo: 'doubleu', conversation: [
+  { id: 'c11', keywords: ['Localisation', 'Live events'], studio: 'whow', type: 'project', author: 'Lena Fischer', timeValue: 5, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c12', keywords: ['Trust'], studio: 'paxie', type: 'experiment', author: 'Yuna Choi', timeValue: 6, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c11'], derivedFrom: null },
+  { id: 'c13', keywords: ['Onboarding', 'Retention'], studio: 'doubleu', type: 'experiment', author: 'Minji Yoon', timeValue: 2, timeUnit: 'month', appliedBy: ['whow', 'paxie'], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c14', keywords: ['Live events'], studio: 'whow', type: 'question', author: 'Tobias Lang', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion', askedTo: 'doubleu', conversation: [
     { author: 'Tobias Lang', studio: 'whow', timeValue: 4, timeUnit: 'day' },
     { author: 'Jonas Weber', studio: 'whow', timeValue: 3, timeUnit: 'day' },
     { author: 'Doyoon Kim', studio: 'doubleu', timeValue: 3, timeUnit: 'day' },
@@ -7488,15 +8016,34 @@ const CARDS = [
     { author: 'Haeun Lee', studio: 'doubleu', timeValue: 1, timeUnit: 'day' },
     { author: 'Jonas Weber', studio: 'whow', timeValue: 1, timeUnit: 'day' },
   ] },
-  { id: 'c15', studio: 'doubleu', type: 'question', author: 'Yerin Cho', timeValue: 2, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'resolved' },
-  { id: 'c16', studio: 'whow', type: 'project', author: 'Whow Games', timeValue: 6, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c17', studio: 'doubleu', type: 'project', author: 'DoubleU Games', timeValue: 2, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c15', keywords: ['Push timing', 'First payment'], studio: 'doubleu', type: 'question', author: 'Yerin Cho', timeValue: 2, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'resolved' },
+  { id: 'c16', keywords: ['Studio drop'], studio: 'whow', type: 'project', author: 'Whow Games', timeValue: 6, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c17', keywords: ['Creative relay'], studio: 'doubleu', type: 'project', author: 'DoubleU Games', timeValue: 2, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null },
   // Updates. Deliberately unfinished-sounding: the strip only works as
   // permission to post if what is already in it looks like something you could
   // have written in a minute.
-  { id: 'u1', studio: 'whow', type: 'update', author: 'Bengt Larsson', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c5', derivedRelation: 'continuedFrom', derivedNote: 'The teaser worked; the countdown on the reward screen is the part still fighting us.' },
-  { id: 'u2', studio: 'doubleu', type: 'update', author: 'Haeun Lee', timeValue: 2, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'u3', studio: 'whow', type: 'update', author: 'Mira Keller', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'u1', keywords: ['Daily rewards'], studio: 'whow', type: 'update', author: 'Bengt Larsson', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c5', derivedRelation: 'continuedFrom', derivedNote: 'The teaser worked; the countdown on the reward screen is the part still fighting us.' },
+  { id: 'u2', keywords: ['Onboarding'], studio: 'doubleu', type: 'update', author: 'Haeun Lee', timeValue: 2, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'u3', keywords: ['Art pipeline'], studio: 'whow', type: 'update', author: 'Mira Keller', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
+
+  /* c18 → c19 → c20 → c21: one working practice crossing between the two
+     studios twice, and changing shape as it goes. Both layers are here on
+     purpose, because they say different things:
+
+       the keywords  — "Slack pipeline" on the first three, "Thread" on the
+                       last two. Nobody declared these related; they share a
+                       word, which is all the same-thread layer ever needs.
+       the relations — appliedFrom, then continuedFrom twice. Someone pressed
+                       a button to say each of these, and they are directed:
+                       c19 came out of c18, not merely near it.
+
+     Appended rather than inserted: staticIndex is this array's position, so
+     anything added in the middle would silently re-point every later card at
+     the wrong translated copy. */
+  { id: 'c18', keywords: ['Slack pipeline'], studio: 'doubleu', type: 'project', author: 'Minji Yoon', timeValue: 3, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null },
+  { id: 'c19', keywords: ['Slack pipeline'], studio: 'whow', type: 'project', author: 'Mira Keller', timeValue: 2, timeUnit: 'week', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c18', derivedRelation: 'appliedFrom', derivedNote: 'Same bot, same channel — a language flag on the request and a second pair of eyes on the German voice track.' },
+  { id: 'c20', keywords: ['Slack pipeline', 'Thread'], studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 1, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: 'c19', derivedRelation: 'continuedFrom', derivedNote: 'Two languages meant four messages per spot, so we tried keeping each request in one thread.' },
+  { id: 'c21', keywords: ['Thread'], studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c20', derivedRelation: 'continuedFrom', derivedNote: 'Took the thread-as-unit idea and moved it up a level, from per request to per project.' },
 ];
 
 /* ======================================================================
@@ -7910,6 +8457,10 @@ let searchQuery = '';
 // the two above it's Browse + Questions only — Discover stays "what's newest
 // across everyone", which is the one thing it's for.
 let selectedAuthor = null;
+/* Set by clicking a keyword in a detail. Browse + Questions only, like the two
+   above — Discover stays "what is newest across everyone", which is the one
+   thing it is for. */
+let selectedKeyword = null;
 let isDesignersMode = false;
 
 // Stagger timing for the menu items — open reads as a deliberate, weighty
@@ -8049,6 +8600,10 @@ function closeMenuOverlay() {
 
 function renderStudioChips() {
   const wrap = document.getElementById('studioFilter');
+  // Idempotent, because it is no longer called only once at startup:
+  // openKeywordFilter re-renders the dock when it resets the other filters, and
+  // appending on a second call put two full sets of studio chips side by side.
+  wrap.innerHTML = '';
   const items = [
     { key: 'all', name: t().filterAll, color: null },
     ...Object.entries(STUDIOS).filter(([, s]) => s.enabled).map(([key, s]) => ({ key, name: s.name, color: s.color })),
@@ -8233,6 +8788,7 @@ function refreshAllText() {
   renderDesigners();
   refreshDesignerEditorText();
   renderAuthorFilterChip();
+  renderKeywordFilterChip();
   refreshShareText();
 
   const closeBtn = document.getElementById('expandedClose');
@@ -8376,6 +8932,7 @@ function renderDiscover() {
           <span class="card-type">${t().types[data.type]}</span>
         </div>
         <div class="card-title"></div>
+        ${keywordTagsHTML(data)}
         ${exchangeTraceHTML(data)}
         ${hint ? `<div class="card-lineage-hint">${LINEAGE_ARROW_ICON}${hint}</div>` : ''}
         ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
@@ -8494,6 +9051,7 @@ function buildPosterCard(data, index) {
         <span class="card-type">${t().types[data.type]}</span>
       </div>
       <div class="card-title">${text.title}</div>
+      ${keywordTagsHTML(data)}
       ${exchangeTraceHTML(data)}
       ${ownCardStatusHTML(data)}
       ${hint ? `<div class="card-lineage-hint">${LINEAGE_ARROW_ICON}${hint}</div>` : ''}
@@ -8555,9 +9113,20 @@ function applyBrowseFilters() {
     const text = cardText(data);
     const matchesStudio = selectedStudio === 'all' || data.studio === selectedStudio;
     const matchesType = selectedTypeFilter === 'all' || data.type === selectedTypeFilter;
-    const matchesSearch = !q || text.title.toLowerCase().includes(q) || text.problem.toLowerCase().includes(q);
+    /* Every text field this card actually has, plus its keywords. It used to
+       read text.problem directly, which is undefined on anything written in the
+       new field sets — searching with a shared card on screen threw on
+       undefined.toLowerCase() and silently stopped filtering. */
+    const haystack = [text.title, text.summary]
+      .concat(fieldsFor(data.type).map((key) => bodyValue(text, data.type, key)))
+      .concat(keywordsOf(data))
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const matchesSearch = !q || haystack.includes(q);
     const matchesAuthor = !selectedAuthor || data.author === selectedAuthor;
-    const visible = matchesStudio && matchesType && matchesSearch && matchesAuthor;
+    const matchesKeyword = !selectedKeyword || cardHasKeyword(data, selectedKeyword);
+    const visible = matchesStudio && matchesType && matchesSearch && matchesAuthor && matchesKeyword;
     el.classList.toggle('is-hidden', !visible);
     if (visible) visibleCount++;
   });
@@ -8595,6 +9164,7 @@ function questionIndices() {
     .map((_, i) => i)
     .filter((i) => isOpenQuestion(ALL_CARDS[i]))
     .filter((i) => !selectedAuthor || ALL_CARDS[i].author === selectedAuthor)
+    .filter((i) => !selectedKeyword || cardHasKeyword(ALL_CARDS[i], selectedKeyword))
     .sort((a, b) => {
       const rank = questionSortRank(ALL_CARDS[a]) - questionSortRank(ALL_CARDS[b]);
       if (rank !== 0) return rank;
@@ -8636,6 +9206,7 @@ function buildQuestionCard(data, index) {
         <span class="question-card-time">${timeText}</span>
       </div>
       <div class="question-card-title">${text.title}</div>
+      ${keywordTagsHTML(data)}
       ${exchangeTraceHTML(data)}
       ${askedToBadgeHTML(data)}
       ${activityHint ? `<div class="question-card-activity">${escapeHtml(activityHint)}</div>` : ''}
@@ -9404,6 +9975,51 @@ function renderAuthorFilterChip() {
   });
 }
 
+/* Clicking a keyword in a detail closes the detail and drops you onto floor 2
+   filtered to that word — the same move picking a person in Designers makes
+   (see focusDesigner). A list inside the detail would have been less work, but
+   it would also have been a dead end: floor 2 is where reading several pieces
+   next to each other already works. */
+function openKeywordFilter(word) {
+  const label = canonicalKeyword(word);
+  if (!label) return;
+  selectedKeyword = label;
+  // A keyword and a person are two different questions; asking both at once
+  // mostly returns nothing and reads as a bug.
+  selectedAuthor = null;
+  selectedStudio = 'all';
+  selectedTypeFilter = 'all';
+  searchQuery = '';
+  const search = document.getElementById('searchInput');
+  if (search) search.value = '';
+  renderStudioChips();
+  updateTypeFilterButtonUI();
+  renderAuthorFilterChip();
+  renderKeywordFilterChip();
+  applyBrowseFilters();
+  renderQuestions();
+  if (isCardExpanded) closeCard();
+  setTimeout(() => goToFloor(1), CONFIG.MODE_SWAP_MS + 40);
+}
+
+function clearKeywordFilter() {
+  selectedKeyword = null;
+  renderKeywordFilterChip();
+  applyBrowseFilters();
+  renderQuestions();
+}
+
+function renderKeywordFilterChip() {
+  ['keywordChipBrowse', 'keywordChipQuestions'].forEach((chipId) => {
+    const chip = document.getElementById(chipId);
+    if (!chip) return;
+    if (!selectedKeyword) { chip.style.display = 'none'; return; }
+    chip.style.display = '';
+    chip.querySelector('.keyword-filter-label').textContent = t().keywordFilter.showing(selectedKeyword);
+    chip.title = t().keywordFilter.clear;
+  });
+}
+
 function setAuthorFilter(name) {
   selectedAuthor = name;
   renderAuthorFilterChip();
@@ -9426,6 +10042,10 @@ function initDesigners() {
   document.getElementById('designersCloseBtn').addEventListener('click', () => exitDesignersMode());
   document.getElementById('studioPrevBtn').addEventListener('click', () => goToRosterStudio(rosterStudioIndex - 1));
   document.getElementById('studioNextBtn').addEventListener('click', () => goToRosterStudio(rosterStudioIndex + 1));
+  ['keywordChipBrowse', 'keywordChipQuestions'].forEach((id) => {
+    const chip = document.getElementById(id);
+    if (chip) chip.addEventListener('click', clearKeywordFilter);
+  });
   document.getElementById('rosterEditToggle').addEventListener('click', toggleRosterEditMode);
   window.addEventListener('resize', () => sizeAllRosters(false));
 
@@ -10241,6 +10861,7 @@ function populateExpanded(data, index) {
   document.getElementById('labelApplied').textContent = t().appliedLabel;
   document.getElementById('captionLineage').textContent = t().lineageCaption;
   document.getElementById('appliedSummary').textContent = lineageSummaryText(data);
+  renderSameThreadSection(data);
   renderLineageStrip(data);
   renderLineageList(data);
   renderLangPendingBadge(document.getElementById('expandedLangBadge'), data);
@@ -10278,6 +10899,63 @@ function populateExpanded(data, index) {
   deleteRow.style.display = editable ? 'flex' : 'none';
   deleteRow.dataset.cardId = editable ? data.id : '';
   document.getElementById('deleteCardBtn').style.display = data.isShared ? 'flex' : 'none';
+}
+
+/* The detail's chips, and the loose thread under them. One function because
+   they are one block on screen and share the same "is there anything here at
+   all?" question — a keyword nobody else has used is still worth showing (it is
+   what this work is about), but it earns no list under it. */
+function renderSameThreadSection(data) {
+  const section = document.getElementById('sameThreadSection');
+  const tagWrap = document.getElementById('detailKeywords');
+  const list = document.getElementById('sameThreadList');
+  if (!section) return;
+
+  const words = keywordsOf(data);
+  if (!words.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  document.getElementById('labelSameThread').textContent = t().sameThread.label;
+  document.getElementById('captionSameThread').textContent = t().sameThread.caption;
+
+  // Chips first: a button each, because from a detail a keyword is a door.
+  tagWrap.innerHTML = '';
+  words.forEach((word) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'keyword-tag';
+    btn.textContent = word;
+    btn.dataset.keyword = word;
+    btn.addEventListener('click', () => openKeywordFilter(word));
+    tagWrap.appendChild(btn);
+  });
+
+  const others = sameThreadCards(data, 4);
+  list.innerHTML = '';
+  others.forEach((card) => {
+    const studio = STUDIOS[card.studio];
+    const shared = keywordsOf(card).find((k) => words.some((w) => keywordKey(w) === keywordKey(k)));
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'same-thread-item';
+    row.innerHTML = `
+      <span class="same-thread-dot" style="background:${studio ? studio.color : 'var(--ink)'}"></span>
+      <span class="same-thread-text">
+        <span class="same-thread-title"></span>
+        <span class="same-thread-meta"></span>
+      </span>
+    `;
+    row.querySelector('.same-thread-title').textContent = truncateForSummary(cardText(card).title || '', 68);
+    const meta = row.querySelector('.same-thread-meta');
+    const when = card.justNow ? t().justNow : formatRelativeTime(currentLang, card.timeValue, card.timeUnit);
+    meta.textContent = (studio ? studio.name : '') + ' · ' + when + ' · ';
+    const word = document.createElement('span');
+    word.className = 'same-thread-word';
+    word.textContent = shared || '';
+    meta.appendChild(word);
+    row.addEventListener('click', () => openCardById(card.id));
+    list.appendChild(row);
+  });
 }
 
 /* One card's body, as the headings its own type asks for. textContent on the
@@ -12806,6 +13484,219 @@ function renderAskedToPicker() {
   });
 }
 
+/* ======================================================================
+   Keywords, in the composer
+   ----------------------------------------------------------------------
+   Free text with suggestions, not a fixed vocabulary. Typing filters what
+   already exists (substring, case-folded) and offers to create what does not,
+   so the cheap path is reuse and the possible path is invention — which is the
+   right way round for a vocabulary that has to grow without a librarian.
+
+   Reuse is nudged rather than enforced: picking an existing keyword adopts its
+   spelling, so "slack pipeline" typed into the box becomes "Slack pipeline" on
+   the card and the two never split into a pair of near-identical threads.
+   ====================================================================== */
+let composeKeywords = [];       // display labels, in the order they were added
+let keywordSuggestionIndex = -1; // which suggestion the arrow keys are on
+
+function composeKeywordsFull() {
+  return composeKeywords.length >= MAX_KEYWORDS_PER_CARD;
+}
+
+function hasComposeKeyword(word) {
+  const key = keywordKey(word);
+  return composeKeywords.some((k) => keywordKey(k) === key);
+}
+
+/* Adopts the existing spelling when there is one — see canonicalKeyword. The
+   word the reader typed only wins if nobody has used it before. */
+function addComposeKeyword(word) {
+  const label = canonicalKeyword(word);
+  if (!label || hasComposeKeyword(label) || composeKeywordsFull()) return false;
+  composeKeywords.push(label);
+  renderComposeKeywords();
+  refreshPreview();
+  return true;
+}
+
+function removeComposeKeyword(word) {
+  const key = keywordKey(word);
+  composeKeywords = composeKeywords.filter((k) => keywordKey(k) !== key);
+  renderComposeKeywords();
+  refreshPreview();
+}
+
+const KEYWORD_REMOVE_ICON = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
+
+function renderComposeKeywords() {
+  const chips = document.getElementById('keywordChips');
+  const wrap = document.getElementById('keywordInputWrap');
+  const input = document.getElementById('keywordInput');
+  const hint = document.getElementById('keywordHint');
+  if (!chips) return;
+
+  chips.innerHTML = '';
+  composeKeywords.forEach((label) => {
+    const chip = document.createElement('span');
+    chip.className = 'keyword-chip';
+    const text = document.createElement('span');
+    text.textContent = label;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'keyword-chip-remove';
+    remove.setAttribute('aria-label', t().share.keywordsRemove + ': ' + label);
+    remove.title = t().share.keywordsRemove;
+    remove.innerHTML = KEYWORD_REMOVE_ICON;
+    remove.addEventListener('click', () => removeComposeKeyword(label));
+    chip.appendChild(text);
+    chip.appendChild(remove);
+    chips.appendChild(chip);
+  });
+
+  const full = composeKeywordsFull();
+  wrap.classList.toggle('is-full', full);
+  // The placeholder is the field's whole instruction, so it only belongs there
+  // while the field is empty — next to two chips it reads as a third one.
+  input.placeholder = composeKeywords.length ? '' : t().share.keywordsPlaceholder;
+  hint.textContent = full ? t().share.keywordsFull : t().share.keywordsHint;
+  if (full) closeKeywordSuggestions();
+}
+
+function closeKeywordSuggestions() {
+  const box = document.getElementById('keywordSuggestions');
+  if (!box) return;
+  box.classList.remove('is-open');
+  box.innerHTML = '';
+  keywordSuggestionIndex = -1;
+  const input = document.getElementById('keywordInput');
+  if (input) input.setAttribute('aria-expanded', 'false');
+}
+
+/* What the box offers for what has been typed: existing keywords whose label
+   contains the query, then — unless the query already is one of them — the
+   option to create it. An empty query still lists the vocabulary, because
+   "what do we already call this?" is the question the field is really asking. */
+function keywordSuggestionsFor(query) {
+  const q = keywordKey(query);
+  const taken = composeKeywords.map(keywordKey);
+  const existing = allKeywords()
+    .filter((k) => taken.indexOf(k.key) < 0)
+    .filter((k) => !q || k.key.indexOf(q) > -1)
+    .slice(0, 8)
+    .map((k) => ({ kind: 'existing', label: k.label, count: k.count }));
+  const exact = q && allKeywords().some((k) => k.key === q);
+  const out = existing.slice();
+  if (q && !exact && taken.indexOf(q) < 0) {
+    out.push({ kind: 'new', label: keywordLabel(query) });
+  }
+  return out;
+}
+
+function renderKeywordSuggestions() {
+  const box = document.getElementById('keywordSuggestions');
+  const input = document.getElementById('keywordInput');
+  if (!box || !input) return;
+  if (composeKeywordsFull()) { closeKeywordSuggestions(); return; }
+
+  const items = keywordSuggestionsFor(input.value);
+  box.innerHTML = '';
+  if (!items.length) { closeKeywordSuggestions(); return; }
+
+  const existingCount = items.filter((i) => i.kind === 'existing').length;
+  if (existingCount) {
+    const head = document.createElement('div');
+    head.className = 'keyword-suggestion-head';
+    head.textContent = t().share.keywordsExisting;
+    box.appendChild(head);
+  }
+
+  items.forEach((item, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'keyword-suggestion' + (item.kind === 'new' ? ' is-new' : '')
+      + (i === keywordSuggestionIndex ? ' is-active' : '');
+    btn.setAttribute('role', 'option');
+    btn.dataset.keyword = item.label;
+    const label = document.createElement('span');
+    label.textContent = item.kind === 'new' ? t().share.keywordsCreate(item.label) : item.label;
+    btn.appendChild(label);
+    if (item.kind === 'existing') {
+      const count = document.createElement('span');
+      count.className = 'keyword-suggestion-count';
+      count.textContent = item.count;
+      btn.appendChild(count);
+    }
+    // mousedown, not click: the input's blur would close the box before a
+    // click ever landed on it.
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      commitKeywordFromInput(item.label);
+    });
+    box.appendChild(btn);
+  });
+
+  box.classList.add('is-open');
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function commitKeywordFromInput(word) {
+  const input = document.getElementById('keywordInput');
+  const value = word !== undefined ? word : input.value;
+  if (!keywordKey(value)) return;
+  addComposeKeyword(value);
+  input.value = '';
+  keywordSuggestionIndex = -1;
+  if (composeKeywordsFull()) { closeKeywordSuggestions(); input.blur(); }
+  else { renderKeywordSuggestions(); input.focus(); }
+}
+
+function initKeywordInput() {
+  const input = document.getElementById('keywordInput');
+  const wrap = document.getElementById('keywordInputWrap');
+  if (!input) return;
+
+  input.addEventListener('input', () => { keywordSuggestionIndex = -1; renderKeywordSuggestions(); });
+  input.addEventListener('focus', renderKeywordSuggestions);
+  // A tick, so a mousedown on a suggestion is handled before the box goes.
+  input.addEventListener('blur', () => setTimeout(closeKeywordSuggestions, 120));
+
+  input.addEventListener('keydown', (e) => {
+    const box = document.getElementById('keywordSuggestions');
+    const options = Array.from(box.querySelectorAll('.keyword-suggestion'));
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!options.length) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      keywordSuggestionIndex = (keywordSuggestionIndex + step + options.length) % options.length;
+      renderKeywordSuggestions();
+      return;
+    }
+    // Enter takes the highlighted suggestion when there is one, and otherwise
+    // whatever has been typed. Comma is the other way people end a tag.
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const picked = keywordSuggestionIndex > -1 && options[keywordSuggestionIndex];
+      commitKeywordFromInput(picked ? picked.dataset.keyword : undefined);
+      return;
+    }
+    if (e.key === 'Escape') { closeKeywordSuggestions(); return; }
+    // Backspace on an empty box takes the last chip — the same gesture every
+    // tag field has, and the reason the chips live inside the input's border.
+    if (e.key === 'Backspace' && !input.value && composeKeywords.length) {
+      removeComposeKeyword(composeKeywords[composeKeywords.length - 1]);
+    }
+  });
+
+  // Clicking the padding of the box is clicking the field.
+  wrap.addEventListener('mousedown', (e) => {
+    if (e.target === wrap || e.target.id === 'keywordChips') {
+      e.preventDefault();
+      if (!composeKeywordsFull()) input.focus();
+    }
+  });
+}
+
 /* ---- how much the form asks for up front ----
    Every type's full question set is in FIELD_SETS, and every one of those
    questions is worth answering. What was wrong was showing all of them at once:
@@ -13516,6 +14407,10 @@ function resetComposeForm() {
 
   attachedFiles = [];
   renderAttachmentList();
+  composeKeywords = [];
+  document.getElementById('keywordInput').value = '';
+  closeKeywordSuggestions();
+  renderComposeKeywords();
   setPreviewMode('banner'); // every compose opens on the shape floor 1 will use
   setPreviewFocus(fieldsFor(selectedType)[0]);
   refreshPreview();
@@ -13574,6 +14469,12 @@ function prefillComposeFrom(card) {
 
   attachedFiles = (card.attachments || []).slice();
   renderAttachmentList();
+  // keywordsOf, not card.keywords: an older stored card may hold duplicates or
+  // untrimmed strings, and the editor should show what the card displays.
+  composeKeywords = keywordsOf(card);
+  document.getElementById('keywordInput').value = '';
+  closeKeywordSuggestions();
+  renderComposeKeywords();
   setPreviewFocus(fieldsFor(selectedType)[0]);
   refreshPreview();
 
@@ -13630,6 +14531,7 @@ function commitCardEdit() {
   card.imageName = selectedImageName;
   card.imageFocal = Object.assign({}, selectedImageFocal);
   card.attachments = attachedFiles.slice();
+  card.keywords = composeKeywords.slice();
   card.sourceLang = currentLang;
   // The moment it last changed, so a reader can tell a correction from the
   // original — see renderEditedStamp.
@@ -13655,6 +14557,7 @@ function commitSeedCardEdit(id, title, body) {
     imageName: selectedImageName,
     imageFocal: Object.assign({}, selectedImageFocal),
     attachments: attachedFiles.slice(),
+    keywords: composeKeywords.slice(),
     sourceLang: currentLang,
     editedAt: nowStamp(),
     text: Object.assign({ title, summary: composeSummary(title, body) }, body),
@@ -13748,6 +14651,7 @@ function buildSharedCardEntry() {
     imageName: selectedImageName,
     imageFocal: Object.assign({}, selectedImageFocal),
     attachments: attachedFiles.slice(),
+    keywords: composeKeywords.slice(),
     link: selectedType === 'update' ? readComposeLink() : undefined,
     text: Object.assign({ title, summary: composeSummary(title, body) }, body),
   };
@@ -14346,6 +15250,10 @@ function refreshShareText() {
   // textContent into it (even the empty string) deletes the mark.
   const removeBtn = document.getElementById('uploadRemoveBtn');
   if (removeBtn) removeBtn.setAttribute('aria-label', s.imageRemove);
+  setText('keywordsLabel', s.keywordsLabel);
+  // Re-renders rather than just relabelling: the chips' own remove buttons
+  // carry a translated aria-label and title too.
+  renderComposeKeywords();
   setText('attachmentsFieldLabel', s.attachmentsLabel);
   setText('attachmentsOptionalLabel', s.imageOptional);
   setText('attachmentHintLabel', s.attachmentsHint);
@@ -14588,6 +15496,7 @@ safeInit('resolved next steps', initResolvedNext);
 safeInit('exchange trace links', initExchangeTraceLinks);
 safeInit('type picker', renderTypePicker);
 safeInit('upload stub', initUploadStub);
+safeInit('keyword input', initKeywordInput);
 safeInit('attachment upload', initAttachmentUpload);
 safeInit('submit gate', initSubmitGate);
 safeInit('preview drag', initPreviewImageDrag);
