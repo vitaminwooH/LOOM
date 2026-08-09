@@ -3220,6 +3220,333 @@
   }
 
   /* ======================================================================
+     Threads — the whole weave on one white screen.
+
+     Same world as the feed, not the lobby: the lobby's dark sky is the place
+     you choose a studio from, and this is a page about the work itself. So it
+     is paper, and the only colour on it is the two studio colours.
+
+     SVG rather than canvas. Twenty nodes and fifty marks is nowhere near
+     needing a canvas, and in SVG the hover states are CSS, the labels are real
+     text at real weights, and a node is a DOM node you can put a listener on.
+     ====================================================================== */
+  .threads-viewport {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    transition: opacity 0.42s ease;
+  }
+  .threads-viewport.mode-fade-out { opacity: 0; }
+
+  /* The heading is given room and then gets out of the way: this page is one
+     image, and a title competing with it would make it a slide. */
+  .threads-head {
+    flex: 0 0 auto;
+    padding: clamp(44px, 6vh, 82px) 56px clamp(2px, 0.8vh, 12px);
+    text-align: center;
+  }
+  .threads-head h1 {
+    margin: 0;
+    /* Cormorant Garamond, not Newsreader: Cormorant is the serif this build
+       actually loads, and it is the voice floor 3's questions are set in. */
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(36px, 3.6vw, 58px);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    line-height: 1.05;
+    color: var(--ink);
+  }
+  .threads-head p {
+    margin: clamp(8px, 1.2vh, 15px) 0 0;
+    font-size: clamp(12.5px, 0.95vw, 14.5px);
+    letter-spacing: 0.015em;
+    color: var(--ink-faint);
+  }
+
+  .threads-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  .threads-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+  /* ---------- one thread ----------
+     Thicker than a hairline and coloured along its length, because the page is
+     about weaving and a 1px grey line is a diagram. Each thread carries a
+     gradient from the studio colour at one end to the studio colour at the
+     other (see linkGradientFor), so a thread between the two studios is
+     literally blue running into orange — the page's argument drawn rather than
+     annotated. */
+  .threads-link {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    opacity: 0.5;
+    transition: opacity 0.42s ease, stroke-width 0.42s ease;
+  }
+  /* Between the studios rather than inside one: the reason the page exists, so
+     it is the one thing drawn at full strength. */
+  .threads-link.is-crossing { stroke-width: 2.7; opacity: 0.92; }
+
+  /* ---------- one keyword ----------
+     The word IS the node. No plate, no ring, no chip — a circle with a label
+     hanging off it was the single thing that made this read as a chart. What
+     sits behind the word is a bloom of the colour of whoever is working on it,
+     and nothing else. */
+  .threads-node { cursor: pointer; }
+  .threads-glow { pointer-events: none; }
+  /* transparent fill still receives events; `visible` would not be enough on a
+     shape with no paint */
+  .threads-hit { pointer-events: all; }
+  .threads-node-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    fill: var(--ink);
+    text-anchor: middle;
+    pointer-events: none;
+    /* Size is set per node in buildThreadsGraph, across a range narrow enough
+       that a busy keyword reads as busy and never as senior. */
+  }
+  .threads-node-count {
+    font-family: 'Inter', sans-serif;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    fill: var(--ink-faint);
+    text-anchor: middle;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.34s ease;
+  }
+  .threads-node:hover .threads-node-count,
+  .threads-node.is-open .threads-node-count { opacity: 1; }
+  /* The bloom breathes a little under the pointer — the only hover flourish on
+     the page, and it is the same gesture the whole map is already making. */
+  .threads-glow-shape { transition: opacity 0.42s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+  .threads-node:hover .threads-glow-shape,
+  .threads-node.is-open .threads-glow-shape { opacity: 1; transform: scale(1.09); }
+
+  /* ---------- one piece of writing ----------
+     A mark per card, ringed around the word in its studio's colour, each with
+     its own soft halo so the ring reads as light rather than as tick marks. */
+  .threads-dot { cursor: pointer; transition: r 0.3s ease; }
+  .threads-dot-halo { pointer-events: none; }
+  .threads-node:hover .threads-dot { r: 4.4; }
+
+  /* ---------- focus ----------
+     Hovering a word asks "what does this touch?", so everything that is not an
+     answer steps back — dimmer and very slightly smaller, which reads as depth
+     rather than as being switched off. Three nested groups, one transform each:
+     drift writes to the outer, arrival to the middle, this to the inner, and
+     none of them can overwrite another. */
+  .threads-recede { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s ease; }
+  .threads-svg.is-focusing .threads-node:not(.is-lit) .threads-recede { opacity: 0.17; transform: scale(0.93); }
+  .threads-svg.is-focusing .threads-link:not(.is-lit) { opacity: 0.08; }
+  .threads-svg.is-focusing .threads-link.is-lit { opacity: 1; }
+
+  /* ---------- arrival ----------
+     The words rise on a stagger, then the threads are drawn between them left
+     to right — a dashoffset the length of each path, released in order of where
+     the thread starts. It should read as weaving, not as a map loading. */
+  .threads-rise { opacity: 0; transform: translateY(16px) scale(0.93); }
+  .threads-rise.is-in {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.7s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .threads-link.is-drawing { transition: stroke-dashoffset 1.15s cubic-bezier(0.33, 0, 0.2, 1); }
+  @media (prefers-reduced-motion: reduce) {
+    .threads-rise { opacity: 1; transform: none; }
+    .threads-link { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+  }
+
+  .threads-tip {
+    position: absolute;
+    z-index: 4;
+    max-width: 300px;
+    padding: 7px 11px;
+    border-radius: 9px;
+    background: rgba(20, 20, 20, 0.92);
+    color: #fff;
+    font-size: 11.5px;
+    line-height: 1.4;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity 0.18s ease;
+  }
+  .threads-tip.is-on { opacity: 1; }
+  .threads-tip-studio { opacity: 0.62; }
+
+  .threads-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 0 40px;
+  }
+  .threads-empty-line {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(19px, 1.9vw, 27px);
+    color: var(--ink);
+  }
+  .threads-empty-sub { margin: 0; font-size: 13px; color: var(--ink-faint); max-width: 34ch; }
+
+  /* ---------- the story of one keyword ---------- */
+  .threads-story {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(410px, 34vw);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    /* The notification bell is fixed chrome on every surface and sits exactly
+       where this panel's own close button wanted to be. Starting the head below
+       it is cheaper than moving a control that is in the same place everywhere
+       else in the app — and the extra air suits the serif anyway. */
+    padding: clamp(64px, 8vh, 84px) clamp(24px, 2.2vw, 34px) 26px;
+    border-left: 1px solid var(--border);
+    background: rgba(252, 251, 248, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.36s ease;
+  }
+  .threads-story.is-open { transform: none; opacity: 1; pointer-events: auto; }
+
+  .threads-story-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .threads-story-word {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(24px, 2.2vw, 33px);
+    font-weight: 600;
+    line-height: 1.14;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+  }
+  .threads-story-meta { margin-top: 5px; font-size: 11.5px; color: var(--ink-faint); }
+  .threads-story-close {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .threads-story-close:hover { background: rgba(20, 20, 20, 0.06); color: var(--ink); }
+  .threads-story-close svg { width: 13px; height: 13px; }
+  .threads-story-lead {
+    margin: 16px 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+  }
+  .threads-story-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0 -10px;
+    padding: 8px 10px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* The rail is the thread, drawn down the left of the list: the panel is a
+     chain in time, and the numbered order is the whole point of it. */
+  .threads-story-item {
+    position: relative;
+    display: block;
+    width: 100%;
+    /* the rail runs the height of the list, so the rows sit tighter than they
+       would as separate cards — this is one chain, not five entries */
+    text-align: left;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 11px 10px 13px 26px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.2s ease;
+  }
+  .threads-story-item:hover { background: rgba(20, 20, 20, 0.045); }
+  .threads-story-item::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 17px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--item-studio, var(--ink));
+  }
+  /* every item but the last carries the line down to the next */
+  .threads-story-item::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 26px;
+    bottom: -2px;
+    width: 1px;
+    background: rgba(20, 20, 20, 0.13);
+  }
+  .threads-story-item:last-child::after { display: none; }
+  .threads-story-title { font-size: 13.5px; font-weight: 550; line-height: 1.4; color: var(--ink); letter-spacing: -0.002em; }
+  .threads-story-sub { margin-top: 3px; font-size: 11px; color: var(--ink-faint); }
+  /* The author's own line, in the serif the rest of their writing is set in —
+     it is a quotation inside a list, and the switch of voice is what says so. */
+  .threads-story-line {
+    margin-top: 6px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ink-dim);
+  }
+  /* A relation the author declared, as opposed to the shared word that put the
+     row in this list at all. Worth marking because it is the stronger claim. */
+  .threads-story-rel {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.055);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 900px) {
+    /* the panel becomes a sheet across the foot rather than a column */
+    .threads-story {
+      top: auto;
+      width: auto;
+      left: 0;
+      right: 0;
+      max-height: 58%;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      transform: translateY(100%);
+    }
+  }
+
+  /* ======================================================================
      Designers — who is weaving this, one studio per screen.
 
      Deliberately a roster and not a scoreboard: nothing on a card can be
@@ -4906,6 +5233,61 @@
        A sibling surface of the feed rather than a fourth floor — it isn't
        knowledge, it's the people behind it, and it shouldn't sit in the same
        vertical sequence as the three knowledge tiers. ---------- -->
+  <!-- ---------- Threads: the lookout ----------
+       One screen that shows the whole weave at once. Deliberately toolless —
+       no search, no filters, no sort, no pan and no zoom. The value is that it
+       asks nothing of you and answers "what is going on between us" in a
+       glance; every one of those tools would turn it into a place you work
+       rather than a place you look. When there are eighty keywords instead of
+       twenty this will need panning, and that is the moment to add it. -->
+  <section class="threads-viewport" id="threadsViewport" style="display:none;">
+    <button type="button" class="icon-ghost back-btn" id="threadsCloseBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    </button>
+
+    <div class="threads-head">
+      <h1 id="threadsHeading"></h1>
+      <p id="threadsIntro"></p>
+    </div>
+
+    <div class="threads-stage" id="threadsStage">
+      <!-- viewBox is set from the measured stage in layoutThreads, so the map
+           fills whatever window it is given without any transform of its own. -->
+      <svg class="threads-svg" id="threadsSvg" aria-hidden="true">
+        <!-- one bloom gradient per studio, one gradient per thread; rebuilt with
+             the map, since both depend on what is actually on it -->
+        <defs id="threadsDefs"></defs>
+        <!-- painted back to front: threads, then the words with their blooms -->
+        <g id="threadsLinkLayer"></g>
+        <g id="threadsNodeLayer"></g>
+      </svg>
+      <!-- Follows the pointer rather than sitting on the dot: a label anchored
+           to a 5px mark that is itself drifting is a label that shivers. -->
+      <div class="threads-tip" id="threadsTip"></div>
+      <div class="threads-empty" id="threadsEmpty" style="display:none;">
+        <p class="threads-empty-line" id="threadsEmptyTitle"></p>
+        <p class="threads-empty-sub" id="threadsEmptyBody"></p>
+      </div>
+    </div>
+
+    <!-- The story of one keyword, oldest first. A panel rather than a new
+         screen: the map stays visible behind it, so it reads as "this part of
+         that" instead of a place you navigated to. -->
+    <aside class="threads-story" id="threadsStory" aria-live="polite">
+      <div class="threads-story-head">
+        <div>
+          <div class="threads-story-word" id="threadsStoryWord"></div>
+          <div class="threads-story-meta" id="threadsStoryMeta"></div>
+        </div>
+        <button type="button" class="threads-story-close" id="threadsStoryClose" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <p class="threads-story-lead" id="threadsStoryLead"></p>
+      <div class="threads-story-list" id="threadsStoryList"></div>
+    </aside>
+  </section>
+
   <section class="designers-viewport" id="designersViewport" style="display:none;">
     <button type="button" class="icon-ghost back-btn" id="designersCloseBtn" aria-label="Back">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
@@ -5520,13 +5902,29 @@ const TRANSLATIONS = {
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', designers: 'Designers', tools: 'Tools' },
+      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', threads: 'Threads', designers: 'Designers', tools: 'Tools' },
+      /* The lookout, not a workbench. No search, no filters, no sort — the whole
+         value of the screen is that it shows everything at once and asks
+         nothing of you. */
+      threads: {
+        heading: 'Threads',
+        intro: 'The threads weaving our studios together.',
+        storyLead: 'Read in order, oldest first.',
+        emptyTitle: 'No threads yet.',
+        emptyBody: 'Put a keyword on something you share and it starts weaving here.',
+        /* "pieces", never "most" or a rank. A big node is busy, not better. */
+        nodeCount: (n) => `${n} ${n > 1 ? 'pieces' : 'piece'}`,
+        crossing: 'Both studios',
+        oneStudio: 'One studio so far',
+        close: 'Close',
+      },
       /* One line each, on hover. Five nouns in a column tell you the names of
          the rooms and nothing about what is in them. */
       menuDesc: {
         newest: 'What studios are doing right now',
         browse: 'Projects and experiments worth reusing',
         question: 'Where your experience can help',
+        threads: 'How ideas weave between studios.',
         designers: 'The people behind the work',
         tools: 'Shared resources — coming soon',
       },
@@ -6015,11 +6413,27 @@ const TRANSLATIONS = {
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', designers: '디자이너', tools: '툴' },
+      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', threads: '실', designers: '디자이너', tools: '툴' },
+      /* The lookout, not a workbench. No search, no filters, no sort — the whole
+         value of the screen is that it shows everything at once and asks
+         nothing of you. */
+      threads: {
+        heading: '실',
+        intro: '두 스튜디오를 엮고 있는 실들.',
+        storyLead: '오래된 것부터, 순서대로.',
+        emptyTitle: '아직 실이 없어요.',
+        emptyBody: '글에 키워드를 붙이면 여기서 이어져요.',
+        /* "pieces", never "most" or a rank. A big node is busy, not better. */
+        nodeCount: (n) => `${n}개의 글`,
+        crossing: '두 스튜디오',
+        oneStudio: '아직 한 스튜디오',
+        close: '닫기',
+      },
       menuDesc: {
         newest: '스튜디오들이 지금 하고 있는 일',
         browse: '다시 써먹을 만한 프로젝트와 실험',
         question: '당신의 경험이 도움이 될 곳',
+        threads: '아이디어가 스튜디오 사이를 어떻게 오가는지.',
         designers: '이 일을 만드는 사람들',
         tools: '함께 쓰는 자원 — 준비 중',
       },
@@ -6465,11 +6879,27 @@ const TRANSLATIONS = {
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', designers: 'Designer', tools: 'Werkzeuge' },
+      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', threads: 'Fäden', designers: 'Designer', tools: 'Werkzeuge' },
+      /* The lookout, not a workbench. No search, no filters, no sort — the whole
+         value of the screen is that it shows everything at once and asks
+         nothing of you. */
+      threads: {
+        heading: 'Fäden',
+        intro: 'Die Fäden, die unsere Studios verweben.',
+        storyLead: 'In der Reihenfolge gelesen, das Älteste zuerst.',
+        emptyTitle: 'Noch keine Fäden.',
+        emptyBody: 'Setz ein Schlagwort auf etwas Geteiltes, dann beginnt es hier zu weben.',
+        /* "pieces", never "most" or a rank. A big node is busy, not better. */
+        nodeCount: (n) => `${n} ${n > 1 ? 'Beiträge' : 'Beitrag'}`,
+        crossing: 'Beide Studios',
+        oneStudio: 'Bisher ein Studio',
+        close: 'Schließen',
+      },
       menuDesc: {
         newest: 'Woran die Studios gerade arbeiten',
         browse: 'Projekte und Experimente, die sich wiederverwenden lassen',
         question: 'Wo deine Erfahrung helfen kann',
+        threads: 'Wie Ideen zwischen den Studios wandern.',
         designers: 'Die Menschen hinter der Arbeit',
         tools: 'Geteilte Ressourcen — bald',
       },
@@ -6915,11 +7345,27 @@ const TRANSLATIONS = {
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', threads: 'İplikler', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      /* The lookout, not a workbench. No search, no filters, no sort — the whole
+         value of the screen is that it shows everything at once and asks
+         nothing of you. */
+      threads: {
+        heading: 'İplikler',
+        intro: 'Stüdyolarımızı birbirine dokuyan iplikler.',
+        storyLead: 'En eskiden başlayarak, sırayla.',
+        emptyTitle: 'Henüz iplik yok.',
+        emptyBody: 'Paylaştığın bir şeye anahtar kelime koy, burada dokunmaya başlar.',
+        /* "pieces", never "most" or a rank. A big node is busy, not better. */
+        nodeCount: (n) => `${n} yazı`,
+        crossing: 'İki stüdyo',
+        oneStudio: 'Şimdilik tek stüdyo',
+        close: 'Kapat',
+      },
       menuDesc: {
         newest: 'Stüdyoların şu anda ne yaptığı',
         browse: 'Yeniden kullanmaya değer proje ve deneyler',
         question: 'Deneyiminizin işe yarayacağı yer',
+        threads: 'Fikirlerin stüdyolar arasında nasıl dolaştığı.',
         designers: 'İşin arkasındaki insanlar',
         tools: 'Ortak kaynaklar — yakında',
       },
@@ -7622,6 +8068,7 @@ const MENU_ITEMS = [
   { key: 'newest', tier: 0 },
   { key: 'browse', tier: 1 },
   { key: 'question', tier: 2 },
+  { key: 'threads', threads: true },
   { key: 'designers', designers: true },
   { key: 'tools', comingSoon: true },
 ];
@@ -8505,10 +8952,19 @@ function renderMenuOverlay() {
       // Designers is a surface, and only one surface can hold the screen — the
       // menu's close animation has to finish before the next one starts.
       if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
+      if (item.threads) {
+        // Two full-screen surfaces cannot both be up; leave whichever is first.
+        if (isDesignersMode) { exitDesignersMode(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
+        if (isShareMode) { exitShareMode(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
+        if (isCardExpanded) { closeCard(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
+        setTimeout(enterThreadsMode, MENU_CLOSE_DUR_MS);
+        return;
+      }
 
       // The three floors: leaving whatever surface is up first, or goToFloor
       // moves a feed nobody can see.
       if (isShareMode) { exitShareMode(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
+      if (isThreadsMode) { exitThreadsMode(() => goToFloor(item.tier)); return; }
       if (isDesignersMode) { exitDesignersMode(() => goToFloor(item.tier)); return; }
       if (isCardExpanded) { closeCard(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
       // Browse means all of it: arriving from the menu shouldn't land you on a
@@ -8741,6 +9197,7 @@ function setLanguage(lang) {
   if (isCardExpanded) fadeEls.push(document.querySelector('.expanded-body-scroll'));
   if (isShareMode) fadeEls.push(document.getElementById('shareViewport'));
   if (isDesignersMode) fadeEls.push(document.getElementById('designersViewport'));
+  if (isThreadsMode) fadeEls.push(document.getElementById('threadsViewport'));
 
   fadeEls.forEach((el) => { if (el) el.style.opacity = '0'; });
 
@@ -8786,6 +9243,7 @@ function refreshAllText() {
   renderBrowse();
   renderQuestions();
   renderDesigners();
+  refreshThreadsText();
   refreshDesignerEditorText();
   renderAuthorFilterChip();
   renderKeywordFilterChip();
@@ -10688,7 +11146,7 @@ function setTone(el, tone) {
 }
 
 function updateChrome() {
-  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
+  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded && !isThreadsMode;
   const onCover = onFeed && currentFloor === 0;
 
   // ---- per-floor: the tools that belong to one floor ----
@@ -13391,6 +13849,876 @@ function deleteSharedCardById(id) {
 }
 
 /* ======================================================================
+   Threads — the whole weave on one screen
+   ----------------------------------------------------------------------
+   Two layers of connection, drawn together because the point is that they are
+   different:
+
+     the keywords   — a node each, with a mark per piece of writing ringed
+                      around it in its studio's colour. Blue and orange around
+                      one word is this page's entire argument, made without a
+                      sentence.
+     the threads    — a curve between two keywords, from either evidence: they
+                      were used on the same piece, or one piece came out of
+                      another (derivedFrom) and they wore different words. A
+                      thread whose evidence spans both studios is drawn heavier,
+                      because that is the one thing the page exists to show.
+
+   No ranking anywhere. A node's size follows how many pieces carry it, inside a
+   range narrow enough that a busy keyword reads as busy and never as better —
+   see THREAD_R_MIN/MAX. There is no sort, no score, no "top", and the story
+   panel is ordered by time, which is the one ordering that is a fact.
+
+   No pan and no zoom either, on purpose: at this size everything fits, and the
+   value of a lookout is that it asks nothing of you. Eighty keywords is when
+   that stops being true.
+   ====================================================================== */
+let isThreadsMode = false;
+let threadsGraph = null;      // { nodes, links } — positions live on the nodes
+let threadsRaf = null;
+let threadsOpenKey = null;    // which keyword's story is showing
+let threadsArrivalTimers = [];
+
+const THREAD_R_MIN = 34;       // how far a one-piece keyword's marks orbit
+const THREAD_R_MAX = 50;       // and a busy one's. Deliberately close together.
+/* Set in a serif at reading sizes, not chart sizes. The range is narrow on
+   purpose: 21 to 29 is enough to feel a difference in activity and not enough
+   to read as a hierarchy. */
+const THREAD_LABEL_MIN = 21;
+const THREAD_LABEL_MAX = 29;
+const THREAD_DOT_R = 3.4;
+const THREAD_DRIFT_MIN_PX = 4;
+const THREAD_DRIFT_MAX_PX = 9;
+
+/* A stable number from a string. Every per-node constant that wants to look
+   arbitrary — where it starts, how fast it breathes, which way it leans — is
+   derived from this rather than from Math.random, so the map is laid out the
+   same way on every open. A weave that rearranged itself each time you looked
+   would be a decoration, not a map of anything. */
+function threadHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967295;
+}
+
+/* ---- the graph ----
+   Built from ALL_CARDS every time the surface opens, so anything shared or
+   edited in this session is already in it. */
+function buildThreadsGraph() {
+  const nodes = allKeywords().map((k) => ({
+    key: k.key,
+    label: k.label,
+    cards: cardsWithKeyword(k.label),
+    x: 0, y: 0, r: 0,
+    seed: threadHash(k.key),
+  }));
+  const byKey = {};
+  nodes.forEach((n) => { byKey[n.key] = n; });
+
+  // radius by how much is under the word, on a curve that flattens fast
+  const most = nodes.reduce((m, n) => Math.max(m, n.cards.length), 1);
+  nodes.forEach((n) => {
+    const t = most === 1 ? 0 : (n.cards.length - 1) / (most - 1);
+    /* `ring` is how far out the marks orbit and how wide the bloom spreads —
+       there is no circle drawn at it any more. */
+    n.ring = THREAD_R_MIN + (THREAD_R_MAX - THREAD_R_MIN) * Math.sqrt(t);
+    n.labelSize = THREAD_LABEL_MIN + (THREAD_LABEL_MAX - THREAD_LABEL_MIN) * Math.sqrt(t);
+    n.labelLines = wrapNodeLabel(n.label);
+    n.studios = nodeStudios(n);
+  });
+
+  const linkMap = {};
+  const addLink = (aKey, bKey, kind, studios) => {
+    if (!aKey || !bKey || aKey === bKey) return;
+    if (!byKey[aKey] || !byKey[bKey]) return;
+    const id = aKey < bKey ? aKey + '|' + bKey : bKey + '|' + aKey;
+    if (!linkMap[id]) {
+      linkMap[id] = { id, a: byKey[aKey], b: byKey[bKey], kinds: {}, studios: {}, weight: 0 };
+    }
+    const link = linkMap[id];
+    link.kinds[kind] = true;
+    link.weight += 1;
+    studios.filter(Boolean).forEach((st) => { link.studios[st] = true; });
+  };
+
+  ALL_CARDS.forEach((card) => {
+    const words = keywordsOf(card).map(keywordKey);
+    // used together on one piece
+    for (let i = 0; i < words.length; i++) {
+      for (let j = i + 1; j < words.length; j++) addLink(words[i], words[j], 'shared', [card.studio]);
+    }
+    // one piece came out of another, and they wore different words
+    if (card.derivedFrom) {
+      const parent = ALL_CARDS.find((c) => c.id === card.derivedFrom);
+      if (parent) {
+        const pw = keywordsOf(parent).map(keywordKey);
+        words.forEach((w) => pw.forEach((p) => addLink(w, p, 'relation', [card.studio, parent.studio])));
+      }
+    }
+  });
+
+  const links = Object.keys(linkMap).map((id) => {
+    const l = linkMap[id];
+    l.crossing = Object.keys(l.studios).filter(isStudioEnabled).length > 1;
+    l.relation = !!l.kinds.relation;
+    return l;
+  });
+
+  return { nodes: nodes, links: links };
+}
+
+/* ---- two lines rather than one that overruns ----
+   Split at the space nearest the middle, so "Responsible gaming" breaks once
+   and "Thread" never does. A keyword set at 26px in a serif is wide, and a
+   single line of it crosses its neighbours. */
+function wrapNodeLabel(label) {
+  if (label.length <= 13 || label.indexOf(' ') < 0) return [label];
+  const mid = label.length / 2;
+  let best = -1;
+  for (let i = 0; i < label.length; i++) {
+    if (label[i] !== ' ') continue;
+    if (best < 0 || Math.abs(i - mid) < Math.abs(best - mid)) best = i;
+  }
+  return best < 0 ? [label] : [label.slice(0, best), label.slice(best + 1)];
+}
+
+/* ---- whose keyword is this ----
+   The studios with work under the word, most first. Drives the bloom behind it
+   (one colour, or two blended) and the ends of every thread leaving it. */
+function nodeStudios(node) {
+  const count = {};
+  node.cards.forEach((c) => {
+    if (!isStudioEnabled(c.studio)) return;
+    count[c.studio] = (count[c.studio] || 0) + 1;
+  });
+  return Object.keys(count).sort((a, b) => count[b] - count[a]);
+}
+
+function studioColor(key) {
+  return (STUDIOS[key] && STUDIOS[key].color) || '#9a9a9a';
+}
+
+/* ---- where things go ----
+   Rings by how connected a keyword is: the ones tied to the most others sit
+   toward the middle, the ones tied to nothing rest calmly on the outside. Then
+   a short relaxation opens up any pair whose words would collide.
+
+   The first version was a golden-angle spiral with a link attraction, and it
+   failed in both directions at once — everything with threads collapsed into a
+   knot in the centre while the four keywords with none were pushed into the
+   corners, so half the map was illegible and the rest was empty paper. Two
+   things were wrong: the attraction's rest length was shorter than the
+   repulsion floor, so linked nodes were pulled to a distance separation then
+   had to fight every pass forever; and a spiral concentrates by construction.
+
+   Rings fix the composition and separation fixes the collisions. Note this
+   orders by *degree*, not by how many pieces a keyword carries: where a word
+   sits says how entangled it is, never how good it is, and the sizes stay
+   deliberately close together so nothing here reads as a ranking. */
+function layoutThreads() {
+  const stage = document.getElementById('threadsStage');
+  const svg = document.getElementById('threadsSvg');
+  if (!stage || !threadsGraph) return;
+
+  const w = Math.max(360, stage.clientWidth);
+  const h = Math.max(320, stage.clientHeight);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  const nodes = threadsGraph.nodes;
+  const links = threadsGraph.links;
+  if (!nodes.length) return;
+
+  /* Separation is a box, not a circle, and that is what keeps the words apart:
+     a keyword is far wider than it is tall, so two side by side need much more
+     room than two stacked. */
+  nodes.forEach((n) => {
+    const longest = n.labelLines.reduce((m, l) => Math.max(m, l.length), 0);
+    /* Two footprints per word, because they answer different questions.
+       half* is what must not overlap the next word — the type and the ring of
+       marks. bleed is how far its bloom actually reaches, which is bigger than
+       either and is what the edge clamp has to respect: sized off half* alone,
+       "Art pipeline" sat legally inside the stage with its bloom cut off by the
+       bottom of the window. */
+    n.halfW = longest * n.labelSize * 0.29 + 30;
+    n.halfH = n.labelSize * (n.labelLines.length > 1 ? 1.7 : 1.05) + n.ring + 16;
+    n.bleed = n.ring * 2.0;
+  });
+
+  // The room the weave gets: centred, with a margin all round that the fit step
+  // below normalises into rather than the simulation having to respect.
+  const cx = w / 2;
+  const cy = h / 2;
+  const rx = w * 0.435;
+  const ry = h * 0.415;
+
+  const deg = {};
+  nodes.forEach((n) => { deg[n.key] = 0; });
+  links.forEach((l) => { deg[l.a.key]++; deg[l.b.key]++; });
+
+  /* Placement has to come from the graph, not from a pretty spiral.
+
+     Two earlier attempts put the words down by rule and hoped a weak spring
+     would pull the related ones together afterwards. Both failed the same way:
+     "Slack pipeline" and "Thread" — the pair this whole page was built to show
+     — landed at opposite ends of the page, and the thread between them became a
+     40cm arc sweeping through six unrelated words. You cannot fix a placement
+     that ignores the edges by adding a gentle force afterwards; the placement
+     has to be made of the edges.
+
+     So: a proper Fruchterman-Reingold pass. Every word pushes every other away,
+     every thread pulls its two ends together, and the whole thing cools. It is
+     twenty words and thirteen threads — this costs nothing and it is the only
+     thing that actually puts a chain next to itself. Deterministic, because the
+     starting ring and every tie-break comes from the keyword hash rather than
+     from Math.random: the same weave has to be in the same shape every time it
+     is opened, or it is decoration rather than a map. */
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  nodes.slice().sort((a, b) => a.seed - b.seed).forEach((n, i) => {
+    const angle = i * GOLDEN;
+    const rad = 0.35 + 0.5 * Math.sqrt(i / Math.max(1, nodes.length - 1));
+    n.x = cx + Math.cos(angle) * rx * rad;
+    n.y = cy + Math.sin(angle) * ry * rad;
+  });
+
+  // 0.72: at 0.62 the busiest four words in the middle settled close enough
+  // that separation then had to shove them apart, which undid the structure.
+  const k = Math.sqrt((rx * 2 * ry * 2) / nodes.length) * 0.72;
+  let temp = Math.min(rx, ry) * 0.30;
+  for (let iter = 0; iter < 420; iter++) {
+    nodes.forEach((n) => { n.fx = 0; n.fy = 0; });
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d = Math.hypot(dx, dy);
+        if (d < 0.01) { dx = (a.seed - 0.5) || 0.1; dy = (b.seed - 0.5) || 0.1; d = Math.hypot(dx, dy); }
+        const rep = (k * k) / d;
+        a.fx += (dx / d) * rep; a.fy += (dy / d) * rep;
+        b.fx -= (dx / d) * rep; b.fy -= (dy / d) * rep;
+      }
+    }
+    links.forEach((l) => {
+      const dx = l.a.x - l.b.x, dy = l.a.y - l.b.y;
+      const d = Math.hypot(dx, dy) || 0.01;
+      const att = (d * d) / k;
+      l.a.fx -= (dx / d) * att; l.a.fy -= (dy / d) * att;
+      l.b.fx += (dx / d) * att; l.b.fy += (dy / d) * att;
+    });
+    // A whisper toward the middle. Without it the words with no thread at all
+    // are pushed off the page by repulsion alone and never come back.
+    nodes.forEach((n) => {
+      n.fx += (cx - n.x) * 0.012;
+      n.fy += (cy - n.y) * 0.012;
+      const f = Math.hypot(n.fx, n.fy) || 0.01;
+      const step = Math.min(f, temp);
+      n.x += (n.fx / f) * step;
+      n.y += (n.fy / f) * step;
+    });
+    temp *= 0.9885;
+  }
+
+  /* Fit what came out to the room. The simulation settles at whatever scale its
+     own constants imply, which is never the size of this particular window, so
+     the result is normalised into the rect rather than the constants being
+     hand-tuned per screen. Axes are scaled separately so the weave fills a wide
+     window, with the ratio capped so it is stretched rather than distorted. */
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach((n) => {
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+  });
+  const spanX = Math.max(1, maxX - minX);
+  const spanY = Math.max(1, maxY - minY);
+  let scaleX = (rx * 2) / spanX;
+  let scaleY = (ry * 2) / spanY;
+  /* 1.7, not 1.35. The simulation settles into a roughly round cloud, and on a
+     16:9 window a tight cap left a third of the page empty down both sides
+     while the middle stayed crowded. Stretching the cloud to the shape of the
+     room is what a designer would do with the same material; 1.7 is where it
+     stops looking stretched and starts looking wrong. */
+  const ratio = Math.max(scaleX, scaleY) / Math.min(scaleX, scaleY);
+  if (ratio > 1.7) {
+    if (scaleX > scaleY) scaleX = scaleY * 1.7;
+    else scaleY = scaleX * 1.7;
+  }
+  nodes.forEach((n) => {
+    n.x = cx + (n.x - (minX + spanX / 2)) * scaleX;
+    n.y = cy + (n.y - (minY + spanY / 2)) * scaleY;
+    n.homeX = n.x; n.homeY = n.y;
+  });
+
+  /* Now the only thing left is type collision, which the simulation knows
+     nothing about — it was placing points, and these are words. Separation is a
+     box, not a circle: a keyword is far wider than it is tall, so two side by
+     side need much more room than two stacked. A weak spring home keeps this
+     from undoing the structure the simulation just found. */
+  for (let pass = 0; pass < 220; pass++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const needX = a.halfW + b.halfW;
+        const needY = a.halfH + b.halfH;
+        const overX = needX - Math.abs(dx);
+        const overY = needY - Math.abs(dy);
+        if (overX <= 0 || overY <= 0) continue;
+        if (overX / needX < overY / needY) {
+          const push = (dx >= 0 ? 1 : -1) * overX * 0.26;
+          a.x -= push; b.x += push;
+        } else {
+          const push = (dy >= 0 ? 1 : -1) * overY * 0.26;
+          a.y -= push; b.y += push;
+        }
+      }
+    }
+    nodes.forEach((n) => {
+      n.x += (n.homeX - n.x) * 0.04;
+      n.y += (n.homeY - n.y) * 0.04;
+      const edgeX = Math.max(n.halfW * 0.74, n.bleed * 0.62);
+      const edgeY = Math.max(n.halfH * 0.88, n.bleed * 0.62);
+      n.x = Math.max(edgeX, Math.min(w - edgeX, n.x));
+      n.y = Math.max(edgeY, Math.min(h - edgeY, n.y));
+    });
+  }
+
+  /* Drift. Two periods that do not divide into each other, so a node traces a
+     slow open loop rather than a line, and every node is on its own clock. */
+  nodes.forEach((n) => {
+    const s2 = threadHash(n.key + '~');
+    const s3 = threadHash(n.key + '^');
+    n.driftA = THREAD_DRIFT_MIN_PX + (THREAD_DRIFT_MAX_PX - THREAD_DRIFT_MIN_PX) * n.seed;
+    n.driftB = THREAD_DRIFT_MIN_PX + (THREAD_DRIFT_MAX_PX - THREAD_DRIFT_MIN_PX) * s2;
+    n.periodX = 9000 + n.seed * 9000;
+    n.periodY = 11000 + s2 * 9000;
+    n.phaseX = s3 * Math.PI * 2;
+    n.phaseY = n.seed * Math.PI * 2;
+    n.dx = 0; n.dy = 0;
+  });
+}
+
+/* ---- drawing ----
+   Each node is three nested <g>: drift writes a transform attribute to the
+   outer, the arrival transition animates the middle, and focus scales the
+   inner. One transform each, so none of them can overwrite another. */
+function renderThreads() {
+  const svg = document.getElementById('threadsSvg');
+  const linkLayer = document.getElementById('threadsLinkLayer');
+  const nodeLayer = document.getElementById('threadsNodeLayer');
+  const defs = document.getElementById('threadsDefs');
+  const empty = document.getElementById('threadsEmpty');
+  if (!svg) return;
+
+  threadsArrivalTimers.forEach(clearTimeout);
+  threadsArrivalTimers = [];
+  linkLayer.innerHTML = '';
+  nodeLayer.innerHTML = '';
+  defs.innerHTML = '';
+  svg.classList.remove('is-focusing');
+
+  threadsGraph = buildThreadsGraph();
+  const hasAny = threadsGraph.nodes.length > 0;
+  empty.style.display = hasAny ? 'none' : '';
+  svg.style.display = hasAny ? '' : 'none';
+  if (!hasAny) return;
+
+  layoutThreads();
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (name) => document.createElementNS(NS, name);
+
+  /* One bloom gradient per studio, in objectBoundingBox units so every node
+     reuses the same two definitions at whatever size it needs. */
+  enabledStudioKeys().forEach((key) => {
+    const g = el('radialGradient');
+    g.setAttribute('id', 'thGlow-' + key);
+    // Falls away sooner as well as fainter, so two blooms meeting read as two
+    // colours overlapping rather than as a single new one.
+    [[0, 0.28], [0.38, 0.12], [1, 0]].forEach(([off, op]) => {
+      const stop = el('stop');
+      stop.setAttribute('offset', off);
+      stop.setAttribute('stop-color', studioColor(key));
+      stop.setAttribute('stop-opacity', op);
+      g.appendChild(stop);
+    });
+    defs.appendChild(g);
+  });
+
+  // one gradient per thread, in user space, endpoints refreshed every frame
+  threadsGraph.links.forEach((l, i) => {
+    const g = el('linearGradient');
+    g.setAttribute('id', 'thLink-' + i);
+    g.setAttribute('gradientUnits', 'userSpaceOnUse');
+    /* The colours come from the thread's own evidence, not from each end's
+       busiest studio. A thread whose evidence spans both studios runs from one
+       studio's colour into the other's, which is the sentence this page is here
+       to say — and reading the endpoints' primaries instead could give a
+       genuinely crossing thread two identical ends, as the Slack pipeline to
+       Thread thread did: both words are busiest at Whow, so the one thread on
+       the page most worth seeing was drawn a flat orange. */
+    const evidence = Object.keys(l.studios).filter(isStudioEnabled);
+    const fromKey = evidence[0] || l.a.studios[0];
+    const toKey = (l.crossing && evidence[1]) || evidence[0] || l.b.studios[0];
+    const from = el('stop'); from.setAttribute('offset', '0');
+    from.setAttribute('stop-color', studioColor(fromKey));
+    const to = el('stop'); to.setAttribute('offset', '1');
+    to.setAttribute('stop-color', studioColor(toKey));
+    g.appendChild(from); g.appendChild(to);
+    defs.appendChild(g);
+    l.gradEl = g;
+
+    const path = el('path');
+    path.setAttribute('class', 'threads-link' + (l.crossing ? ' is-crossing' : ''));
+    path.setAttribute('stroke', `url(#thLink-${i})`);
+    l.el = path;
+    linkLayer.appendChild(path);
+  });
+
+  threadsGraph.nodes.forEach((n) => {
+    const outer = el('g');
+    outer.setAttribute('class', 'threads-node');
+    outer.dataset.key = n.key;
+    const rise = el('g'); rise.setAttribute('class', 'threads-rise');
+    const recede = el('g'); recede.setAttribute('class', 'threads-recede');
+
+    /* Something to actually point at.
+
+       Dropping the grey circle took the hit area with it: the label is
+       pointer-events:none (so it never eats a click meant for a mark behind it)
+       and so are the blooms, which left a keyword with no target but its own
+       3px dots. Hover and click both silently stopped working — the map looked
+       finished and did nothing.
+
+       So: an invisible rectangle over the word, added first so the marks stay
+       above it and keep their own tooltip and click. Sized off the type rather
+       than the bloom, because two blooms are allowed to overlap and two targets
+       are not. */
+    const hit = el('rect');
+    hit.setAttribute('class', 'threads-hit');
+    hit.setAttribute('x', (-n.halfW * 0.72).toFixed(1));
+    hit.setAttribute('y', (-n.halfH * 0.58).toFixed(1));
+    hit.setAttribute('width', (n.halfW * 1.44).toFixed(1));
+    hit.setAttribute('height', (n.halfH * 1.16).toFixed(1));
+    hit.setAttribute('fill', 'transparent');
+    recede.appendChild(hit);
+
+    /* The bloom. One studio gets one circle of its colour; two get two,
+       offset either side so they overlap through the middle — which is what
+       makes "both studios are on this" a colour rather than a caption. */
+    const studios = n.studios.length ? n.studios : [null];
+    /* 2.0, not 2.5. At the wider spread four blooms in the crowded middle ran
+       together into one pink-grey wash, which lost the very thing the colour is
+       carrying — whose work is under each word. */
+    const bloom = n.ring * 2.0;
+    studios.slice(0, 2).forEach((key, i) => {
+      const c = el('circle');
+      c.setAttribute('class', 'threads-glow threads-glow-shape');
+      c.setAttribute('r', bloom * (studios.length > 1 ? 0.82 : 1));
+      c.setAttribute('cx', studios.length > 1 ? (i === 0 ? -bloom * 0.3 : bloom * 0.3) : 0);
+      c.setAttribute('cy', 0);
+      c.setAttribute('fill', key ? `url(#thGlow-${key})` : 'rgba(20,20,20,0.05)');
+      c.setAttribute('opacity', 0.9);
+      recede.appendChild(c);
+    });
+
+    // the marks, ringed around the word, each on its own soft halo
+    n.cards.forEach((card, i) => {
+      const a = (i / n.cards.length) * Math.PI * 2 + n.seed * Math.PI * 2;
+      const orbit = n.ring;
+      const cx = Math.cos(a) * orbit * 1.28;
+      const cy = Math.sin(a) * orbit;
+      const col = studioColor(card.studio);
+      const halo = el('circle');
+      halo.setAttribute('class', 'threads-dot-halo');
+      halo.setAttribute('r', THREAD_DOT_R * 2.6);
+      halo.setAttribute('cx', cx); halo.setAttribute('cy', cy);
+      halo.setAttribute('fill', col);
+      halo.setAttribute('opacity', 0.13);
+      recede.appendChild(halo);
+      const dot = el('circle');
+      dot.setAttribute('class', 'threads-dot');
+      dot.setAttribute('r', THREAD_DOT_R);
+      dot.setAttribute('cx', cx); dot.setAttribute('cy', cy);
+      dot.setAttribute('fill', col);
+      dot.dataset.cardId = card.id;
+      recede.appendChild(dot);
+    });
+
+    // the word itself
+    const label = el('text');
+    label.setAttribute('class', 'threads-node-label');
+    label.setAttribute('font-size', n.labelSize.toFixed(2));
+    const lead = n.labelSize * 0.98;
+    const top = n.labelLines.length > 1 ? -lead * 0.5 + n.labelSize * 0.34 : n.labelSize * 0.34;
+    n.labelLines.forEach((line, li) => {
+      const span = el('tspan');
+      span.setAttribute('x', 0);
+      span.setAttribute('y', (top + li * lead).toFixed(1));
+      span.textContent = line;
+      label.appendChild(span);
+    });
+    recede.appendChild(label);
+
+    const count = el('text');
+    count.setAttribute('class', 'threads-node-count');
+    count.setAttribute('y', (top + n.labelLines.length * lead + 4).toFixed(1));
+    count.textContent = t().threads.nodeCount(n.cards.length);
+    recede.appendChild(count);
+
+    rise.appendChild(recede);
+    outer.appendChild(rise);
+    nodeLayer.appendChild(outer);
+    n.el = outer;
+    n.riseEl = rise;
+  });
+
+  positionThreads(performance.now());
+
+  /* Arrival: the words rise on a stagger, then the threads are drawn between
+     them, released left to right so it reads as weaving rather than as a map
+     switching on. Each path starts fully dashed — invisible — and the offset is
+     transitioned to zero. */
+  threadsGraph.nodes.forEach((n, i) => {
+    threadsArrivalTimers.push(setTimeout(() => n.riseEl.classList.add('is-in'), 120 + i * 62));
+  });
+  const wordsDone = 120 + threadsGraph.nodes.length * 62;
+  const weaveOrder = threadsGraph.links.slice()
+    .sort((a, b) => Math.min(a.a.x, a.b.x) - Math.min(b.a.x, b.b.x));
+  weaveOrder.forEach((l, i) => {
+    const len = l.el.getTotalLength() || 1;
+    l.el.style.strokeDasharray = `${len} ${len}`;
+    l.el.style.strokeDashoffset = len;
+    threadsArrivalTimers.push(setTimeout(() => {
+      l.el.classList.add('is-drawing');
+      l.el.style.strokeDashoffset = '0';
+      // Once it is woven the dashes come off entirely, so drift is never
+      // redrawing a stale dash pattern for the rest of the session.
+      threadsArrivalTimers.push(setTimeout(() => {
+        l.el.classList.remove('is-drawing');
+        l.el.style.strokeDasharray = '';
+        l.el.style.strokeDashoffset = '';
+      }, 1250));
+    }, wordsDone * 0.45 + i * 78));
+  });
+
+  initThreadsInteraction();
+  startThreadsDrift();
+}
+
+/* How far from a word's centre its threads should start.
+
+   Not its ring: the ring is where the marks orbit, and the word is wider than
+   that. This is the distance to the word's own bounding ellipse along the
+   direction the thread leaves in, so a thread going sideways clears the whole
+   label and one going straight up only has to clear a line of type. Ending at
+   the centre instead drew every thread through the word it was joining — on
+   "Slack pipeline" the result was indistinguishable from a strikethrough. */
+function threadEdgeOffset(node, dx, dy) {
+  const A = Math.max(node.halfW * 0.60, node.ring * 0.9);
+  const B = Math.max(node.halfH * 0.66, node.ring * 0.8);
+  const len = Math.hypot(dx, dy) || 1;
+  const cos = dx / len, sin = dy / len;
+  return (A * B) / Math.sqrt((B * cos) * (B * cos) + (A * sin) * (A * sin));
+}
+
+/* One frame: move every word by its own slow wander, then redraw the curves and
+   re-aim their gradients so the threads follow rather than snap. */
+function positionThreads(now) {
+  if (!threadsGraph) return;
+  threadsGraph.nodes.forEach((n) => {
+    n.dx = Math.sin((now / n.periodX) * Math.PI * 2 + n.phaseX) * n.driftA;
+    n.dy = Math.cos((now / n.periodY) * Math.PI * 2 + n.phaseY) * n.driftB;
+    if (n.el) n.el.setAttribute('transform', `translate(${(n.x + n.dx).toFixed(2)}, ${(n.y + n.dy).toFixed(2)})`);
+  });
+  threadsGraph.links.forEach((l) => {
+    const ax = l.a.x + l.a.dx, ay = l.a.y + l.a.dy;
+    const bx = l.b.x + l.b.dx, by = l.b.y + l.b.dy;
+    const mx = (ax + bx) / 2, my = (ay + by) / 2;
+    /* Bowed perpendicular to itself, and always to the same side, so it sways
+       with the words instead of snapping through straight. A thread between two
+       keywords is not a vector; it is slack. */
+    const nx = -(by - ay), ny = bx - ax;
+    const len = Math.hypot(nx, ny) || 1;
+    const bend = Math.min(34, len * 0.13) * (l.a.seed > 0.5 ? 1 : -1);
+    const qx = mx + (nx / len) * bend;
+    const qy = my + (ny / len) * bend;
+    /* Trimmed along the curve's own tangents, not along the straight line
+       between the words: the thread leaves toward its control point, so that is
+       the direction it has to clear the label in. */
+    const t0x = qx - ax, t0y = qy - ay;
+    const t1x = bx - qx, t1y = by - qy;
+    const off0 = threadEdgeOffset(l.a, t0x, t0y);
+    const off1 = threadEdgeOffset(l.b, -t1x, -t1y);
+    const d0 = Math.hypot(t0x, t0y) || 1;
+    const d1 = Math.hypot(t1x, t1y) || 1;
+    const sx = ax + (t0x / d0) * off0, sy = ay + (t0y / d0) * off0;
+    const ex = bx - (t1x / d1) * off1, ey = by - (t1y / d1) * off1;
+    if (l.el) l.el.setAttribute('d', `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${qx.toFixed(1)} ${qy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`);
+    if (l.gradEl) {
+      l.gradEl.setAttribute('x1', sx.toFixed(1));
+      l.gradEl.setAttribute('y1', sy.toFixed(1));
+      l.gradEl.setAttribute('x2', ex.toFixed(1));
+      l.gradEl.setAttribute('y2', ey.toFixed(1));
+    }
+  });
+}
+
+function startThreadsDrift() {
+  stopThreadsDrift();
+  const tick = (now) => {
+    if (!isThreadsMode) { threadsRaf = null; return; }
+    positionThreads(now);
+    threadsRaf = requestAnimationFrame(tick);
+  };
+  threadsRaf = requestAnimationFrame(tick);
+}
+
+function stopThreadsDrift() {
+  if (threadsRaf) cancelAnimationFrame(threadsRaf);
+  threadsRaf = null;
+}
+
+/* ---- what a hover is asking ----
+   "What does this word touch?" — so the answer is the word, its own pieces, its
+   threads, and the words at their far ends. Everything else steps back rather
+   than vanishing, so the shape of the whole weave stays readable while one part
+   of it is bright. */
+function focusThreadsOn(key) {
+  const svg = document.getElementById('threadsSvg');
+  if (!svg || !threadsGraph) return;
+  if (!key) {
+    svg.classList.remove('is-focusing');
+    svg.querySelectorAll('.is-lit').forEach((e) => e.classList.remove('is-lit'));
+    return;
+  }
+  const lit = {};
+  lit[key] = true;
+  threadsGraph.links.forEach((l) => {
+    const on = l.a.key === key || l.b.key === key;
+    l.el.classList.toggle('is-lit', on);
+    if (on) { lit[l.a.key] = true; lit[l.b.key] = true; }
+  });
+  threadsGraph.nodes.forEach((n) => n.el.classList.toggle('is-lit', !!lit[n.key]));
+  svg.classList.add('is-focusing');
+}
+
+function initThreadsInteraction() {
+  const svg = document.getElementById('threadsSvg');
+  const tip = document.getElementById('threadsTip');
+  const stage = document.getElementById('threadsStage');
+
+  threadsGraph.nodes.forEach((n) => {
+    n.el.addEventListener('mouseenter', () => focusThreadsOn(n.key));
+    n.el.addEventListener('mouseleave', () => { if (!threadsOpenKey) focusThreadsOn(null); else focusThreadsOn(threadsOpenKey); });
+    n.el.addEventListener('click', (e) => { e.stopPropagation(); openThreadStory(n.key); });
+  });
+
+  // Delegated, because there are a lot of marks and they are rebuilt whenever
+  // the map is.
+  svg.addEventListener('mouseover', (e) => {
+    const dot = e.target.closest('.threads-dot');
+    if (!dot) return;
+    const card = ALL_CARDS.find((c) => c.id === dot.dataset.cardId);
+    if (!card) return;
+    const studio = STUDIOS[card.studio];
+    tip.innerHTML = '';
+    const title = document.createElement('div');
+    title.textContent = cardText(card).title || '';
+    const sub = document.createElement('div');
+    sub.className = 'threads-tip-studio';
+    sub.textContent = (studio ? studio.name : '') + ' · '
+      + (card.justNow ? t().justNow : formatRelativeTime(currentLang, card.timeValue, card.timeUnit));
+    tip.appendChild(title);
+    tip.appendChild(sub);
+    tip.classList.add('is-on');
+  });
+  svg.addEventListener('mouseout', (e) => {
+    if (e.target.closest('.threads-dot')) tip.classList.remove('is-on');
+  });
+  stage.addEventListener('mousemove', (e) => {
+    const box = stage.getBoundingClientRect();
+    tip.style.left = (e.clientX - box.left) + 'px';
+    tip.style.top = (e.clientY - box.top - 12) + 'px';
+  });
+  // A mark is a piece of writing, so it opens it.
+  svg.addEventListener('click', (e) => {
+    const dot = e.target.closest('.threads-dot');
+    if (!dot) return;
+    e.stopPropagation();
+    openCardFromThreads(dot.dataset.cardId);
+  });
+}
+
+/* ---- the story of one keyword ----
+   Oldest first, which is the only ordering here that is a fact rather than an
+   opinion: it is what happened, in the order it happened. */
+function openThreadStory(key) {
+  const node = threadsGraph.nodes.find((n) => n.key === key);
+  if (!node) return;
+  threadsOpenKey = key;
+  focusThreadsOn(key);
+  threadsGraph.nodes.forEach((n) => n.el.classList.toggle('is-open', n.key === key));
+
+  const panel = document.getElementById('threadsStory');
+  document.getElementById('threadsStoryWord').textContent = node.label;
+  document.getElementById('threadsStoryLead').textContent = t().threads.storyLead;
+  const crossing = node.studios.filter(isStudioEnabled).length > 1;
+  document.getElementById('threadsStoryMeta').textContent =
+    t().threads.nodeCount(node.cards.length) + ' · '
+    + (crossing ? t().threads.crossing : t().threads.oneStudio);
+
+  const list = document.getElementById('threadsStoryList');
+  list.innerHTML = '';
+  // oldest first: daysAgoOf is smaller for newer, so descending
+  node.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)).forEach((card) => {
+    const studio = STUDIOS[card.studio];
+    const text = cardText(card);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'threads-story-item';
+    row.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+
+    const title = document.createElement('div');
+    title.className = 'threads-story-title';
+    title.textContent = text.title || '';
+    row.appendChild(title);
+
+    const sub = document.createElement('div');
+    sub.className = 'threads-story-sub';
+    sub.textContent = (studio ? studio.name : '') + ' · '
+      + (card.justNow ? t().justNow : formatRelativeTime(currentLang, card.timeValue, card.timeUnit))
+      + ' · ' + (t().types[card.type] || card.type);
+    row.appendChild(sub);
+
+    // the author's own one line, when they wrote one
+    const line = text.summary || '';
+    if (line) {
+      const p = document.createElement('div');
+      p.className = 'threads-story-line';
+      p.textContent = truncateForSummary(line, 108);
+      row.appendChild(p);
+    }
+
+    // and the declared relation, if this piece came out of another
+    if (card.derivedFrom && card.derivedRelation) {
+      const rel = document.createElement('span');
+      rel.className = 'threads-story-rel';
+      // `back` is how the person making the link phrased it — "continued from" —
+      // which is the right voice for a row in a chain read oldest first.
+      const words = t().lineageRelations[card.derivedRelation];
+      rel.textContent = (words && words.back) || card.derivedRelation;
+      row.appendChild(rel);
+    }
+
+    row.addEventListener('click', () => openCardFromThreads(card.id));
+    list.appendChild(row);
+  });
+
+  panel.classList.add('is-open');
+}
+
+function closeThreadStory() {
+  threadsOpenKey = null;
+  document.getElementById('threadsStory').classList.remove('is-open');
+  if (threadsGraph) threadsGraph.nodes.forEach((n) => n.el.classList.remove('is-open'));
+  focusThreadsOn(null);
+}
+
+// A card opens on the detail surface, and only one surface can hold the screen.
+function openCardFromThreads(cardId) {
+  exitThreadsMode(() => openCardById(cardId));
+}
+
+/* ---- the surface ---- */
+function enterThreadsMode() {
+  if (isThreadsMode || isShareMode || isCardExpanded || isDesignersMode) return;
+  isThreadsMode = true;
+  pauseAutoScroll();
+  closeThreadStory();
+  updateChrome(); // floor 2's search box has no business on a lookout
+
+  const gallery = document.getElementById('feedMain');
+  const threads = document.getElementById('threadsViewport');
+
+  gallery.classList.add('mode-fade-out');
+  setTimeout(() => {
+    gallery.style.display = 'none';
+    gallery.classList.remove('mode-fade-out');
+    threads.style.display = 'flex';
+    // Built after it is on screen, not before: the layout is measured off the
+    // stage, and a display:none stage measures zero.
+    renderThreads();
+    threads.classList.add('mode-fade-out');
+    void threads.offsetWidth;
+    threads.classList.remove('mode-fade-out');
+  }, CONFIG.MODE_SWAP_MS);
+}
+
+function exitThreadsMode(onShown) {
+  if (!isThreadsMode) return;
+  isThreadsMode = false;
+  stopThreadsDrift();
+  threadsArrivalTimers.forEach(clearTimeout);
+  threadsArrivalTimers = [];
+  closeThreadStory();
+  updateChrome();
+
+  const gallery = document.getElementById('feedMain');
+  const threads = document.getElementById('threadsViewport');
+
+  threads.classList.add('mode-fade-out');
+  setTimeout(() => {
+    threads.style.display = 'none';
+    threads.classList.remove('mode-fade-out');
+    gallery.style.display = 'block';
+    gallery.classList.add('mode-fade-out');
+    void gallery.offsetWidth;
+    gallery.classList.remove('mode-fade-out');
+    scheduleResumeAutoScroll();
+    if (onShown) setTimeout(onShown, CONFIG.MODE_SWAP_MS);
+  }, CONFIG.MODE_SWAP_MS);
+}
+
+function initThreads() {
+  document.getElementById('threadsCloseBtn').addEventListener('click', () => exitThreadsMode());
+  document.getElementById('threadsStoryClose').addEventListener('click', closeThreadStory);
+  // Clicking the paper behind the map puts the story away — the same gesture as
+  // clicking off any panel.
+  document.getElementById('threadsStage').addEventListener('click', (e) => {
+    if (e.target.closest('.threads-node') || e.target.closest('.threads-dot')) return;
+    closeThreadStory();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!isThreadsMode || e.key !== 'Escape') return;
+    if (threadsOpenKey) closeThreadStory();
+    else exitThreadsMode();
+  });
+  // Re-laid out rather than re-scaled: the spiral is computed from the stage's
+  // real size, and stretching it would put labels through each other.
+  window.addEventListener('resize', () => { if (isThreadsMode) renderThreads(); });
+}
+
+function refreshThreadsText() {
+  const s = t().threads;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('threadsHeading', s.heading);
+  set('threadsIntro', s.intro);
+  set('threadsEmptyTitle', s.emptyTitle);
+  set('threadsEmptyBody', s.emptyBody);
+  set('threadsStoryLead', s.storyLead);
+  document.getElementById('threadsStoryClose').setAttribute('aria-label', s.close);
+  // Everything inside the map carries copy too (the per-node count, the tooltip,
+  // the story rows), so on a language switch the map is rebuilt rather than
+  // relabelled piece by piece.
+  if (isThreadsMode) {
+    const openKey = threadsOpenKey;
+    renderThreads();
+    if (openKey) openThreadStory(openKey);
+  }
+}
+
+/* ======================================================================
    9. Share mode — the gallery area (not a separate page) swaps into a
    compose form, then a small in-place "weave" moment, then back to the
    card flow. Ported from what used to be the standalone loom_share.html;
@@ -15283,7 +16611,7 @@ function activeSurfaceEl() {
 }
 
 function enterDesignersMode() {
-  if (isDesignersMode || isShareMode || isCardExpanded) return;
+  if (isDesignersMode || isShareMode || isCardExpanded || isThreadsMode) return;
   isDesignersMode = true;
   pauseAutoScroll();
 
@@ -15340,7 +16668,7 @@ function exitDesignersMode(onShown) {
 // .mode-fade-out), always starting share mode from a clean compose step no
 // matter how the previous visit ended.
 function enterShareMode() {
-  if (isShareMode || isCardExpanded) return;
+  if (isShareMode || isCardExpanded || isThreadsMode) return;
   isShareMode = true;
   pauseAutoScroll();
 
@@ -15472,6 +16800,8 @@ safeInit('discover rendering', renderDiscover);
 safeInit('browse rendering', renderBrowse);
 safeInit('questions rendering', renderQuestions);
 safeInit('designers', initDesigners);
+safeInit('threads', initThreads);
+safeInit('threads text', refreshThreadsText);
 safeInit('type filter dropdown', renderTypeFilterDropdown);
 safeInit('search', initSearch);
 safeInit('storage log', () => logStorageUsage('at startup'));
