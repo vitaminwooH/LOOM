@@ -1183,7 +1183,13 @@
        of as three questions. The cap stops a lone question from stretching to
        1500px, and centring keeps a partial row under the middle of the floor
        rather than pushed against the left edge. */
-    grid-template-columns: repeat(auto-fit, minmax(300px, 400px));
+    /* The cap is 360, not 400: auto-fit counts repetitions against the *max*
+       track size when it is definite, so a 400px cap needed 1244px of room for
+       three tracks and a 1280-wide laptop got two — three questions wrapping
+       to a second row that then had to be scrolled for. 360 fits three from
+       1240px up, and still stops a lone question stretching to the width of
+       the floor. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
     justify-content: center;
     gap: 22px;
     /* margin-block: auto, not justify-content: center — auto margins collapse
@@ -1228,11 +1234,20 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    /* taller than the old fixed 250px: on a full-height floor with no heading
-       above it, a question is the only thing on screen and should carry some
-       weight. Still a clamp, so a short window doesn't force a scroll for
-       three of them. */
-    min-height: clamp(240px, 28vh, 330px);
+    /* Tall enough to hold the floor, not so tall the card goes hollow.
+
+       At 28vh three questions came to ~340px of content on a ~750px floor,
+       leaving ~400px of empty page: a narrow band adrift in white, next to
+       floor 2 whose posters fill the screen. But simply raising this to 46vh
+       just moved the emptiness inside the card — the meta and title at the
+       top, "Answer this" pinned at the foot, and a dead 180px between them,
+       because justify-content: space-between does exactly what it says.
+
+       So the box grew only moderately and the *content* grew with it (see
+       .question-card-title, which is now the size the subject of a floor
+       deserves). The card fills because there is more to read in it, which is
+       the only honest way to fill anything. */
+    min-height: clamp(280px, 34vh, 400px);
     padding: 30px 28px 24px;
     border-radius: 20px;
     border: 1.5px dashed var(--border-strong);
@@ -1254,7 +1269,12 @@
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
     font-weight: 600;
-    font-size: 21px;
+    /* The question is the whole card, and on a floor that holds nothing else it
+       was set at 21px — smaller than the banner headline on floor 1 by a factor
+       of four, for text that is doing the same job. Scaling with the viewport
+       lets three questions fill their boxes by having more to read rather than
+       by being padded out. */
+    font-size: clamp(21px, 1.65vw, 29px);
     line-height: 1.36;
     color: var(--ink);
     margin: 0 0 16px;
@@ -1317,6 +1337,29 @@
   }
   .card-media.has-image .card-media-icon { display: none; }
   .card-media:not(.has-image) .card-media-badge { display: none; }
+  /* No image: the type mark stops being the subject of the card.
+
+     Centred and large it was indistinguishable from what a browser leaves
+     behind when an image fails — same shape, same place, same size — so a
+     gallery of cards that simply have no photograph yet read as a gallery of
+     broken ones. Bled off the top corner at low opacity it is texture: it
+     still tints the card by type, and the type is already spelled out in
+     words in .card-type, so nothing is lost by making it quiet.
+
+     Scaled with a transform rather than a new size, because each surface
+     (hero, poster, expanded, preview) sets its own svg width and this has to
+     keep their proportions rather than flatten them to one number. */
+  .card-media:not(.has-image) .card-media-icon {
+    position: absolute;
+    /* Down from the very top edge on purpose: at top:0 the mark sat behind the
+       notification bell on floor 1, muddying the one corner that has to stay
+       legible. 13% clears the bell at every window height the feed is used at. */
+    top: 13%;
+    right: 0;
+    opacity: 0.15;
+    transform: translate(24%, 0) scale(2.3);
+    transform-origin: 100% 0;
+  }
 
   .card-media-badge {
     position: absolute;
@@ -1605,13 +1648,32 @@
      three questions on it is a sentence and three cards, not a caption stranded
      at the top edge under the hamburger. */
   .questions-personal {
-    margin: auto 0 26px;
+    margin: auto auto 34px;
+    /* A measure, so a long sentence breaks into two balanced lines instead of
+       running the width of the floor. 30ch, not 20: at 20 the longest of these
+       sentences took three lines, and three lines of headline plus three cards
+       overflowed a 720px-tall window. */
+    max-width: 30ch;
     text-align: center;
     font-family: 'Newsreader', serif;
-    font-size: clamp(18px, 1.7vw, 25px);
+    /* This is the floor's headline — the one line that says why the cards below
+       are worth your afternoon — and it was set at 25px, a caption's size. The
+       floor holds three short cards and could not fill a tall window with them
+       without padding them hollow; the honest way to use that space is to let
+       the sentence be the size of its job, the way floor 1 lets its banner
+       headline be. */
+    font-size: clamp(24px, 2.2vw, 38px);
     font-weight: 400;
-    line-height: 1.35;
+    line-height: 1.24;
+    letter-spacing: -0.01em;
     color: var(--ink);
+    text-wrap: balance;
+  }
+  /* A short window has no spare height to give a headline. Scaling it by width
+     alone meant a wide-but-short display (a 1440x800 laptop, a half-height
+     browser) spent 120px of a 640px floor on one sentence. */
+  @media (max-height: 840px) {
+    .questions-personal { font-size: clamp(22px, 1.9vw, 30px); margin-bottom: 22px; }
   }
   .questions-personal:empty { display: none; }
 
@@ -7297,9 +7359,12 @@ const ICONS = {
 const FILTER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
   <path d="M4 5h16M7 12h10M10.5 19h3"/></svg>`;
 
-// `image`: drop a file at that path in assets/ and it appears automatically
-// (applyCardMedia probes it before switching); leave it null/omitted for the
-// gradient+icon fallback. See assets/README.txt for the naming convention.
+// `image`: a path under assets/, or null for the studio-tinted gradient. The
+// path is probed before it is used (see applyCardMedia), so a file that is not
+// there yet keeps the gradient rather than showing a broken box — but it also
+// costs a 404 in the console on every render, so a path is only worth carrying
+// once the file exists. Convention: assets/card-<slug>.jpg, slug matching the
+// card's subject.
 //
 // `id`: stable string every other card's `relatedTo`/`derivedFrom` can point
 // at. `relatedTo`: ids of sibling ideas (resolved bidirectionally at render
@@ -7374,15 +7439,15 @@ const CARDS = [
      a Question that got answered by a Project, applied by another studio into a
      Project of their own, and still running as an Update. Every node is a piece
      of writing — a studio is never a node, only a label inside one. */
-  { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: 'assets/card-first-payment-reward.jpg', relatedTo: [], derivedFrom: 'c15', derivedRelation: 'solvedThrough', derivedNote: 'We stopped asking before the reward and built the reward moment first.' },
+  { id: 'c1', studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 3, timeUnit: 'day', appliedBy: ['whow', 'paxie'], image: null, /* assets/card-first-payment-reward.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c15', derivedRelation: 'solvedThrough', derivedNote: 'We stopped asking before the reward and built the reward moment first.' },
   { id: 'c2', studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 5, timeUnit: 'day', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: null },
   { id: 'c3', studio: 'paxie', type: 'question', author: 'Sena Oh', timeValue: 1, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'discussion' },
   { id: 'c4', studio: 'doubleu', type: 'experiment', author: 'Haeun Lee', timeValue: 1, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: ['c1'], derivedFrom: null },
-  { id: 'c5', studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: 'assets/card-event-teaser.jpg', relatedTo: [], derivedFrom: 'c1', derivedRelation: 'appliedFrom', derivedNote: 'Same reward moment, moved three days before the event instead of after the tutorial.' },
+  { id: 'c5', studio: 'whow', type: 'project', author: 'Jonas Weber', timeValue: 2, timeUnit: 'week', appliedBy: ['doubleu', 'paxie'], image: null, /* assets/card-event-teaser.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'appliedFrom', derivedNote: 'Same reward moment, moved three days before the event instead of after the tutorial.' },
   { id: 'c6', studio: 'paxie', type: 'project', author: 'Yuna Choi', timeValue: 3, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: ['c13'], derivedFrom: null },
   { id: 'c7', studio: 'doubleu', type: 'project', author: 'Jiho Baek', timeValue: 3, timeUnit: 'week', appliedBy: ['whow', 'paxie'], image: null, relatedTo: ['c13'], derivedFrom: null },
   { id: 'c8', studio: 'whow', type: 'experiment', author: 'Mira Keller', timeValue: 4, timeUnit: 'week', appliedBy: ['paxie'], image: null, relatedTo: ['c2'], derivedFrom: null },
-  { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: 'assets/card-reward-reveal-speed.jpg', relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
+  { id: 'c9', studio: 'paxie', type: 'experiment', author: 'Marco Rossi', timeValue: 1, timeUnit: 'month', appliedBy: ['doubleu', 'whow'], image: null, /* assets/card-reward-reveal-speed.jpg — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'c1', derivedRelation: 'inspiredBy', derivedNote: 'Took the reward moment and asked how fast it can be before it stops landing.' },
   { id: 'c10', studio: 'doubleu', type: 'question', author: 'Soomin Jang', timeValue: 1, timeUnit: 'month', appliedBy: [], image: null, relatedTo: [], derivedFrom: null, status: 'open', askedTo: 'whow', conversation: [
     { author: 'Soomin Jang', studio: 'doubleu', timeValue: 1, timeUnit: 'month' },
     { author: 'Lena Fischer', studio: 'whow', timeValue: 3, timeUnit: 'week' },
