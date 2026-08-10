@@ -28,8 +28,13 @@
     /* Floor 1's lower band, shared by the Update strip and the banner caption
        that has to stay clear of it. One pair of numbers, used by both, because
        two independent guesses is how they end up overlapping. */
-    --now-lane-bottom: 62px;
-    --now-lane-height: 76px;
+    /* Bottom 54, not 62: low, but not so low that the strip is sitting on the
+       slide dots in the bottom 30px+7 with the corner marks — 48 cleared them by
+       eleven pixels, which measures fine and reads as crammed. Height 56, not
+       76, because everything in the lane got a size smaller — and the room the
+       lane gives back all goes to the title, which is what the floor is for. */
+    --now-lane-bottom: 54px;
+    --now-lane-height: 56px;
     /* the "scene change" arrival reveal (playArrivalReveal): a hard ease-out
        so each element launches and then settles for a long time, matching the
        floor tween's own character rather than drifting on its own schedule */
@@ -704,7 +709,7 @@
   /* the bottom padding is the Update strip's lane plus the dots' — the caption
      stops above both rather than being trusted not to reach them */
   .hero-slide .card-content {
-    padding: 0 max(5vw, 40px) calc(var(--now-lane-bottom) + var(--now-lane-height) + 26px);
+    padding: 0 max(5vw, 40px) calc(var(--now-lane-bottom) + var(--now-lane-height) + 20px);
     max-width: min(1100px, 82%);
   }
   .hero-slide .card-meta { margin-bottom: clamp(14px, 2.2vh, 26px); }
@@ -726,7 +731,6 @@
     overflow: visible;
     text-shadow: none;
   }
-  .hero-slide .card-lineage-hint { font-size: clamp(12px, 1vw, 14px); margin-top: clamp(14px, 2vh, 22px); }
   /* static, so it rides the caption's own flex line instead of being pinned to
      a corner — see the note in renderDiscover's template */
   .hero-slide .card-discover-badges {
@@ -788,23 +792,23 @@
      never actually leave and there is nothing left to replay. */
   .hero-slide.is-replaying .hero-word > span,
   .hero-slide.is-replaying .card-meta,
-  .hero-slide.is-replaying .card-lineage-hint { transition: none !important; }
+  .hero-slide.is-replaying .exchange-trace { transition: none !important; }
 
-  /* caption and lineage ride in on the same stagger, one block each. The time
-     badge is inside .card-meta now, so it arrives with the studio name it
-     belongs to instead of on a beat of its own. */
+  /* The caption rides in on its own beat, and the trace lands after it. Two
+     blocks now rather than three: the lineage hint that used to be the third is
+     off the cover, so the stagger it had a slot in has one fewer step. */
   .hero-slide .card-meta,
-  .hero-slide .card-lineage-hint {
+  .hero-slide .exchange-trace {
     opacity: 0;
     transform: translateY(22px);
     transition: opacity 0.7s ease, transform 0.95s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .hero-slide.is-active .card-meta,
-  .hero-slide.is-active .card-lineage-hint { opacity: 1; transform: translateY(0); }
+  .hero-slide.is-active .exchange-trace { opacity: 1; transform: translateY(0); }
   .hero-slide.is-active .card-meta { transition-delay: 0.08s; }
-  /* lineage lands last — it is the footnote under the headline, so it waits for
-     the title's words to have finished rising */
-  .hero-slide.is-active .card-lineage-hint { transition-delay: 0.42s; }
+  /* the trace lands last — it is the footnote under the headline, so it waits
+     for the title's words to have finished rising */
+  .hero-slide.is-active .exchange-trace { transition-delay: 0.42s; }
 
 /* The same arrows the Designers roster uses — same size, same stroke, same
      lane, same hover. They were 30px at stroke-width 2 against the roster's
@@ -1165,7 +1169,7 @@
   .poster-card.is-open-question .card-studio,
   .poster-card.is-open-question .card-lineage-hint,
   .hero-slide.is-open-question .card-studio,
-  .hero-slide.is-open-question .card-lineage-hint {
+  .hero-slide.is-open-question .exchange-trace {
     color: var(--ink-dim);
     text-shadow: none;
   }
@@ -1603,7 +1607,7 @@
     padding: 0 max(5vw, 40px);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     pointer-events: none; /* the banner behind stays clickable between items */
   }
   .now-strip > * { pointer-events: auto; }
@@ -1622,48 +1626,57 @@
     max-width: min(38vw, 420px);
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    gap: 7px;
+    padding: 5px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     font-family: inherit;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.94);
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.9);
     cursor: pointer;
     transition: background 0.24s ease, border-color 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .now-item:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.36); transform: translateY(-1px); }
   .now-item .card-dot { width: 6px; height: 6px; flex-shrink: 0; box-shadow: none; }
   .now-item-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .now-item-time { flex-shrink: 0; font-size: 11px; color: rgba(255, 255, 255, 0.6); }
+  .now-item-time { flex-shrink: 0; font-size: 10.5px; color: rgba(255, 255, 255, 0.55); }
   .now-strip-empty { margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); }
 
-  /* Whose turn. A sentence and a button, not a banner — the ask has to be
-     small enough that ignoring it costs nothing. */
-  /* The button earns its presence with contrast and room around it, not with
-     size. A big button on the cover would be an advertisement; a small solid
-     one against a translucent outline is simply the only filled thing in the
-     row, which is enough for the eye to find it. */
-  .your-turn { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 4px; }
-  .your-turn-line { font-size: 13px; color: rgba(255, 255, 255, 0.9); }
+  /* Whose turn. A sentence and a link, not a banner — the ask has to be small
+     enough that ignoring it costs nothing.
+
+     This used to end in a solid white pill, on the theory that being the only
+     filled thing in the row was how the eye would find it. It was: it was also
+     the loudest object on the floor, brighter than the cover and heavier than
+     the 79px headline, and it sat eight pixels from the pencil in the corner
+     that opens exactly the same screen. Two calls to action for one action, one
+     of them shouting. It is a text link now — still the last thing in the
+     sentence, still the only underlined thing on the cover, and no longer
+     competing with the headline it is printed under. */
+  .your-turn { display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap; }
+  .your-turn-line { font-size: 12px; color: rgba(255, 255, 255, 0.86); }
   .your-turn-cta {
-    padding: 8px 18px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: #ffffff;
+    padding: 0;
+    border: none;
+    background: transparent;
     font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 650;
+    font-size: 11.5px;
+    font-weight: 600;
     letter-spacing: 0.01em;
-    color: var(--ink);
+    color: rgba(255, 255, 255, 0.96);
+    /* The underline is the affordance, so it is there before the hover, not
+       revealed by it. Hover only closes the gap. */
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(255, 255, 255, 0.45);
     cursor: pointer;
-    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, background 0.22s ease;
+    transition: text-decoration-color 0.2s ease, color 0.2s ease;
   }
-  .your-turn-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); }
-  .your-turn-cta:active { transform: scale(0.97); }
+  .your-turn-cta:hover { text-decoration-color: currentColor; }
 
   /* On a Question cover the banner is paper, so the strip has to go dark-on-
      light with it — see the tone system in updateChrome. */
@@ -1674,15 +1687,36 @@
     color: var(--ink);
   }
   .discover-section.on-light .now-item-time { color: var(--ink-faint); }
-  .discover-section.on-light .now-strip-empty,
-  .discover-section.on-light .your-turn-line { color: var(--ink-dim); }
-  /* On a light cover the same trick inverts: ink on paper is the filled thing. */
-  .discover-section.on-light .your-turn-cta { background: var(--ink); color: #ffffff; }
-  .discover-section.on-light .your-turn-cta:hover { box-shadow: 0 10px 24px -12px rgba(20, 20, 20, 0.5); }
+  .discover-section.on-light .now-strip-empty { color: var(--ink-dim); }
+  /* Firmer than --ink-dim: the pills next to it float on a translucent plate and
+     this line sits straight on the photograph, which at the bottom of a pale
+     cover is mid-grey — the one place ink-dim stops being readable. */
+  .discover-section.on-light .your-turn-line { color: rgba(28, 28, 30, 0.76); }
+  /* On a light cover it is ink rather than paper — nothing to invert now that
+     there is no fill, just the two colours the text uses. */
+  .discover-section.on-light .your-turn-cta {
+    color: var(--ink);
+    text-decoration-color: rgba(28, 28, 30, 0.45);
+  }
 
   /* ---------- what came of a card ----------
      One line, in the quiet colour, under the title. No number in bold and no
      icon: the moment this looks like a stat it becomes a thing to be top of. */
+  /* On a cover this is white-on-photo, and on a light cover it is ink again —
+     the one thing left under the hero title, so it is also the one thing that
+     has to follow the tone system. The hint that used to sit beside it never
+     did, and stayed white over pale covers. */
+  .hero-slide .exchange-trace {
+    font-size: clamp(12px, 1vw, 14px);
+    margin-top: clamp(14px, 2vh, 22px);
+    color: rgba(255, 255, 255, 0.82);
+  }
+  /* 0.76, the same ink as the strip's own quiet line: 0.66 measured 4.2:1 on a
+     Question cover, which is paper white top to bottom and so the one place the
+     quiet colours have nothing to hide behind. */
+  .discover-section.on-light .hero-slide .exchange-trace { color: rgba(28, 28, 30, 0.76); }
+  .hero-slide .exchange-trace-arrow { opacity: 0.8; }
+
   .exchange-trace {
     display: block;
     margin-top: 9px;
@@ -1780,6 +1814,8 @@
      there made the lightest type in the app look like the same form as the
      others with two boxes greyed out. */
   .step-compose.is-update .compose-attach-row { grid-template-columns: 1fr; }
+  /* An Update is a line and maybe a link; a PDF attached to it is a different
+     kind of post. */
   .step-compose.is-update .compose-attach-col-attachments { display: none; }
 
   /* ---------- "Add more context" ----------
@@ -1984,6 +2020,44 @@
   /* Which shared word put this row here — the block can be answering more than
      one keyword at once, so the row has to say which. */
   .same-thread-word { font-weight: 500; }
+
+  /* ---------- suggested keywords ----------
+     A quiet row under the hint. Chips rather than a dropdown, because this is an
+     offer and not a menu: nothing has to be dismissed, and ignoring it costs
+     nothing. */
+  .keyword-suggest {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 9px;
+  }
+  .keyword-suggest-label { font-size: 11.5px; color: var(--ink-faint); }
+  .keyword-suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .keyword-suggest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 999px;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+  }
+  /* dashed until taken, solid once it is a real chip — the border says "offered"
+     rather than "applied" */
+  .keyword-suggest-chip:hover {
+    border-style: solid;
+    border-color: var(--ink);
+    color: var(--ink);
+    background: rgba(20, 20, 20, 0.04);
+  }
+  .keyword-suggest-chip::before { content: '+'; opacity: 0.5; font-weight: 600; }
 
   .keyword-hint {
     margin: 7px 0 0;
@@ -4467,13 +4541,18 @@
     .compose-head p { display: none; }
   }
 
+  /* 78/22, not 67/33, and a narrower right column: with the preview gone the
+     right-hand side is two file pickers, which need a column not a panel. The
+     rest goes to the writing, and the generous top padding is the breathing
+     room the deleted heading used to occupy — space, rather than a label
+     restating what the form obviously is. */
   .compose-body {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 67fr) minmax(320px, 33fr);
-    gap: clamp(24px, 2.6vw, 44px);
-    padding: 22px max(4vw, 26px) 0;
+    grid-template-columns: minmax(0, 78fr) minmax(248px, 22fr);
+    gap: clamp(28px, 3.4vw, 56px);
+    padding: clamp(30px, 4.4vh, 58px) max(5vw, 30px) 0;
   }
 
   .compose-left { min-height: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -4546,233 +4625,50 @@
   .asked-to-pill .card-dot { width: 7px; height: 7px; box-shadow: none; }
 
   /* ---------- the preview column ---------- */
-  .preview-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .preview-pane-head {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-  .preview-modes { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: rgba(20, 20, 20, 0.05); }
-  .preview-mode {
-    padding: 4px 11px;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    font-family: inherit;
-    font-size: 11px;
-    color: var(--ink-faint);
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-  .preview-mode:hover { color: var(--ink-dim); }
-  .preview-mode.is-active { background: #ffffff; color: var(--ink); box-shadow: 0 1px 3px rgba(20, 20, 20, 0.1); }
-
-  .preview-pane-label {
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 650;
-    color: var(--ink-faint);
-  }
-  .preview-card-wrap { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
-
-  /* ---------- the preview card ----------
-     Picture on top, words underneath. They used to be one layer — the title and
-     the focused field sat on a scrim over the image — which looks like the real
-     poster and is useless while you are typing: the sentence you are writing
-     lands on top of whatever the photo happens to be doing there, and half of
-     it is unreadable. Two blocks costs a little fidelity and buys the one thing
-     a live preview is for.
-
-     Both modes share the split; only the proportions differ. Banner is the
-     floor-1 cover, wide and short. Card is the poster, tall and narrow, the
-     same shape the thing actually ends up as in Discover and Browse. */
-  .preview-card {
+  /* ---------- the image thumbnail ----------
+     All that is left of the live preview: the picture, at a size worth looking
+     at, with the framing drag on it. Sized 16:9 because that is the shape floor
+     1's banner gives it, and the crop the drag is choosing is mostly about
+     which part survives the tall poster card. */
+  .image-thumb {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-radius: 18px;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--border);
-    background: #ffffff;
-    box-shadow: var(--shadow-resting);
-  }
-  .preview-card.is-banner { width: 100%; flex: 0 0 auto; }
-  .preview-card.is-banner .preview-media-slot { aspect-ratio: 16 / 9; }
-  .preview-card.is-banner .preview-title {
-    font-size: clamp(16px, 1.5vw, 21px);
-    line-height: 1.2;
-    letter-spacing: -0.015em;
-    -webkit-line-clamp: 3;
-  }
-  /* The poster's own proportions (see .poster-card, 1:1.7) so this is the shape
-     it will be, not a rectangle standing in for one. */
-  .preview-card.is-card {
-    width: min(100%, 268px);
-    flex: 0 0 auto;
-    aspect-ratio: 1 / 1.62;
-  }
-  .preview-card.is-card .preview-media-slot { flex: 0 0 44%; }
-  .preview-card.is-card .preview-text { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-
-  /* ---- the picture half ----
-     Also the way in: click it and the file picker opens, drop a file on it and
-     that is the image. The upload button under the preview does the same thing
-     and they stay in step, because two controls for one value that disagree is
-     worse than one control. */
-  .preview-media-slot {
-    position: relative;
-    flex: 0 0 auto;
-    min-height: 0;
+    background: rgba(20, 20, 20, 0.04);
     cursor: pointer;
-    background: rgba(20, 20, 20, 0.03);
   }
-  .preview-media { position: absolute; inset: 0; }
-  .preview-media.has-image { cursor: grab; }
-  .preview-media.is-dragging { cursor: grabbing; }
-
-  .preview-image-cta {
+  .image-thumb-media { position: absolute; inset: 0; }
+  .image-thumb-media.has-image-draggable { cursor: grab; }
+  .image-thumb-media.is-dragging { cursor: grabbing; }
+  /* Says what the drag is for, and gets out of the way while it is happening. */
+  .image-thumb-hint {
     position: absolute;
-    inset: 0;
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    font-size: 11.5px;
-    color: var(--ink-faint);
-    pointer-events: none;
-    transition: opacity 0.2s ease, background 0.2s ease;
-  }
-  .preview-image-cta svg { width: 20px; height: 20px; stroke-width: 1.5; }
-  /* With a picture in it the invitation gets out of the way until you go
-     looking for it — the picture is the thing you want to see. */
-  .preview-card.has-image .preview-image-cta {
-    opacity: 0;
-    background: rgba(20, 20, 20, 0.5);
-    color: #ffffff;
-  }
-  .preview-media-slot:hover .preview-image-cta { opacity: 1; }
-  .preview-media-slot.is-dropping .preview-image-cta { opacity: 1; background: rgba(20, 20, 20, 0.55); color: #ffffff; }
-  .preview-media-slot.is-dropping { outline: 2px dashed var(--ink); outline-offset: -6px; }
-
-  .preview-drag-hint {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 4;
-    display: none;
-    padding: 5px 11px;
-    border-radius: 999px;
-    background: rgba(20, 20, 20, 0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    left: 8px;
+    right: 8px;
+    bottom: 7px;
+    text-align: center;
     font-size: 10.5px;
     letter-spacing: 0.02em;
     color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.22s ease;
   }
-  .preview-card.has-image .preview-drag-hint { display: block; }
+  .image-thumb:hover .image-thumb-hint { opacity: 1; }
+  .image-thumb-media.is-dragging ~ .image-thumb-hint { opacity: 0; }
+  .file-slot.is-dropping { outline: 2px dashed var(--ink); outline-offset: 3px; border-radius: 12px; }
 
-  /* ---- the words half ---- */
-  .preview-text {
-    display: flex;
-    flex-direction: column;
-    padding: 14px 16px 16px;
-    background: #ffffff;
-  }
-  /* .card-meta and friends are written for a scrim over a photograph — white
-     type, a text shadow, a translucent pill. On paper all three vanish, so the
-     preview restates them in ink rather than forking the shared pieces. */
-  .preview-text .card-meta { position: static; margin-bottom: 8px; gap: 7px; }
-  .preview-text .card-dot { width: 7px; height: 7px; box-shadow: none; }
-  .preview-text .card-studio {
-    font-size: 10.5px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    font-weight: 650;
-    color: var(--ink-faint);
-    text-shadow: none;
-  }
-  .preview-text .card-type {
-    font-size: 9.5px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    font-weight: 700;
-    padding: 3px 8px;
-    background: rgba(20, 20, 20, 0.06);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    color: var(--ink-dim);
-  }
-  .preview-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    font-size: 14.5px;
-    line-height: 1.32;
-    color: var(--ink);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .preview-title:empty::after {
-    content: attr(data-placeholder);
-    color: var(--ink-faint);
-    font-weight: 500;
-  }
-
-  /* Only the field you are in right now. Showing the whole body would make
-     this a second, smaller copy of the form you are already looking at; the
-     point is to answer "how does what I am typing read on a card". */
-  .preview-focus {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    min-height: 0;
-    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .preview-focus.is-swapping { opacity: 0; transform: translateY(6px); }
-  .preview-focus-label {
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: var(--ink-faint);
-    margin-bottom: 6px;
-  }
-  .preview-focus-text {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.6;
-    color: var(--ink-dim);
-    /* the line breaks they typed are part of what they wrote */
-    white-space: pre-wrap;
-    /* the card is short; past a few lines this is a teaser, not the text */
-    display: -webkit-box;
-    -webkit-line-clamp: 6;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .preview-focus-text:empty::after {
-    content: attr(data-placeholder);
-    color: var(--ink-faint);
-  }
-
-  /* ---------- image + attachments, side by side under the preview ----------
-     Each takes only the height it needs. No thumbnail on the image side: the
-     picture is already the entire background of the preview above it, and a
-     second small copy of it would just be a second small copy of it. */
+  /* Stacked, not side by side: the column is half the width it was, and two
+     dashed buttons squeezed next to each other read as one broken control. */
   .compose-attach-row {
     flex-shrink: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vh, 28px);
     padding-bottom: 4px;
   }
   .compose-attach-col { min-width: 0; }
@@ -5589,12 +5485,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
     </button>
 
+    <!-- No heading. "Share what you learned" over a form whose first field is a
+         title was telling you what you already knew you were doing, and it cost
+         the writing area the top fifth of the screen. The pencil you pressed to
+         get here is the only announcement this needs. -->
     <div class="step step-compose" id="stepCompose">
-      <div class="compose-head">
-        <h1 id="composeHeading"></h1>
-        <p id="composeIntro"></p>
-      </div>
-
       <div class="compose-body">
 
         <!-- LEFT — what you write. The fields under the type picker are built
@@ -5621,6 +5516,13 @@
               <div class="keyword-suggestions" id="keywordSuggestions" role="listbox"></div>
             </div>
             <p class="keyword-hint" id="keywordHint"></p>
+            <!-- Filled by renderKeywordOffers() when what you have written
+                 already contains a keyword somebody else is using. Empty and
+                 invisible until then. -->
+            <div class="keyword-suggest" id="keywordSuggest" style="display:none;">
+              <span class="keyword-suggest-label" id="keywordSuggestLabel"></span>
+              <div class="keyword-suggest-chips" id="keywordSuggestChips"></div>
+            </div>
           </div>
 
           <div class="field field-type">
@@ -5644,61 +5546,27 @@
           </div>
         </div>
 
-        <!-- RIGHT — what it will look like, and the two things you attach to
-             it. The preview takes the height; image and attachments take only
-             what they need, side by side. -->
-        <div class="compose-right">
-          <div class="preview-pane">
-            <div class="preview-pane-head">
-              <div class="preview-pane-label" id="previewLabel"></div>
-              <!-- Banner first: it is the shape a new piece of knowledge lands
-                   in on floor 1, so it is the one you want in front of you
-                   while you write. Card is the second look. -->
-              <div class="preview-modes" id="previewModes">
-                <button type="button" class="preview-mode is-active" data-mode="banner" id="previewModeBanner"></button>
-                <button type="button" class="preview-mode" data-mode="card" id="previewModeCard"></button>
-              </div>
-            </div>
-            <div class="preview-card-wrap">
-              <div class="preview-card is-banner" id="previewCard">
-                <!-- Picture on top, words underneath — never words over the
-                     picture. Also the image drop zone; see initPreviewImageInput. -->
-                <div class="preview-media-slot" id="previewMediaSlot" role="button" tabindex="0">
-                  <div class="card-media preview-media" id="previewMedia">
-                    <span class="card-media-icon" id="previewMediaIcon"></span>
-                  </div>
-                  <div class="preview-image-cta" id="previewImageCta">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M4 17l4.5-4.5 3.5 3.5 3-2.5L20 17"/>
-                    </svg>
-                    <span id="previewImageCtaLabel"></span>
-                  </div>
-                  <div class="preview-drag-hint" id="previewDragHint"></div>
-                </div>
-                <div class="preview-text">
-                  <div class="card-meta">
-                    <span class="card-dot" id="previewDot"></span>
-                    <span class="card-studio" id="previewStudio"></span>
-                    <span class="card-type" id="previewType"></span>
-                  </div>
-                  <div class="preview-title" id="previewTitle"></div>
-                  <!-- only the field you are in right now, not the whole body:
-                       see setPreviewFocus() -->
-                  <div class="preview-focus" id="previewFocus">
-                    <div class="preview-focus-label" id="previewFocusLabel"></div>
-                    <p class="preview-focus-text" id="previewFocusText"></p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- RIGHT — only the two things you attach. The live preview used to sit
+             above these and took two thirds of the column and most of the
+             attention: a card that showed you a worse version of what you were
+             already reading in the form beside it, while the form itself was
+             squeezed into a third of the screen. Writing is the job here.
 
+             The image's own framing control moved onto the thumbnail below,
+             which is where the picture now is. -->
+        <div class="compose-right">
           <div class="compose-attach-row">
             <div class="field compose-attach-col">
               <div class="field-label"><span id="imageFieldLabel"></span> <span class="optional" id="imageOptionalLabel"></span></div>
-              <!-- no thumbnail here on purpose: the image is already the whole
-                   background of the preview two inches above this -->
+              <!-- The thumbnail is here now that there is no preview above it.
+                   Drag inside it to choose which part of the picture the card
+                   crops to — the same gesture, on the same pixels, just no
+                   longer borrowed from a card mock-up. -->
               <div class="file-slot" id="imageSlot">
+                <div class="image-thumb" id="imageThumb" style="display:none;" role="button" tabindex="0">
+                  <div class="card-media image-thumb-media" id="previewMedia"></div>
+                  <div class="image-thumb-hint" id="previewDragHint"></div>
+                </div>
                 <button type="button" class="file-slot-btn" id="uploadZone">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
@@ -6106,7 +5974,6 @@ const TRANSLATIONS = {
         intro: "It doesn't have to be finished. A line about what you're working on, what's interesting, or what's stuck.",
         submitButton: 'Post it',
         submitHint: 'One line is enough.',
-        previewPlaceholder: 'Your line will appear here',
       },
       linkLabel: 'Link',
       linkOptional: 'optional',
@@ -6193,14 +6060,8 @@ const TRANSLATIONS = {
         },
       },
       imageChosenFallback: 'Image attached',
-      previewLabel: 'Live preview',
       // Banner first: it is the shape a new piece of knowledge lands in on
       // floor 1, so it is the one worth looking at while you write.
-      previewModes: { card: 'Card', banner: 'Banner' },
-      previewImageEmpty: 'Click or drop an image here',
-      previewImageReplace: 'Click or drop to replace',
-      previewTitlePlaceholder: 'Your title will appear here',
-      previewEmptyField: 'Whatever you type in that field shows up here.',
       previewDragHint: 'Drag to reposition',
       editedAt: (when) => `Edited ${when}`,
       askedTo: {
@@ -6446,6 +6307,10 @@ const TRANSLATIONS = {
         /* Keywords sit under the title because that is where somebody is still
            describing the thing, before they start explaining it. */
         keywordsLabel: 'Keywords',
+        /* Offered under the field when the writing already contains a keyword
+           somebody else is using. Phrased as a question because it is an offer,
+           not an instruction. */
+        keywordsSuggest: 'Add one of these?',
         keywordsPlaceholder: '1–3 keywords that run through this work (e.g. Slack pipeline)',
         keywordsHint: 'Pick one that already exists where you can — a keyword two studios share is what puts their work on the same page.',
         keywordsFull: 'Three is the limit. Remove one to add another.',
@@ -6477,6 +6342,9 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Not uploaded yet',
         attachmentsHint: 'Drop a file here (PDF works great), or click to add one',
+        /* On the thumbnail, on hover. The framing drag used to live on a mock-up
+           of a card; now it is on the picture, so it has to say so. */
+        imageDragHint: 'Drag inside the picture to choose what the card shows',
         /* "Takes about two minutes" was the same promise over a one-line box and
            over a four-paragraph write-up, and one of those was a lie. The cost
            is different per type, so the sentence is too. */
@@ -6611,7 +6479,6 @@ const TRANSLATIONS = {
         intro: '완성되지 않아도 괜찮아요. 지금 하고 있는 걸 짧게 알려주세요.',
         submitButton: '올리기',
         submitHint: '한 줄이면 충분해요.',
-        previewPlaceholder: '쓴 한 줄이 여기 보입니다',
       },
       linkLabel: '링크',
       linkOptional: '선택',
@@ -6681,12 +6548,6 @@ const TRANSLATIONS = {
         },
       },
       imageChosenFallback: '이미지 첨부됨',
-      previewLabel: '실시간 미리보기',
-      previewModes: { card: '카드', banner: '배너' },
-      previewImageEmpty: '클릭하거나 이미지를 끌어다 놓으세요',
-      previewImageReplace: '클릭하거나 끌어다 놓아 교체',
-      previewTitlePlaceholder: '제목이 여기 표시됩니다',
-      previewEmptyField: '그 칸에 쓰는 내용이 여기 보입니다.',
       previewDragHint: '드래그해서 위치 조절',
       editedAt: (when) => `${when} 수정됨`,
       askedTo: {
@@ -6914,6 +6775,10 @@ const TRANSLATIONS = {
         /* Keywords sit under the title because that is where somebody is still
            describing the thing, before they start explaining it. */
         keywordsLabel: '키워드',
+        /* Offered under the field when the writing already contains a keyword
+           somebody else is using. Phrased as a question because it is an offer,
+           not an instruction. */
+        keywordsSuggest: '이 키워드를 붙일가요?',
         keywordsPlaceholder: '이 작업을 관통하는 키워드 1~3개 (예: Slack pipeline)',
         keywordsHint: '가능하면 이미 있는 키워드를 고르세요 — 두 스튜디오가 같은 키워드를 쓰면 그 지점에서 작업이 이어집니다.',
         keywordsFull: '최대 3개예요. 하나를 빼고 추가해주세요.',
@@ -6945,6 +6810,9 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: '아직 업로드 전',
         attachmentsHint: '파일을 끌어다 놓거나 클릭해서 추가하세요 (PDF 권장)',
+        /* On the thumbnail, on hover. The framing drag used to live on a mock-up
+           of a card; now it is on the picture, so it has to say so. */
+        imageDragHint: '사진 안을 드래그해서 카드에 보일 부분을 정하세요',
         submitHint: '2분 정도면 충분해요. 그만한 가치가 있을 거예요.',
         submitHintByType: {
           update: '한 줄이면 충분해요.',
@@ -7075,7 +6943,6 @@ const TRANSLATIONS = {
         intro: 'Es muss nicht fertig sein. Eine Zeile darüber, woran du arbeitest, was interessant ist oder wo es hakt.',
         submitButton: 'Posten',
         submitHint: 'Eine Zeile reicht.',
-        previewPlaceholder: 'Deine Zeile erscheint hier',
       },
       linkLabel: 'Link',
       linkOptional: 'optional',
@@ -7145,12 +7012,6 @@ const TRANSLATIONS = {
         },
       },
       imageChosenFallback: 'Bild angehängt',
-      previewLabel: 'Live-Vorschau',
-      previewModes: { card: 'Karte', banner: 'Banner' },
-      previewImageEmpty: 'Klicken oder Bild hierher ziehen',
-      previewImageReplace: 'Klicken oder ziehen zum Ersetzen',
-      previewTitlePlaceholder: 'Dein Titel erscheint hier',
-      previewEmptyField: 'Was du in dieses Feld schreibst, steht hier.',
       previewDragHint: 'Zum Verschieben ziehen',
       editedAt: (when) => `Bearbeitet ${when}`,
       askedTo: {
@@ -7378,6 +7239,10 @@ const TRANSLATIONS = {
         /* Keywords sit under the title because that is where somebody is still
            describing the thing, before they start explaining it. */
         keywordsLabel: 'Schlagworte',
+        /* Offered under the field when the writing already contains a keyword
+           somebody else is using. Phrased as a question because it is an offer,
+           not an instruction. */
+        keywordsSuggest: 'Eines davon hinzufügen?',
         keywordsPlaceholder: '1–3 Schlagworte, die sich durch diese Arbeit ziehen (z. B. Slack pipeline)',
         keywordsHint: 'Nimm möglichst eines, das es schon gibt — ein Schlagwort, das zwei Studios teilen, bringt ihre Arbeit zusammen.',
         keywordsFull: 'Drei ist das Maximum. Nimm eines weg, um ein anderes hinzuzufügen.',
@@ -7409,6 +7274,9 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Noch nicht hochgeladen',
         attachmentsHint: 'Datei hierher ziehen (PDF eignet sich gut) oder klicken, um eine hinzuzufügen',
+        /* On the thumbnail, on hover. The framing drag used to live on a mock-up
+           of a card; now it is on the picture, so it has to say so. */
+        imageDragHint: 'Im Bild ziehen, um zu wählen, was die Karte zeigt',
         submitHint: 'Dauert etwa zwei Minuten. Es lohnt sich.',
         submitHintByType: {
           update: 'Eine Zeile reicht.',
@@ -7539,7 +7407,6 @@ const TRANSLATIONS = {
         intro: 'Bitmiş olması gerekmiyor. Üzerinde çalıştığınız, ilginç bulduğunuz ya da takıldığınız şeyi bir satırda yazın.',
         submitButton: 'Paylaş',
         submitHint: 'Bir satır yeter.',
-        previewPlaceholder: 'Satırınız burada görünecek',
       },
       linkLabel: 'Bağlantı',
       linkOptional: 'isteğe bağlı',
@@ -7609,12 +7476,6 @@ const TRANSLATIONS = {
         },
       },
       imageChosenFallback: 'Görsel eklendi',
-      previewLabel: 'Canlı önizleme',
-      previewModes: { card: 'Kart', banner: 'Afiş' },
-      previewImageEmpty: 'Tıklayın ya da buraya bir görsel bırakın',
-      previewImageReplace: 'Değiştirmek için tıklayın ya da bırakın',
-      previewTitlePlaceholder: 'Başlığınız burada görünecek',
-      previewEmptyField: 'O alana yazdığınız burada görünür.',
       previewDragHint: 'Konumlandırmak için sürükleyin',
       editedAt: (when) => `${when} düzenlendi`,
       askedTo: {
@@ -7842,6 +7703,10 @@ const TRANSLATIONS = {
         /* Keywords sit under the title because that is where somebody is still
            describing the thing, before they start explaining it. */
         keywordsLabel: 'Anahtar kelimeler',
+        /* Offered under the field when the writing already contains a keyword
+           somebody else is using. Phrased as a question because it is an offer,
+           not an instruction. */
+        keywordsSuggest: 'Bunlardan birini ekle?',
         keywordsPlaceholder: 'Bu işin içinden geçen 1–3 anahtar kelime (ör. Slack pipeline)',
         keywordsHint: 'Mümkünse var olanlardan seç — iki stüdyonun paylaştığı bir anahtar kelime, işlerini aynı sayfaya getirir.',
         keywordsFull: 'En fazla üç. Başka eklemek için birini çıkar.',
@@ -7873,6 +7738,9 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Henüz yüklenmedi',
         attachmentsHint: 'Bir dosyayı buraya sürükle (PDF için ideal) ya da eklemek için tıkla',
+        /* On the thumbnail, on hover. The framing drag used to live on a mock-up
+           of a card; now it is on the picture, so it has to say so. */
+        imageDragHint: 'Kartın neyi göstereceğini seçmek için görselin içinde sürükle',
         submitHint: 'Yaklaşık iki dakika sürer. Buna değer.',
         submitHintByType: {
           update: 'Bir satır yeter.',
@@ -8289,7 +8157,52 @@ const MENU_ITEMS = [
    enough for the roster card on a 2x display, which is 667x934 css at its
    largest.
    ====================================================================== */
+/* ======================================================================
+   The four real people come first, then the seeded ones
+   ----------------------------------------------------------------------
+   These four are in code, with their pictures committed to assets/, because a
+   roster that only exists in localStorage is a roster only the person who typed
+   it can see. Everything added through the in-app editor is written to
+   loom_designers_v1 on one machine and one browser profile — so the faces that
+   had been curated locally were, correctly and invisibly, absent from the
+   deployed site for everybody else. Anything that should be there for a visitor
+   on their first load has to be here instead.
+
+   Only what is verifiable is filled in. Names are the ones on the files;
+   Minwoo Heo and Bengt Ott are placed by their own cards (x1/x3 are DoubleU's,
+   x2 is Whow's). Roles, what they are working on, what they can help with and
+   their contact details are left empty on purpose: those are facts about real
+   colleagues, and a plausible guess about a real person is just a wrong answer
+   that looks right. They render as absent rather than as blanks — see
+   buildDesignerCard, where every one of those fields is guarded — and the back
+   of the card still fills itself in from the network, because
+   mostRecentCardBy(name) finds the work they have actually shared.
+
+   ASSUMPTION, worth correcting if wrong: Sua Song is placed with DoubleU and
+   Felix Heitmann with Whow. Neither authors a card, so unlike the other two
+   there is nothing in the data that says which studio they belong to.
+
+   Editing any of them in the app still works exactly as before, and still wins:
+   loadDesigners() returns the stored list whole when there is one. Which also
+   means a browser that has edited the roster before will not see this list until
+   loom_designers_v1 is cleared.
+   ====================================================================== */
 const DEFAULT_DESIGNERS = [
+  // photoPos: the face, as percentages. A portrait is 4:5 and the card crop is
+  // 1:1.4, so the default centre would cut this one off at the chin.
+  { id: 'du-minwoo', studio: 'doubleu', name: 'Minwoo Heo', roleKey: '', photo: 'assets/minwoo-heo.jpg', photoPos: { x: 53, y: 20 },
+    workingOn: '', canHelp: '', links: {} },
+  { id: 'du-sua', studio: 'doubleu', name: 'Sua Song', roleKey: '', photo: 'assets/sua-song.jpg', photoPos: { x: 50, y: 45 },
+    workingOn: '', canHelp: '', links: {} },
+  { id: 'wh-bengt', studio: 'whow', name: 'Bengt Ott', roleKey: '', photo: 'assets/bengt-ott.jpg', photoPos: { x: 50, y: 35 },
+    workingOn: '', canHelp: '', links: {} },
+  { id: 'wh-felix', studio: 'whow', name: 'Felix Heitmann', roleKey: '', photo: 'assets/felix-heitmann.jpg', photoPos: { x: 55, y: 33 },
+    workingOn: '', canHelp: '', links: {} },
+
+  /* The seeded six. They stay: they are the authors of most of the sample
+     cards, so the roster is where "who is Lena Fischer" gets answered when a
+     card of hers is open — and deleting them would leave those cards pointing
+     at nobody (see the designerRoster lookup in the author filter). */
   { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null, photoPos: null,
     workingOn: 'First-payment reward flow, round two',
     canHelp: 'Monetisation flows, paywall timing',
@@ -9614,10 +9527,19 @@ function renderDiscover() {
           <span class="card-type">${t().types[data.type]}</span>
         </div>
         <div class="card-title"></div>
-        ${keywordTagsHTML(data)}
+        <!-- Only the trace, and only when there is one.
+             The keyword chips and the two lineage hint lines that used to be
+             here are still on the poster card and in the detail, and that is
+             where they belong: a card is read among a dozen others, so it has
+             to say what it is about. A cover is not being compared to anything.
+             It had a 79px title and then three rows of 12px labels underneath
+             repeating in small type what the title had just said in large, and
+             the hint line was a quotation cut mid-word — "Came from 'Self-serve
+             social asset generator on n8n —...'" — which is not a fact anybody
+             can use. The Lineage strip and the detail view both tell that story
+             properly. This line stays because it is the one thing the title
+             genuinely cannot carry: that the work came from the other studio. -->
         ${exchangeTraceHTML(data)}
-        ${hint ? `<div class="card-lineage-hint">${LINEAGE_ARROW_ICON}${hint}</div>` : ''}
-        ${langPendingText(data) ? `<div class="card-lineage-hint">${langPendingText(data)}</div>` : ''}
       </div>
     `;
     renderHeroTitle(slide.querySelector('.card-title'), text.title);
@@ -9635,6 +9557,8 @@ function renderDiscover() {
     requestAnimationFrame(() => {
       const first = slidesWrap.querySelector('.hero-slide');
       if (first) first.classList.add('is-active');
+      // which slide is active decides the chrome's tone, so say so on the change
+      updateChrome();
     });
   });
   startHeroAutoplay();
@@ -11376,7 +11300,19 @@ function applyDetailTone(data) {
    runs on every floor tween — a slide whose photo has not been measured yet
    carries the type's default until the measurement lands and re-runs this. */
 function heroToneNow() {
-  const slide = document.querySelector('#heroSlides .hero-slide.is-active');
+  /* Falls back to the first slide, not to a light surface. Nothing is .is-active
+     for the first two frames after renderHero — the closed state has to paint
+     before it can be released — and updateChrome() runs inside that gap. The old
+     fallback answered "light, top to bottom" for it, which stuck: the only thing
+     that re-runs updateChrome afterwards is a floor tween, a slide change, or a
+     photo measurement landing, and a cover with no photograph has no measurement
+     to land. So the very first cover of the session kept a light-surface tone
+     over its own dark scrim, and the two bare lines in the Update strip were ink
+     on near-black — 1.13:1, which is invisible. Every slide's dataset is filled
+     by applyHeroTone before it is ever appended, so the first one can answer
+     this whether or not it has been activated yet. */
+  const slide = document.querySelector('#heroSlides .hero-slide.is-active')
+    || document.querySelector('#heroSlides .hero-slide');
   if (!slide) return LIGHT_SURFACE_TONE;
   return {
     topLeft: slide.dataset.toneTopLeft || TONE_LIGHT,
@@ -13467,7 +13403,7 @@ function startExperimentFromQuestion(card) {
       const goal = document.getElementById('field_goal');
       if (goal && !goal.value) goal.value = bodyValue(cardText(card), 'question', 'blocked') || '';
       updateSubmitGate();
-      refreshPreview();
+      refreshImageThumb();
     }, CONFIG.MODE_SWAP_MS + 60);
   }, CONFIG.MODE_SWAP_MS + 40);
 }
@@ -15134,7 +15070,7 @@ function setComposeType(key) {
   renderComposeFields(composeDrafts[key]);
   updateComposeChrome();
   updateSubmitGate();
-  refreshPreview();
+  refreshImageThumb();
 }
 
 function renderAskedToPicker() {
@@ -15200,7 +15136,7 @@ function addComposeKeyword(word) {
   if (!label || hasComposeKeyword(label) || composeKeywordsFull()) return false;
   composeKeywords.push(label);
   renderComposeKeywords();
-  refreshPreview();
+  refreshImageThumb();
   return true;
 }
 
@@ -15208,7 +15144,7 @@ function removeComposeKeyword(word) {
   const key = keywordKey(word);
   composeKeywords = composeKeywords.filter((k) => keywordKey(k) !== key);
   renderComposeKeywords();
-  refreshPreview();
+  refreshImageThumb();
 }
 
 const KEYWORD_REMOVE_ICON = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
@@ -15240,11 +15176,79 @@ function renderComposeKeywords() {
 
   const full = composeKeywordsFull();
   wrap.classList.toggle('is-full', full);
+  // taking or dropping a chip changes what is worth offering
+  renderKeywordOffers();
   // The placeholder is the field's whole instruction, so it only belongs there
   // while the field is empty — next to two chips it reads as a third one.
   input.placeholder = composeKeywords.length ? '' : t().share.keywordsPlaceholder;
   hint.textContent = full ? t().share.keywordsFull : t().share.keywordsHint;
   if (full) closeKeywordSuggestions();
+}
+
+/* ---- keywords the writing already contains ----
+   Everything typed into this form, plus the names of anything attached, matched
+   against the keywords other cards are already using. Case-folded, substring —
+   so "our Slack pipeline finally works" offers "Slack pipeline", and a file
+   called whow-n8n-architecture.pdf offers nothing unless somebody has coined a
+   keyword that appears in it.
+
+   Only existing keywords are offered, never invented ones. The point is to make
+   the cheap thing — reusing a word a colleague already chose — the thing that
+   happens by default, because that is what puts two studios in one thread. A
+   suggestion engine that invented new keywords would do the opposite.
+
+   TODO(server): replace with AI keyword extraction. A model reading the body and
+   the attached document can propose keywords that are not literally present in
+   the text — which is most of the useful ones — and can say why. That needs the
+   document contents and a model call, so it belongs on the server next to the
+   write path, not in a substring match in the browser. Everything below is the
+   honest version of that until it exists: it only claims to spot words that are
+   demonstrably there. */
+function composeTextForSuggestions() {
+  const parts = [];
+  const title = document.getElementById('titleInput');
+  if (title) parts.push(title.value || '');
+  document.querySelectorAll('#composeFields textarea').forEach((t) => parts.push(t.value || ''));
+  // Attachment names are usually the most keyword-dense text in the whole form.
+  // Punctuation out, so "slack-pipeline_v2.pdf" reads as words.
+  attachedFiles.forEach((f) => parts.push(String(f.name || '').replace(/[._\-/\\]+/g, ' ')));
+  return parts.join('  ').toLowerCase();
+}
+
+function suggestedKeywords() {
+  const hay = composeTextForSuggestions();
+  if (hay.trim().length < 3) return [];
+  const taken = composeKeywords.map(keywordKey);
+  return allKeywords()
+    .filter((k) => taken.indexOf(k.key) < 0)
+    .filter((k) => hay.indexOf(k.key) > -1)
+    .slice(0, 4)
+    .map((k) => k.label);
+}
+
+function renderKeywordOffers() {
+  const row = document.getElementById('keywordSuggest');
+  const chips = document.getElementById('keywordSuggestChips');
+  if (!row || !chips) return;
+
+  // At the cap there is nothing to offer, whatever the text says.
+  const words = composeKeywordsFull() ? [] : suggestedKeywords();
+  if (!words.length) { row.style.display = 'none'; chips.innerHTML = ''; return; }
+
+  document.getElementById('keywordSuggestLabel').textContent = t().share.keywordsSuggest;
+  chips.innerHTML = '';
+  words.forEach((label) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'keyword-suggest-chip';
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      addComposeKeyword(label);
+      renderKeywordOffers(); // it is a chip now, so it stops being an offer
+    });
+    chips.appendChild(btn);
+  });
+  row.style.display = '';
 }
 
 function closeKeywordSuggestions() {
@@ -15439,10 +15443,6 @@ function renderComposeFields(carried) {
     area.placeholder = strings.placeholder;
     if (carried && carried[key]) area.value = carried[key];
 
-    // The preview follows the caret, so every field has to say when it has it.
-    area.addEventListener('focus', () => setPreviewFocus(key));
-    area.addEventListener('input', refreshPreview);
-
     field.appendChild(label);
     field.appendChild(area);
     return field;
@@ -15524,8 +15524,6 @@ function refreshComposeCopy() {
   // about the Share screen, and it sits with the rest of the Update strings.
   const copy = selectedType === 'update' ? t().updateMode : s;
   const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setText('composeHeading', copy.heading);
-  setText('composeIntro', copy.intro);
   setText('submitBtnLabel', copy.submitButton);
   // How much work this actually is, per type. One promise across a one-line box
   // and a four-paragraph write-up was wrong about at least one of them.
@@ -15549,17 +15547,17 @@ let selectedImageFocal = { x: 50, y: 50 };
 
 // No thumbnail: the picture is the whole background of the preview card just
 // above this, so all this slot has to say is which file is loaded.
+/* The one place that reflects "there is an image now" into the form: the file
+   name row, the add button, and the thumbnail. */
 function setUploadPreview(url, fileName) {
   const chosen = document.getElementById('imageChosen');
-  const pickBtn = document.getElementById('uploadZone');
-  if (url) {
-    document.getElementById('imageFileName').textContent = fileName || selectedImageName || t().imageChosenFallback;
-    chosen.style.display = 'flex';
-    pickBtn.style.display = 'none';
-  } else {
-    chosen.style.display = 'none';
-    pickBtn.style.display = 'flex';
-  }
+  const nameEl = document.getElementById('imageFileName');
+  const zone = document.getElementById('uploadZone');
+  if (chosen) chosen.style.display = url ? 'flex' : 'none';
+  if (nameEl) nameEl.textContent = fileName || selectedImageName || '';
+  // the "add one" button steps aside once there is something to replace
+  if (zone) zone.style.display = url ? 'none' : '';
+  refreshImageThumb();
 }
 
 /* Downscale before anything else touches the file. Two hard limits make this
@@ -15630,7 +15628,7 @@ function handleImageFile(file) {
     selectedImageName = file.name || '';
     selectedImageFocal = { x: 50, y: 50 }; // a new picture starts centred
     setUploadPreview(selectedImageUrl, selectedImageName);
-    refreshPreview();
+    refreshImageThumb();
   }).catch((err) => {
     // A failed read/decode (corrupt file, unsupported format) shouldn't leave
     // the zone stuck looking however it happened to look mid-attempt.
@@ -15675,7 +15673,7 @@ function initUploadStub() {
     selectedImageName = '';
     selectedImageFocal = { x: 50, y: 50 };
     setUploadPreview(null);
-    refreshPreview();
+    refreshImageThumb();
   });
 }
 
@@ -15697,6 +15695,8 @@ const ATTACHMENT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 const ATTACHMENT_REMOVE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 
 function renderAttachmentList() {
+  // a file name is text too - see composeTextForSuggestions
+  renderKeywordOffers();
   const wrap = document.getElementById('attachmentList');
   wrap.innerHTML = '';
   attachedFiles.forEach((file, index) => {
@@ -15811,123 +15811,45 @@ function renderAttachmentsInto(wrapEl, data) {
    type or the language changes and a listener on a replaced element goes with
    it. */
 /* ======================================================================
-   Live preview
+   The image, and how it is framed
    ----------------------------------------------------------------------
-   The same .card-media / .card-scrim / .card-content pieces a real poster is
-   made of, at whatever size the right column happens to be — not a separate
-   "preview" component that would drift away from the thing it previews the
-   first time either changed.
+   What used to be here was a live preview: a working replica of a poster card
+   in the right-hand third of the composer, showing the title, the type, the
+   studio and whichever field the caret was in.
 
-   It shows the title, the type and the studio always, and then ONLY the field
-   the caret is in. Showing the whole body would make this a second, smaller
-   copy of the form already filling the left two-thirds of the screen; the
-   question a preview answers is "how does the sentence I am typing right now
-   read on a card", and that question has one field in it.
+   It is gone, and the form has the width back. The preview answered "how will
+   this read on a card" with a smaller, worse copy of the text you were already
+   looking at two inches to the left, and it charged two thirds of a column and
+   most of the visual weight for the answer. Writing is the job on this screen.
+
+   What survived is the part it was genuinely needed for: a picture has to be
+   framed, because a 16:9 photograph in a tall card is mostly crop. That control
+   moved onto the thumbnail in the Image slot, so the gesture now happens on the
+   picture itself rather than on a mock-up of a card containing it.
    ====================================================================== */
-let previewFocusKey = null;
-/* 'banner' or 'card'. Banner by default: it is the shape a new piece of
-   knowledge lands in on floor 1, so it is the one worth having in front of you
-   while you write. The card is the second look, and it is the poster's own
-   tall proportions rather than a stand-in rectangle. */
-let previewMode = 'banner';
 
-function setPreviewMode(mode) {
-  if (mode === previewMode) return;
-  previewMode = mode;
-  document.querySelectorAll('.preview-mode').forEach((b) =>
-    b.classList.toggle('is-active', b.dataset.mode === mode));
-  refreshPreview();
-}
-
-function initPreviewModes() {
-  document.querySelectorAll('.preview-mode').forEach((btn) => {
-    btn.addEventListener('click', () => setPreviewMode(btn.dataset.mode));
-  });
-}
-
-function setPreviewFocus(key) {
-  if (!key || key === previewFocusKey) return;
-  const box = document.getElementById('previewFocus');
-  if (!box) return;
-
-  // Out, swap, back in — a hard cut between two paragraphs of somebody's own
-  // writing reads as a glitch rather than as a change of subject.
-  box.classList.add('is-swapping');
-  window.setTimeout(() => {
-    previewFocusKey = key;
-    paintPreviewFocus();
-    box.classList.remove('is-swapping');
-  }, 180);
-}
-
-function paintPreviewFocus() {
-  const key = previewFocusKey || fieldsFor(selectedType)[0];
-  const strings = fieldStrings(selectedType, key);
-  const area = document.getElementById('field_' + key);
-
-  document.getElementById('previewFocusLabel').textContent = strings.label;
-  const textEl = document.getElementById('previewFocusText');
-  // textContent, never innerHTML: this is the author's own prose going onto a
-  // surface. The CSS carries white-space: pre-wrap, so their line breaks show.
-  textEl.textContent = area ? area.value : '';
-  textEl.dataset.placeholder = t().previewEmptyField;
-}
-
-function refreshPreview() {
-  const card = document.getElementById('previewCard');
-  if (!card) return;
-
-  const studio = STUDIOS[MY_STUDIO_KEY];
-  const title = document.getElementById('titleInput');
-
-  document.getElementById('previewDot').style.background = studio.color;
-  document.getElementById('previewStudio').textContent = studio.name;
-  document.getElementById('previewType').textContent = t().types[selectedType];
-
-  /* An Update has no title field, so its one line takes the title's place on
-     the card — showing "Your title will appear here" above the same sentence
-     repeated underneath would be previewing a form the reader is not filling
-     in. */
-  const update = selectedType === 'update';
-  const noteEl = document.getElementById('field_note');
-  const titleEl = document.getElementById('previewTitle');
-  titleEl.textContent = update
-    ? (noteEl ? noteEl.value.trim() : '')
-    : (title ? title.value.trim() : '');
-  titleEl.dataset.placeholder = update ? t().updateMode.previewPlaceholder : t().previewTitlePlaceholder;
-  document.getElementById('previewFocus').style.display = update ? 'none' : '';
-
-  const icon = document.getElementById('previewMediaIcon');
-  icon.innerHTML = ICONS[selectedType];
-  icon.style.color = studio.color;
-
-  /* The banner is a different shape, so the same picture is cropped
-     differently — which is the whole reason this toggle exists. */
-  const banner = previewMode === 'banner';
-  card.classList.toggle('is-banner', banner);
-  card.classList.toggle('is-card', !banner);
-
+/* Paints the chosen image into the thumbnail and shows or hides it. Named for
+   what it does now — there is no preview left to refresh. */
+function refreshImageThumb() {
+  const thumb = document.getElementById('imageThumb');
   const media = document.getElementById('previewMedia');
-  applyCardMedia(media, selectedImageUrl, studio.color, selectedImageFocal);
-  card.classList.toggle('has-image', !!selectedImageUrl);
-  media.classList.toggle('has-image-draggable', !!selectedImageUrl);
-  document.getElementById('previewImageCtaLabel').textContent =
-    selectedImageUrl ? t().previewImageReplace : t().previewImageEmpty;
+  if (!thumb || !media) return;
 
-  // If the caret has never been in a field, show the first one — an empty
-  // preview body on a fresh form says nothing about what the preview is for.
-  if (!previewFocusKey) previewFocusKey = fieldsFor(selectedType)[0];
-  paintPreviewFocus();
+  thumb.style.display = selectedImageUrl ? '' : 'none';
+  if (!selectedImageUrl) {
+    media.classList.remove('has-image', 'has-image-draggable');
+    media.style.removeProperty('--card-img');
+    return;
+  }
+  applyCardMedia(media, selectedImageUrl, STUDIOS[MY_STUDIO_KEY].color, selectedImageFocal);
+  media.classList.add('has-image-draggable');
+  const hint = document.getElementById('previewDragHint');
+  if (hint) hint.textContent = t().share.imageDragHint;
 }
 
-/* Dragging the preview moves the image inside its frame, and that position is
-   stored on the card. A poster, the cover banner and the detail hero are three
-   different aspect ratios: a face centred in one slides out of frame in
-   another, and "upload it again, cropped differently" is not a fix. Pointer
-   Events with capture, so a drag that leaves the element still tracks. */
 function initPreviewImageDrag() {
   const media = document.getElementById('previewMedia');
-  const slot = document.getElementById('previewMediaSlot');
+  const slot = document.getElementById('imageThumb');
   if (!media || !slot) return;
 
   let dragging = false;
@@ -15984,9 +15906,12 @@ function initPreviewImageDrag() {
    it stays — some people go looking for a button — and both call the same
    handleImageFile, so whichever you use the result is identical. */
 function initPreviewImageInput() {
-  const slot = document.getElementById('previewMediaSlot');
+  // The thumbnail replaces the picture; the whole slot stays the drop target, so
+  // a file can be dropped before there is any thumbnail to drop it on.
+  const slot = document.getElementById('imageThumb');
+  const dropZone = document.getElementById('imageSlot');
   const fileInput = document.getElementById('imageFileInput');
-  if (!slot || !fileInput) return;
+  if (!slot || !dropZone || !fileInput) return;
 
   const open = () => {
     if (slot.dataset.justRepositioned) return;
@@ -16001,13 +15926,13 @@ function initPreviewImageInput() {
   // toggling on every crossing — otherwise the outline flickers off the moment
   // the pointer passes over the label inside the frame.
   let depth = 0;
-  slot.addEventListener('dragenter', (e) => { e.preventDefault(); depth += 1; slot.classList.add('is-dropping'); });
-  slot.addEventListener('dragover', (e) => { e.preventDefault(); });
-  slot.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) slot.classList.remove('is-dropping'); });
-  slot.addEventListener('drop', (e) => {
+  dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); depth += 1; dropZone.classList.add('is-dropping'); });
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+  dropZone.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) dropZone.classList.remove('is-dropping'); });
+  dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     depth = 0;
-    slot.classList.remove('is-dropping');
+    dropZone.classList.remove('is-dropping');
     handleImageFile(e.dataTransfer.files && e.dataTransfer.files[0]);
   });
 }
@@ -16015,11 +15940,12 @@ function initPreviewImageInput() {
 function initSubmitGate() {
   const step = document.getElementById('stepCompose');
   step.addEventListener('input', updateSubmitGate);
+  /* Delegated, so it covers the title, every body field, and any field the type
+     switch builds later — none of which exist yet when this runs. */
+  step.addEventListener('input', renderKeywordOffers);
   const title = document.getElementById('titleInput');
-  title.addEventListener('input', refreshPreview);
   // the title is always shown, so focusing it leaves the body panel on
   // whatever field was last edited rather than blanking it
-  title.addEventListener('focus', () => setPreviewFocus(fieldsFor(selectedType)[0]));
 }
 
 /* An Update has no title, so the gate is its one line instead. Same rule
@@ -16127,9 +16053,7 @@ function resetComposeForm() {
   document.getElementById('keywordInput').value = '';
   closeKeywordSuggestions();
   renderComposeKeywords();
-  setPreviewMode('banner'); // every compose opens on the shape floor 1 will use
-  setPreviewFocus(fieldsFor(selectedType)[0]);
-  refreshPreview();
+  refreshImageThumb();
 
   // Compose is a persistent, hidden-not-recreated element (see enterShareMode/
   // goToComposeStep, both of which call this) — without resetting scrollTop
@@ -16191,8 +16115,7 @@ function prefillComposeFrom(card) {
   document.getElementById('keywordInput').value = '';
   closeKeywordSuggestions();
   renderComposeKeywords();
-  setPreviewFocus(fieldsFor(selectedType)[0]);
-  refreshPreview();
+  refreshImageThumb();
 
   updateSubmitGate(); // an existing card always has a title, but say so once
 }
@@ -16222,8 +16145,6 @@ function applyEditModeLabels() {
   if (!editingCardId) return;
   const s = t();
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-  setText('composeHeading', s.editHeading);
-  setText('composeIntro', s.editIntro);
   setText('submitBtnLabel', s.editSubmit);
 }
 
@@ -16930,8 +16851,6 @@ function refreshShareText() {
   const s = t().share;
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
 
-  setText('composeHeading', s.heading);
-  setText('composeIntro', s.intro);
   const titleInput = document.getElementById('titleInput');
   if (titleInput) titleInput.placeholder = s.titlePlaceholder;
   setText('typeQuestionLabel', s.typeQuestion);
@@ -16950,11 +16869,8 @@ function refreshShareText() {
   renderAskedToPicker();
   updateComposeChrome();
 
-  setText('previewLabel', t().previewLabel);
-  setText('previewModeCard', t().previewModes.card);
-  setText('previewModeBanner', t().previewModes.banner);
   setText('previewDragHint', t().previewDragHint);
-  refreshPreview();
+  refreshImageThumb();
 
   setText('linkFieldLabel', t().linkLabel);
   const linkInput = document.getElementById('linkInput');
@@ -17256,7 +17172,6 @@ safeInit('attachment upload', initAttachmentUpload);
 safeInit('submit gate', initSubmitGate);
 safeInit('preview drag', initPreviewImageDrag);
 safeInit('preview image input', initPreviewImageInput);
-safeInit('preview modes', initPreviewModes);
 safeInit('submit handler', initSubmit);
 safeInit('weave canvas', initWeaveCanvas);
 safeInit('see full weave stub', initSeeFullWeave);
