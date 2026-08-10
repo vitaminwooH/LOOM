@@ -142,7 +142,19 @@
   .menu-close svg { width: 19px; height: 19px; }
   .menu-close:hover { background: rgba(255, 255, 255, 0.18); transform: translateX(-2px); }
 
-  .menu-list { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  /* Every row is taller now that descriptions are held open, so on a short
+     window the six of them can exceed the viewport — which previously could not
+     happen and so was never guarded. */
+  .menu-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    max-height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px 0;
+  }
 
   /* opacity/transform here are the resting (closed) state; openMenuOverlay/
      closeMenuOverlay set transition-delay + transition-duration inline per
@@ -168,7 +180,11 @@
      identical to the four items that do work. */
   .menu-item[data-kind="pending"] { color: rgba(255, 255, 255, 0.42); }
   .menu-item[data-kind="pending"]:hover { color: rgba(255, 255, 255, 0.5); }
+  /* Tools' label and its "coming soon" note are two spans that belong on one
+     line, so both stay inline and the line box holds them together. */
+  .menu-item-label { display: inline; }
   .menu-item-aside {
+    display: inline;
     margin-left: 14px;
     font-family: 'Inter', sans-serif;
     font-size: 0.34em;
@@ -188,17 +204,46 @@
      five subtitles would turn it back into a list. Space is reserved for it
      either way (see .menu-item), so the column never jumps as you move down
      it — a menu that reflows under the cursor is a menu you misclick. */
-  .menu-item { position: relative; padding-bottom: 26px; }
+  /* Label above, description below, each in its own grid row.
+
+     It used to be an absolutely positioned line pinned into a 26px band of
+     bottom padding, and that could only ever work for descriptions that fit on
+     one line. Its width came from the *button*, and a button is only as wide as
+     its label — so "Now" gave the longest description in the menu a 137px
+     measure, it wrapped to three lines, and an absolutely positioned box grows
+     upward from `bottom`. It ran 35px into the word. "Knowledge" and "Threads"
+     were 17px in for the same reason; the three items with long labels happened
+     to be wide enough to escape it, which is why it looked like one broken item
+     rather than a broken rule.
+
+     In flow it cannot overlap however many lines it takes. The row is reserved
+     from the start rather than appearing on hover, so nothing shifts when the
+     pointer arrives — only the opacity changes. */
+  .menu-item {
+    /* Block, not grid. Grid put the label and Tools' "coming soon" note into two
+       auto-placed columns and the 46ch width threw them to opposite ends of the
+       row. Plain block flow is all this needs: two inline spans share the first
+       line, and the description is a block under them. */
+    display: block;
+    text-align: center;
+    /* one measure for every description, so none of them wraps past two lines
+       whatever the language, and every item is the same width and so the same
+       size of target */
+    width: min(46ch, 82vw);
+    padding: 8px 20px 12px;
+  }
   .menu-item-desc {
-    position: absolute;
-    left: 20px;
-    right: 20px;
-    bottom: 4px;
+    display: block;
+    margin-top: 5px;
     font-family: 'Inter', sans-serif;
     font-size: 12.5px;
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.4;
+    /* two lines held open whatever this item's description needs, so the six
+       rows keep an even rhythm instead of each being its own height */
+    min-height: 2.8em;
+    text-align: center;
     color: rgba(255, 255, 255, 0.55);
     opacity: 0;
     transform: translateY(-4px);
@@ -577,7 +622,7 @@
   /* the non-negotiable part: no floor is ever taller than the viewport, so
      content that overflows is handled *inside* the floor (a .floor-scroll
      region), never by making the floor itself taller */
-  .discover-section, .browse-section, .questions-section {
+  .discover-section, .browse-section, .questions-section, .threads-section {
     /* relative, so anything absolutely positioned inside a floor anchors to
        that floor. Without it the Update strip's `bottom` measured from the
        bottom of the whole three-floor stage and landed 1800px off-screen. */
@@ -1340,6 +1385,25 @@
     background-size: cover;
     background-position: center;
   }
+  /* ---------- a document, not a photograph ----------
+     A cover extracted from a deck is a 16:9 page of type, and `cover` on a
+     poster card two-thirds as wide as it is tall scales it up by ~1.7 and crops
+     two thirds of the width away. The result was the slide's own 64px title
+     rendered at 49px, sliced mid-word, directly above the card's real title —
+     two headlines fighting, which reads as a bug rather than as a picture.
+
+     So a document is fitted rather than filled: the whole page, letterboxed
+     against a colour taken from the page's own edge (imageBg), which is what a
+     thumbnail of a document is supposed to look like. Photographs keep `cover`,
+     because a photograph has no edges worth preserving. */
+  .card-media.has-image.is-doc {
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  /* On a poster the page sits high, clear of the title block over the scrim at
+     the foot; on the wide banner and in a detail it can simply centre. */
+  .poster-card .card-media.has-image.is-doc { background-position: center 34%; }
   .card-media.has-image .card-media-icon { display: none; }
   .card-media:not(.has-image) .card-media-badge { display: none; }
   /* No image: the type mark stops being the subject of the card.
@@ -3235,22 +3299,25 @@
      needing a canvas, and in SVG the hover states are CSS, the labels are real
      text at real weights, and a node is a DOM node you can put a listener on.
      ====================================================================== */
-  .threads-viewport {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
+  /* A floor, not a surface: height and overflow come from the shared floor rule
+     above, and all this adds is the column the head and the map sit in. It was
+     `position: fixed; inset: 0` when it was reached from the menu; inside the
+     stage that would have pinned it to the viewport and left it behind while the
+     other floors slid. */
+  .threads-section {
+    position: relative;
     display: flex;
     flex-direction: column;
-    background: var(--bg);
-    transition: opacity 0.42s ease;
   }
-  .threads-viewport.mode-fade-out { opacity: 0; }
 
   /* The heading is given room and then gets out of the way: this page is one
      image, and a title competing with it would make it a slide. */
   .threads-head {
     flex: 0 0 auto;
-    padding: clamp(44px, 6vh, 82px) 56px clamp(2px, 0.8vh, 12px);
+    /* Less top room than the surface version had: arriving here by wheel means
+       floor 3 has just left upward, and the eye is already at the top of the
+       screen rather than needing to be walked down to it. */
+    padding: clamp(34px, 4.6vh, 62px) 56px clamp(2px, 0.8vh, 12px);
     text-align: center;
   }
   .threads-head h1 {
@@ -3272,7 +3339,62 @@
   }
 
   .threads-stage { position: relative; flex: 1 1 auto; min-height: 0; }
-  .threads-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+  /* ---------- floor 4's footer ----------
+     The wordmark, and the one line that says what the weave above it is. Fixed
+     like the other chrome rather than in the floor's flow: the map wants every
+     pixel of the stage, and a footer inside it would take a band out of the
+     middle of the composition. Only shown on floor 4 (see updateChrome). */
+  .threads-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 20px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .threads-footer.is-visible { opacity: 1; transform: none; }
+  .threads-footer-line {
+    margin: 0;
+    font-size: 12.5px;
+    letter-spacing: 0.015em;
+    color: var(--ink-faint);
+  }
+  .threads-footer-mark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgba(28, 28, 30, 0.22);
+  }
+  /* Width and height are stated outright, and that matters more than it looks.
+
+     An <svg> with no width/height attributes takes its intrinsic size from its
+     viewBox aspect ratio. Sizing it with `top: 0; bottom: 58px` instead left the
+     height indefinite, so it derived one — and since layoutThreads writes the
+     viewBox from the measured box, the two fed each other: a first measurement
+     of zero clamped the viewBox to the 360x320 minimum, the svg then sized
+     itself to 1600x1422 from that ratio, and half the weave was laid out below
+     the floor.
+
+     The 58px is the footer's lane, kept in step with THREAD_FOOTER_LANE in the
+     script. */
+  .threads-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: calc(100% - 58px);
+    overflow: visible;
+  }
 
   /* ---------- one thread ----------
      Thicker than a hairline and coloured along its length, because the page is
@@ -3413,6 +3535,8 @@
   /* ---------- the story of one keyword ---------- */
   .threads-story {
     position: absolute;
+    /* against the floor now, not the window — the floor is the positioned
+       ancestor, so this rides with it as the stage translates */
     top: 0;
     right: 0;
     bottom: 0;
@@ -5202,6 +5326,13 @@
 
   <!-- signature, not navigation -->
   <div class="brand-footer" id="brandFooter">Loom</div>
+  <!-- Floor 4's own footer: the wordmark with the line that says what the weave
+       above it is. Separate from #brandFooter because that one belongs to the
+       two tool floors and carries no copy. -->
+  <div class="threads-footer" id="threadsFooter">
+    <p class="threads-footer-line" id="threadsFooterLine"></p>
+    <div class="threads-footer-mark">Loom</div>
+  </div>
 </div>
 
 <div class="app is-transitioning" id="app">
@@ -5265,6 +5396,62 @@
         <p class="questions-empty" id="questionsEmpty" style="display:none;"></p>
       </div>
     </section>
+    <!-- ---------- Threads (floor 4): the closing line ----------
+         The last floor rather than a surface off the menu. The three floors
+         above are a narrowing: everything happening now, then the work that
+         held up, then the questions still open. This is what all of it adds up
+         to — so it reads as the end of a sentence, and you arrive at it by
+         carrying on downward rather than by leaving to look at it.
+
+         Deliberately toolless: no search, no filters, no sort, no pan and no
+         zoom. It asks nothing of you and answers "what is going on between us"
+         in a glance. When there are eighty keywords instead of twenty this will
+         need panning, and that is the moment to add it. -->
+    <section class="threads-section" id="threadsSection">
+      <!-- Only the title up here. The line that explains the weave is at the
+           foot with the wordmark (see .threads-footer) — saying it in both
+           places, which is what happened first, just reads as a stutter. -->
+      <div class="threads-head">
+        <h1 id="threadsHeading"></h1>
+      </div>
+
+      <div class="threads-stage" id="threadsStage">
+        <!-- viewBox is set from the measured stage in layoutThreads, so the map
+             fills whatever window it is given without any transform of its own. -->
+        <svg class="threads-svg" id="threadsSvg" aria-hidden="true">
+          <!-- one bloom gradient per studio, one gradient per thread; rebuilt with
+               the map, since both depend on what is actually on it -->
+          <defs id="threadsDefs"></defs>
+          <!-- painted back to front: threads, then the words with their blooms -->
+          <g id="threadsLinkLayer"></g>
+          <g id="threadsNodeLayer"></g>
+        </svg>
+        <!-- Follows the pointer rather than sitting on the dot: a label anchored
+             to a 5px mark that is itself drifting is a label that shivers. -->
+        <div class="threads-tip" id="threadsTip"></div>
+        <div class="threads-empty" id="threadsEmpty" style="display:none;">
+          <p class="threads-empty-line" id="threadsEmptyTitle"></p>
+          <p class="threads-empty-sub" id="threadsEmptyBody"></p>
+        </div>
+      </div>
+
+      <!-- The story of one keyword, oldest first. A panel rather than a new
+           screen: the map stays visible behind it, so it reads as "this part of
+           that" instead of a place you navigated to. -->
+      <aside class="threads-story" id="threadsStory" aria-live="polite">
+        <div class="threads-story-head">
+          <div>
+            <div class="threads-story-word" id="threadsStoryWord"></div>
+            <div class="threads-story-meta" id="threadsStoryMeta"></div>
+          </div>
+          <button type="button" class="threads-story-close" id="threadsStoryClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <p class="threads-story-lead" id="threadsStoryLead"></p>
+        <div class="threads-story-list" id="threadsStoryList"></div>
+      </aside>
+    </section>
    </div>
   </main>
 
@@ -5272,61 +5459,6 @@
        A sibling surface of the feed rather than a fourth floor — it isn't
        knowledge, it's the people behind it, and it shouldn't sit in the same
        vertical sequence as the three knowledge tiers. ---------- -->
-  <!-- ---------- Threads: the lookout ----------
-       One screen that shows the whole weave at once. Deliberately toolless —
-       no search, no filters, no sort, no pan and no zoom. The value is that it
-       asks nothing of you and answers "what is going on between us" in a
-       glance; every one of those tools would turn it into a place you work
-       rather than a place you look. When there are eighty keywords instead of
-       twenty this will need panning, and that is the moment to add it. -->
-  <section class="threads-viewport" id="threadsViewport" style="display:none;">
-    <button type="button" class="icon-ghost back-btn" id="threadsCloseBtn" aria-label="Back">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-    </button>
-
-    <div class="threads-head">
-      <h1 id="threadsHeading"></h1>
-      <p id="threadsIntro"></p>
-    </div>
-
-    <div class="threads-stage" id="threadsStage">
-      <!-- viewBox is set from the measured stage in layoutThreads, so the map
-           fills whatever window it is given without any transform of its own. -->
-      <svg class="threads-svg" id="threadsSvg" aria-hidden="true">
-        <!-- one bloom gradient per studio, one gradient per thread; rebuilt with
-             the map, since both depend on what is actually on it -->
-        <defs id="threadsDefs"></defs>
-        <!-- painted back to front: threads, then the words with their blooms -->
-        <g id="threadsLinkLayer"></g>
-        <g id="threadsNodeLayer"></g>
-      </svg>
-      <!-- Follows the pointer rather than sitting on the dot: a label anchored
-           to a 5px mark that is itself drifting is a label that shivers. -->
-      <div class="threads-tip" id="threadsTip"></div>
-      <div class="threads-empty" id="threadsEmpty" style="display:none;">
-        <p class="threads-empty-line" id="threadsEmptyTitle"></p>
-        <p class="threads-empty-sub" id="threadsEmptyBody"></p>
-      </div>
-    </div>
-
-    <!-- The story of one keyword, oldest first. A panel rather than a new
-         screen: the map stays visible behind it, so it reads as "this part of
-         that" instead of a place you navigated to. -->
-    <aside class="threads-story" id="threadsStory" aria-live="polite">
-      <div class="threads-story-head">
-        <div>
-          <div class="threads-story-word" id="threadsStoryWord"></div>
-          <div class="threads-story-meta" id="threadsStoryMeta"></div>
-        </div>
-        <button type="button" class="threads-story-close" id="threadsStoryClose" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <p class="threads-story-lead" id="threadsStoryLead"></p>
-      <div class="threads-story-list" id="threadsStoryList"></div>
-    </aside>
-  </section>
-
   <section class="designers-viewport" id="designersViewport" style="display:none;">
     <button type="button" class="icon-ghost back-btn" id="designersCloseBtn" aria-label="Back">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
@@ -8090,6 +8222,13 @@ const WEAVE_STUDIOS = Object.keys(STUDIOS)
 
    Tools has no destination yet and says so in place rather than looking
    identical to the four that work. */
+/* Four floors, and the order is an argument: everything happening now, then the
+   work that held up, then the questions still open, then what all of it adds up
+   to. Threads is last because it is the closing line, and you get there by
+   carrying on downward rather than by leaving the feed to look at it. */
+const FLOOR_COUNT = 4;
+const FLOOR_THREADS = 3;
+
 const MENU_ITEMS = [
   // "New knowledge" is the newest knowledge — the cover on floor 1 — not the
   // form for writing some. Writing is the pencil in the bottom-left corner,
@@ -8098,7 +8237,7 @@ const MENU_ITEMS = [
   { key: 'newest', tier: 0 },
   { key: 'browse', tier: 1 },
   { key: 'question', tier: 2 },
-  { key: 'threads', threads: true },
+  { key: 'threads', tier: FLOOR_THREADS },
   { key: 'designers', designers: true },
   { key: 'tools', comingSoon: true },
 ];
@@ -8522,15 +8661,32 @@ const CARDS = [
 
      Appended, never inserted: staticIndex is this array's position, so anything
      added in the middle re-points every later card at the wrong translated copy. */
-  { id: 'x1', keywords: ['Slack pipeline', 'AI video pipeline'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', timeValue: 5, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null,
+  /* The cover images are page 1 of each attached deck, rendered to PNG at 1600px
+     wide, and marked imageFit: 'contain' so they are shown whole rather than
+     cropped — see the .is-doc note in the CSS for why a deck page and a
+     photograph want opposite treatments. imageBg is sampled from the page's own
+     edge so the letterbox belongs to the page.
+
+     To regenerate, or to do the same for x3 when doubleu-pipeline-update.pdf
+     arrives: open the PDF with PyMuPDF, take page 0 at a zoom of 1600/page
+     width, save alongside as assets/<name>-cover.png, and read the edge colour
+     off it for imageBg. */
+  { id: 'x1', keywords: ['Slack pipeline', 'AI video pipeline'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', timeValue: 5, timeUnit: 'week', appliedBy: ['whow'], image: 'assets/doubleu-pipeline-cover.png', imageFit: 'contain', imageBg: '#1e2760', relatedTo: [], derivedFrom: null,
     attachments: [{ name: 'doubleu-pipeline-architecture.pdf', path: 'assets/doubleu-pipeline-architecture.pdf' }] },
-  { id: 'x2', keywords: ['Slack pipeline', 'AI social pipeline'], studio: 'whow', type: 'project', author: 'Bengt Ott', timeValue: 2, timeUnit: 'week', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'x1', derivedRelation: 'appliedFrom', derivedNote: 'Same idea, different stack — n8n Cloud instead of a local codebase, and the support team drives it themselves.',
+  { id: 'x2', keywords: ['Slack pipeline', 'AI social pipeline'], studio: 'whow', type: 'project', author: 'Bengt Ott', timeValue: 2, timeUnit: 'week', appliedBy: [], image: 'assets/whow-n8n-cover.png', imageFit: 'contain', imageBg: '#ffffff', relatedTo: [], derivedFrom: 'x1', derivedRelation: 'appliedFrom', derivedNote: 'Same idea, different stack — n8n Cloud instead of a local codebase, and the support team drives it themselves.',
     attachments: [{ name: 'whow-n8n-architecture.pdf', path: 'assets/whow-n8n-architecture.pdf' }] },
   /* TODO(content): the body here is a placeholder. Replace made/constraints/
      solved/borrow — in all four languages — once today's write-up is finished,
      and drop the PDF in at the path below. Until it is there the attachment row
      renders as unavailable rather than as a broken link (see
-     renderAttachmentsInto). */
+     renderAttachmentsInto).
+
+     TODO(content): no cover either, so this one keeps the studio-tinted gradient
+     for now — which is a perfectly good visual and not a placeholder to
+     apologise for. When doubleu-pipeline-update.pdf lands, render its page 1 the
+     same way as the two above (see the note there) to
+     assets/doubleu-pipeline-update-cover.png and set `image` plus the same
+     imageFocal. */
   { id: 'x3', keywords: ['Slack pipeline', 'Thread'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', justNow: true, timeValue: 0, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'x2', derivedRelation: 'continuedFrom', derivedNote: 'Whow\u2019s typed-input and QA-gate ideas came back into our own pipeline.',
     attachments: [{ name: 'doubleu-pipeline-update.pdf', path: 'assets/doubleu-pipeline-update.pdf' }] },
 ];
@@ -8896,15 +9052,21 @@ function mediaGradient(color) {
 // load before switching — a broken/missing path silently keeps the fallback
 // visual instead of showing a blank box, so dropping files into assets/
 // later "just works" without any code change.
-function applyCardMedia(mediaEl, imagePath, color, focal) {
+/* `opts` carries the document treatment: { fit: 'contain', bg: '#1e2760' } from
+   a card's imageFit/imageBg. Passed as one object rather than two more
+   positional arguments, since every caller has the card in hand anyway. */
+function applyCardMedia(mediaEl, imagePath, color, focal, opts) {
   // Set before the probe resolves: background-position is harmless on the
   // gradient fallback, and setting it here means it is already right on the
   // frame the image first paints.
   mediaEl.style.backgroundPosition = focal ? focalPointCss(focal) : '';
   mediaEl.style.setProperty('--card-bloom', mediaGradient(color));
   mediaEl.classList.remove('has-image');
+  mediaEl.classList.remove('is-doc');
+  mediaEl.style.removeProperty('background-color');
   mediaEl.style.removeProperty('--card-img');
   if (!imagePath) return;
+  const doc = opts && opts.fit === 'contain';
   const probe = new Image();
   probe.onload = () => {
     mediaEl.style.setProperty('--card-img', `url("${imagePath}")`);
@@ -8918,6 +9080,15 @@ function applyCardMedia(mediaEl, imagePath, color, focal) {
     if (!mediaEl.style.getPropertyValue('--card-img')) {
       mediaEl.style.removeProperty('--card-img');
       return;
+    }
+    if (doc) {
+      mediaEl.classList.add('is-doc');
+      // The letterbox is the page's own edge colour, so the fit reads as a
+      // mounted page rather than as an image that failed to fill its box.
+      if (opts.bg) mediaEl.style.backgroundColor = opts.bg;
+      // `contain` puts the page where background-position says, and the CSS
+      // above wants that decision, not a focal point meant for a crop.
+      mediaEl.style.removeProperty('background-position');
     }
     mediaEl.classList.add('has-image');
   };
@@ -8996,19 +9167,10 @@ function renderMenuOverlay() {
       /* enterDesignersMode now takes Threads down itself, so this needs no
          special case for it — which is the point of having one teardown. */
       if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
-      if (item.threads) {
-        /* Share and a detail both animate closed and have to finish first;
-           Designers and Threads hand over inside enterThreadsMode. */
-        if (isShareMode) { exitShareMode(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
-        if (isCardExpanded) { closeCard(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
-        setTimeout(enterThreadsMode, MENU_CLOSE_DUR_MS);
-        return;
-      }
 
       // The three floors: leaving whatever surface is up first, or goToFloor
       // moves a feed nobody can see.
       if (isShareMode) { exitShareMode(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
-      if (isThreadsMode) { leaveThreadsFor(() => goToFloor(item.tier)); return; }
       if (isDesignersMode) { exitDesignersMode(() => goToFloor(item.tier)); return; }
       if (isCardExpanded) { closeCard(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
       // Browse means all of it: arriving from the menu shouldn't land you on a
@@ -9241,7 +9403,7 @@ function setLanguage(lang) {
   if (isCardExpanded) fadeEls.push(document.querySelector('.expanded-body-scroll'));
   if (isShareMode) fadeEls.push(document.getElementById('shareViewport'));
   if (isDesignersMode) fadeEls.push(document.getElementById('designersViewport'));
-  if (isThreadsMode) fadeEls.push(document.getElementById('threadsViewport'));
+  if (currentFloor === FLOOR_THREADS) fadeEls.push(document.getElementById('threadsSection'));
 
   fadeEls.forEach((el) => { if (el) el.style.opacity = '0'; });
 
@@ -9444,7 +9606,7 @@ function renderDiscover() {
     applyHeroTone(slide, data);
     slide.addEventListener('click', () => openCard(slide));
     slidesWrap.appendChild(slide);
-    applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
+    applyCardMedia(slide.querySelector('.card-media'), data.image, studio.color, data.imageFocal, { fit: data.imageFit, bg: data.imageBg });
   });
 
   renderNowStrip();
@@ -9561,7 +9723,7 @@ function buildPosterCard(data, index) {
     </div>
   `;
   card.addEventListener('click', () => openCard(card));
-  applyCardMedia(card.querySelector('.card-media'), data.image, studio.color, data.imageFocal);
+  applyCardMedia(card.querySelector('.card-media'), data.image, studio.color, data.imageFocal, { fit: data.imageFit, bg: data.imageBg });
   return card;
 }
 
@@ -10762,7 +10924,8 @@ function initBrowseScroll() {
    (a fast trackpad flick, several mouse-wheel clicks in a row) can't stack:
    the first tick commits to a destination and the tween finishes there.
    ====================================================================== */
-const FLOOR_COUNT = 3;
+/* The floor plan itself — FLOOR_COUNT and FLOOR_THREADS — is declared up beside
+   MENU_ITEMS, which is the first thing to need it. */
 let feedSnapAnimating = false;
 let currentFloor = 0;
 let feedStageOffset = 0; // px the stage is currently translated *up* by
@@ -10822,6 +10985,12 @@ const REVEAL_CARD_STAGGER_MS = 52;
 const REVEAL_CARD_STAGGER_CAP = 8;  // past this many, the rest land together
 
 function floorRevealParts(floor) {
+  /* Floor 4 reveals itself: renderThreads plays the words' stagger and then
+     draws the threads between them, which is a longer and more particular
+     arrival than the generic card stagger this function hands back. */
+  if (floor === FLOOR_THREADS) {
+    return { heading: null, explainer: null, controls: null, cards: [] };
+  }
   if (floor === 2) {
     return {
       heading: null,
@@ -10876,14 +11045,44 @@ function playArrivalReveal(floor) {
 
 // The single entry point for changing floors — the wheel, the center menu,
 // the Designers filter and coming back out of share mode all go through here.
+/* The map is built on arrival and stopped on departure.
+
+   It cannot be built once up front: layoutThreads measures the stage, and while
+   floor 4 is off-screen that measurement is still valid (the stage has real
+   height) — but the arrival motion is the point of building it late. Playing the
+   stagger and the thread-draw while the floor is three screens below would mean
+   arriving at a map that had already assembled itself in private.
+
+   Leaving stops the drift loop, because a requestAnimationFrame running against
+   an off-screen floor is work nobody can see. */
+function enterThreadsFloor() {
+  renderThreads();
+}
+
+function leaveThreadsFloor() {
+  stopThreadsDrift();
+  threadsArrivalTimers.forEach(clearTimeout);
+  threadsArrivalTimers = [];
+  closeThreadStory();
+}
+
 function goToFloor(floor, options) {
   const opts = options || {};
   const target = Math.max(0, Math.min(FLOOR_COUNT - 1, floor));
   const endPx = target * floorHeight();
 
+  /* Floor 4 is built when it is arrived at and stopped when it is left, on both
+     paths out of here. Kept as one helper called from two places rather than
+     duplicated, because "did we just arrive at the weave" has to be answered
+     before currentFloor is overwritten. */
+  const wasThreads = currentFloor === FLOOR_THREADS;
+  const arriving = target === FLOOR_THREADS;
+
   if (opts.instant) {
     feedSnapAnimating = false;
     currentFloor = target;
+    if (arriving) enterThreadsFloor();
+    else if (wasThreads) leaveThreadsFloor();
     setStageOffset(endPx);
     updateChrome();
     return;
@@ -10891,6 +11090,11 @@ function goToFloor(floor, options) {
   if (feedSnapAnimating) return;
 
   currentFloor = target;
+  /* Built as the tween starts, not when it lands: the words' stagger is timed to
+     overlap the last part of the slide, so the floor assembles as it arrives
+     rather than after it has stopped. */
+  if (arriving) enterThreadsFloor();
+  else if (wasThreads) leaveThreadsFloor();
   updateChrome();
   const startPx = feedStageOffset;
   const distance = endPx - startPx;
@@ -10941,9 +11145,17 @@ function initFeedWheelSnap() {
   document.addEventListener('wheel', (e) => {
     if (isCardExpanded || isShareMode || isDesignersMode) return;
     if (e.deltaY === 0) return;
+    /* A word being dragged on floor 4 pins the floor. Without this a trackpad
+       two-finger drag — which is a pointer drag and a wheel gesture at the same
+       time — would carry the floor out from under the word being moved, and the
+       drag would finish somewhere nobody asked for. */
+    if (threadsDragNode) { e.preventDefault(); return; }
     if (feedSnapAnimating) { e.preventDefault(); return; }
 
-    const inner = e.target.closest ? e.target.closest('.floor-scroll') : null;
+    /* .threads-story-list is a scroller that is not a .floor-scroll — it lives in
+       a panel over floor 4 — so it has to be named here or a long chain would be
+       unreadable: the wheel would leave the floor instead of scrolling the list. */
+    const inner = e.target.closest ? e.target.closest('.floor-scroll, .threads-story-list') : null;
     if (inner && innerScrollHasRoom(inner, e.deltaY)) return; // the floor scrolls itself first
 
     e.preventDefault();
@@ -11190,7 +11402,7 @@ function setTone(el, tone) {
 }
 
 function updateChrome() {
-  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded && !isThreadsMode;
+  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
   const onCover = onFeed && currentFloor === 0;
 
   // ---- per-floor: the tools that belong to one floor ----
@@ -11199,13 +11411,20 @@ function updateChrome() {
     // onFeed, not just "currentFloor > 0" — the floor number does not change
     // when Designers takes the screen, so a dock keyed only on the floor
     // followed the roster in and sat on top of it.
-    const onToolFloor = onFeed && currentFloor > 0;
+    /* The dock belongs to floors 2 and 3 — floor 1 is the cover and floor 4 is
+       the lookout, and neither has tools. Without the upper bound the search box
+       and the studio chips followed the weave down onto it. */
+    const onToolFloor = onFeed && currentFloor > 0 && currentFloor < FLOOR_THREADS;
     dock.classList.toggle('is-visible', onToolFloor);
     document.getElementById('dockBrowse').classList.toggle('is-active', onFeed && currentFloor === 1);
     document.getElementById('dockQuestions').classList.toggle('is-active', onFeed && currentFloor === 2);
 
     const brand = document.getElementById('brandFooter');
     if (brand) brand.classList.toggle('is-visible', onToolFloor);
+
+    // floor 4 carries its own wordmark, with the line the plain one has not got
+    const threadsFoot = document.getElementById('threadsFooter');
+    if (threadsFoot) threadsFoot.classList.toggle('is-visible', onFeed && currentFloor === FLOOR_THREADS);
   }
 
   // the cover's own arrows are part of floor 1 and nothing else
@@ -11334,7 +11553,7 @@ function populateExpanded(data, index) {
   expandedMedia.classList.toggle('is-open-question', false);
   expandedCard.style.setProperty('--studio-color', studio.color);
   expandedMedia.innerHTML = `<span class="card-media-icon" style="color:${studio.color}">${ICONS[data.type]}</span><span class="card-media-badge">${ICONS[data.type]}</span>`;
-  applyCardMedia(expandedMedia, data.image, studio.color, data.imageFocal);
+  applyCardMedia(expandedMedia, data.image, studio.color, data.imageFocal, { fit: data.imageFit, bg: data.imageBg });
 
   document.getElementById('expandedDot').style.background = studio.color;
   document.getElementById('expandedStudioName').textContent = studio.name;
@@ -13917,7 +14136,10 @@ function deleteSharedCardById(id) {
    value of a lookout is that it asks nothing of you. Eighty keywords is when
    that stops being true.
    ====================================================================== */
-let isThreadsMode = false;
+/* No isThreadsMode any more: Threads is floor 4, and "is it showing" is simply
+   `currentFloor === FLOOR_THREADS`. A separate flag would be a second source of
+   truth for the same question, and the two would disagree the first time
+   something moved the stage without going through the old enter/exit pair. */
 let threadsGraph = null;      // { nodes, links } — positions live on the nodes
 let threadsRaf = null;
 let threadsOpenKey = null;    // which keyword's story is showing
@@ -13934,6 +14156,9 @@ const THREAD_R_MAX = 50;       // and a busy one's. Deliberately close together.
 const THREAD_LABEL_MIN = 21;
 const THREAD_LABEL_MAX = 29;
 const THREAD_DOT_R = 3.4;
+/* The strip at the foot of floor 4 that the wordmark and its line sit in. Kept
+   out of the map's own area — see .threads-svg, which subtracts the same. */
+const THREAD_FOOTER_LANE = 58;
 const THREAD_DRIFT_MIN_PX = 4;
 const THREAD_DRIFT_MAX_PX = 9;
 
@@ -14068,10 +14293,15 @@ function studioColor(key) {
 function layoutThreads() {
   const stage = document.getElementById('threadsStage');
   const svg = document.getElementById('threadsSvg');
-  if (!stage || !threadsGraph) return;
+  if (!stage || !svg || !threadsGraph) return;
 
+  /* Measured off the stage, which is a div and reports a reliable box, minus the
+     footer's lane. Measuring the svg instead is what caused the feedback loop
+     described in the .threads-svg rule — an svg's clientHeight is not dependable
+     before it has a definite size, and its size was coming from the very viewBox
+     this function writes. */
   const w = Math.max(360, stage.clientWidth);
-  const h = Math.max(320, stage.clientHeight);
+  const h = Math.max(320, stage.clientHeight - THREAD_FOOTER_LANE);
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
   const nodes = threadsGraph.nodes;
@@ -14520,7 +14750,8 @@ function positionThreads(now) {
 function startThreadsDrift() {
   stopThreadsDrift();
   const tick = (now) => {
-    if (!isThreadsMode) { threadsRaf = null; return; }
+    // Stops itself the moment the weave is not the floor being looked at.
+    if (currentFloor !== FLOOR_THREADS) { threadsRaf = null; return; }
     positionThreads(now);
     threadsRaf = requestAnimationFrame(tick);
   };
@@ -14777,87 +15008,15 @@ function closeThreadStory() {
   focusThreadsOn(null);
 }
 
-// A card opens on the detail surface, and only one surface can hold the screen.
+// The detail is a surface over the feed, and floor 4 is part of the feed — so
+// this is just opening a card, exactly as it is from any other floor.
 function openCardFromThreads(cardId) {
-  exitThreadsMode(() => openCardById(cardId));
+  openCardById(cardId);
 }
 
-/* Threads is a surface, so leaving it for one of the three floors has to wait
-   for its fade — otherwise goToFloor moves a feed nobody can see yet. */
-function leaveThreadsFor(fn) {
-  if (!isThreadsMode) { fn(); return; }
-  exitThreadsMode(fn);
-}
-
-/* ---- the surface ---- */
-function enterThreadsMode() {
-  if (isThreadsMode || isShareMode || isCardExpanded) return;
-
-  /* Whatever surface is up comes down here rather than the caller sequencing
-     two animations by hand. Doing it with timeouts left the roster still
-     displayed underneath the map — invisible only because the map covered it.
-
-     Before `isThreadsMode = true`, not after: teardownActiveSurface reads the
-     mode flags to decide what is showing, so setting ours first made it tear
-     down *this* surface and clear the flag we had just set. The map then opened
-     with isThreadsMode false, which meant no drift and a back button that
-     refused to do anything. */
-  const leaving = teardownActiveSurface();
-  if (leaving) {
-    leaving.style.display = 'none';
-    document.getElementById('feedMain').style.display = 'block';
-  }
-
-  isThreadsMode = true;
-  pauseAutoScroll();
-  closeThreadStory();
-
-  updateChrome(); // floor 2's search box has no business on a lookout
-
-  const gallery = document.getElementById('feedMain');
-  const threads = document.getElementById('threadsViewport');
-
-  gallery.classList.add('mode-fade-out');
-  setTimeout(() => {
-    gallery.style.display = 'none';
-    gallery.classList.remove('mode-fade-out');
-    threads.style.display = 'flex';
-    // Built after it is on screen, not before: the layout is measured off the
-    // stage, and a display:none stage measures zero.
-    renderThreads();
-    threads.classList.add('mode-fade-out');
-    void threads.offsetWidth;
-    threads.classList.remove('mode-fade-out');
-  }, CONFIG.MODE_SWAP_MS);
-}
-
-function exitThreadsMode(onShown) {
-  if (!isThreadsMode) return;
-  isThreadsMode = false;
-  stopThreadsDrift();
-  threadsArrivalTimers.forEach(clearTimeout);
-  threadsArrivalTimers = [];
-  closeThreadStory();
-  updateChrome();
-
-  const gallery = document.getElementById('feedMain');
-  const threads = document.getElementById('threadsViewport');
-
-  threads.classList.add('mode-fade-out');
-  setTimeout(() => {
-    threads.style.display = 'none';
-    threads.classList.remove('mode-fade-out');
-    gallery.style.display = 'block';
-    gallery.classList.add('mode-fade-out');
-    void gallery.offsetWidth;
-    gallery.classList.remove('mode-fade-out');
-    scheduleResumeAutoScroll();
-    if (onShown) setTimeout(onShown, CONFIG.MODE_SWAP_MS);
-  }, CONFIG.MODE_SWAP_MS);
-}
 
 function initThreads() {
-  document.getElementById('threadsCloseBtn').addEventListener('click', () => exitThreadsMode());
+  // No back button: a floor is left by scrolling off it, like the other three.
   document.getElementById('threadsStoryClose').addEventListener('click', closeThreadStory);
   // Clicking the paper behind the map puts the story away — the same gesture as
   // clicking off any panel.
@@ -14868,28 +15027,30 @@ function initThreads() {
     closeThreadStory();
   });
   document.addEventListener('keydown', (e) => {
-    if (!isThreadsMode || e.key !== 'Escape') return;
+    if (currentFloor !== FLOOR_THREADS || e.key !== 'Escape') return;
+    // Escape puts the story away; there is nothing else here to escape from.
     if (threadsOpenKey) closeThreadStory();
-    else exitThreadsMode();
   });
-  // Re-laid out rather than re-scaled: the spiral is computed from the stage's
+  // Re-laid out rather than re-scaled: the layout is computed from the stage's
   // real size, and stretching it would put labels through each other.
-  window.addEventListener('resize', () => { if (isThreadsMode) renderThreads(); });
+  window.addEventListener('resize', () => { if (currentFloor === FLOOR_THREADS) renderThreads(); });
 }
 
 function refreshThreadsText() {
   const s = t().threads;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('threadsHeading', s.heading);
-  set('threadsIntro', s.intro);
   set('threadsEmptyTitle', s.emptyTitle);
   set('threadsEmptyBody', s.emptyBody);
   set('threadsStoryLead', s.storyLead);
+  // the footer says the same thing the head does, because it is the line the
+  // whole floor is an illustration of
+  set('threadsFooterLine', s.intro);
   document.getElementById('threadsStoryClose').setAttribute('aria-label', s.close);
   // Everything inside the map carries copy too (the per-node count, the tooltip,
   // the story rows), so on a language switch the map is rebuilt rather than
   // relabelled piece by piece.
-  if (isThreadsMode) {
+  if (currentFloor === FLOOR_THREADS) {
     const openKey = threadsOpenKey;
     renderThreads();
     if (openKey) openThreadStory(openKey);
@@ -16817,7 +16978,6 @@ function refreshShareText() {
    not separate pages, so the topbar and the language switcher never blink. */
 function activeSurfaceEl() {
   if (isDesignersMode) return document.getElementById('designersViewport');
-  if (isThreadsMode) return document.getElementById('threadsViewport');
   return document.getElementById('feedMain');
 }
 
@@ -16831,14 +16991,8 @@ function activeSurfaceEl() {
    Threads is up, so pressing Designers from the map did nothing at all. One
    function that knows the set is the only way that stays fixed. */
 function teardownActiveSurface() {
-  if (isThreadsMode) {
-    isThreadsMode = false;
-    stopThreadsDrift();
-    threadsArrivalTimers.forEach(clearTimeout);
-    threadsArrivalTimers = [];
-    closeThreadStory();
-    return document.getElementById('threadsViewport');
-  }
+  // Threads is not in here any more: it is a floor, so it is underneath a
+  // surface rather than competing with one.
   if (isDesignersMode) {
     isDesignersMode = false;
     return document.getElementById('designersViewport');
@@ -16855,7 +17009,9 @@ function enterDesignersMode() {
      feed is put back first because the swap below fades `gallery` out, and it
      has to be the thing actually showing.
 
-     Before the flag is set, for the reason spelled out in enterThreadsMode. */
+     Before the flag is set: teardownActiveSurface reads the mode flags to decide
+     what is showing, so setting ours first would make it tear down this very
+     surface and clear the flag we had just set. */
   const leaving = teardownActiveSurface();
   if (leaving) {
     leaving.style.display = 'none';
