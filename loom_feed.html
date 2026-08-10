@@ -1901,13 +1901,18 @@
     transform: translateY(-1px);
   }
   .same-thread-text { flex: 1 1 auto; min-width: 0; }
+  /* display: block on both — they are <span>s in a <span>, so without it the
+     title and the meta line flow into each other as inline text and the
+     margin-top below does nothing. The rows read as one run-on line. */
   .same-thread-title {
+    display: block;
     font-size: 12.5px;
     font-weight: 500;
     line-height: 1.4;
     color: var(--ink);
   }
   .same-thread-meta {
+    display: block;
     margin-top: 2px;
     font-size: 11px;
     color: var(--ink-faint);
@@ -3297,6 +3302,14 @@
   /* transparent fill still receives events; `visible` would not be enough on a
      shape with no paint */
   .threads-hit { pointer-events: all; }
+  /* grab/grabbing on the word itself, and no text selection mid-drag — dragging
+     across a page of type otherwise highlights half of it */
+  .threads-node { cursor: grab; }
+  .threads-svg.is-dragging { cursor: grabbing; user-select: none; }
+  .threads-svg.is-dragging .threads-node { cursor: grabbing; }
+  /* the held word loses the arrival/focus easing so it tracks the pointer
+     exactly rather than lagging behind it */
+  .threads-svg.is-dragging .threads-recede { transition: opacity 0.42s ease; }
   .threads-node-label {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
@@ -3788,21 +3801,29 @@
     gap: 5px;
     min-width: 0;
   }
+  /* Two lines rather than an ellipsis. Truncating a person's name at 25px on a
+     card that is mostly empty space is the one place clipping is least
+     defensible — "A Person With A Remarkably Long N…" is not their name. The
+     clamp still stops a pathological entry from pushing the role off the card. */
   .designer-name {
     font-size: clamp(17px, 1.5vw, 25px);
     font-weight: 650;
     line-height: 1.2;
     color: var(--ink);
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
   .designer-role {
     font-size: clamp(12.5px, 1vw, 16px);
     color: var(--ink-dim);
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
   /* What they are in the middle of, on the front, under the role. Marked with
      the studio's colour so it reads as current rather than as a second title. */
@@ -4353,7 +4374,22 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .compose-fields .field { flex: 1 1 auto; min-height: 0; }
+  /* flex: 0 0 auto, and this is the fix for the overlap.
+
+     It was `1 1 auto` with `min-height: 0`, which is the standard incantation
+     for a scrollable flex child — and this is not one. With four fields open,
+     each wanting a label plus a 132px box, the column asked for more height than
+     the pane had; `min-height: 0` let every field shrink below its own contents;
+     and a .field has no overflow of its own, so the label and box inside simply
+     painted outside it, over the field above. That is what put "WHAT WE'D DO
+     DIFFERENTLY" across somebody's third line of text.
+
+     Refusing to shrink pushes the excess onto .compose-fields, which already
+     has overflow-y: auto and is the thing that should be scrolling. The
+     collapsed state (.has-hidden-extras) and Update mode already said 0 0 auto
+     for the same reason; this only ever went wrong once the extra fields were
+     open, which is exactly when there is the most to read. */
+  .compose-fields .field { flex: 0 0 auto; min-height: 0; }
   .compose-fields textarea {
     flex: 1 1 auto;
     min-height: clamp(104px, 12vh, 132px);
@@ -4773,6 +4809,9 @@
      name/icon/size in a plain list instead of a visual preview, since these
      are meant to be opened (a PDF, a doc), not looked at inline. ---------- */
   .attachment-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  /* not a link, so it should not look like one */
+  .attachment-link.is-unavailable { cursor: default; opacity: 0.6; }
+  .attachment-link.is-unavailable:hover { border-color: var(--border); background: transparent; }
   .attachment-item {
     display: flex;
     align-items: center;
@@ -6302,6 +6341,9 @@ const TRANSLATIONS = {
         imageReplace: 'Replace',
         imageRemove: 'Remove',
         attachmentsLabel: 'Attachments',
+        /* Shown in place of a file size when a card names an attachment whose
+           file is not in assets/ yet. */
+        attachmentPending: 'Not uploaded yet',
         attachmentsHint: 'Drop a file here (PDF works great), or click to add one',
         /* "Takes about two minutes" was the same promise over a one-line box and
            over a four-paragraph write-up, and one of those was a lie. The cost
@@ -6382,29 +6424,23 @@ const TRANSLATIONS = {
       { title: 'Rebuilding the daily-reward screen — the timer is the whole fight', summary: 'Rebuilding the daily-reward screen — the timer is the whole fight', note: 'Rebuilding the daily-reward screen this week. The countdown timer is turning out to be the whole design problem: too prominent and it nags, too quiet and nobody comes back.' },
       { title: 'Trying a shorter tutorial. Day-2 numbers look odd so far', summary: 'Trying a shorter tutorial. Day-2 numbers look odd so far', note: 'Trying a much shorter tutorial. Day-2 return looks fine but day-3 dropped, so we may just have moved the drop-off rather than removed it. Watching it another week before we say anything.' },
       { title: 'Our new icon set is 40% smaller after one pass with an optimiser', summary: 'Our new icon set is 40% smaller after one pass with an optimiser', note: 'Ran the whole icon set through an SVG optimiser and it came out 40% smaller with no visible difference. Nothing clever, just nobody had done it.' },
-      /* c18–c21 — the sample chain. Written in the new field sets rather than
-         the old problem/tried/result slots, so they read the way something
-         written today reads. */
-      { title: 'A Slack pipeline for AI video production', summary: 'Briefs in, finished videos out, without leaving Slack.',
-        made: 'A Slack workflow that turns a brief into a finished AI video without anyone opening a production tool. A bot watches #video-requests, collects the brief and reference links, queues the render, and posts each result back into the same channel for review.',
-        constraints: 'Two people making video part of the time, no budget for a dedicated production suite, and every stakeholder already living in Slack all day.',
-        solved: 'Built the bot on Slack\u2019s Events API. A slash command opens a request, the bot drafts a script, queues the render, and posts the result as an attachment. Approval is a reaction \u2014 a tick ships it, a repeat arrow sends it back with the reviewer\u2019s comment as the revision note.',
-        borrow: 'Keep the request and the result in the same place. The week we moved review into a document, turnaround went from a day to a week and nobody could say why.' },
-      { title: 'We rebuilt DoubleU\u2019s Slack video pipeline for German spots', summary: 'The same pipeline, with a second language and a second pair of eyes.',
-        made: 'DoubleU\u2019s Slack pipeline running on our side, for German and English event spots. Same bot shape, different model settings, and one extra approval for the German voice track.',
-        constraints: 'Our spots are bilingual and the German voice has to be signed off by somebody who speaks it. The original pipeline assumed one language and one reviewer.',
-        solved: 'Added a language flag to the slash command and a second approval gate: the render only ships once both the English and the German reaction are on the message. Everything else we left exactly as it was.',
-        borrow: 'Copy the pipeline before improving it. We tried to add the language split on day one and then could not tell which half was broken.' },
-      { title: 'Grouping every request into one Slack thread instead of a channel', summary: 'One thread per request turned out to be the unit of work.',
-        goal: 'Whether keeping a whole request inside a single thread would stop reviews getting lost, now that two languages meant three or four messages per spot.',
-        method: 'Four weeks with the bot opening a thread per request and posting every draft, render and approval inside it. Compared against the previous flat-channel weeks on time-to-approval and on how often a render was reviewed twice by mistake.',
-        happened: 'Time-to-approval fell by about a third. Duplicate reviews went from routine to almost none, because the whole history of a request was in one place.',
-        learned: 'The thread is the unit of work, not the message. Everything about one request belongs inside it \u2014 including the renders that failed. A thread holding only the good take is a thread nobody trusts.' },
-      { title: 'One thread per project, not per request', summary: 'The thread outlives the request when the project does.',
-        made: 'Whow\u2019s thread idea moved up a level: one Slack thread per project rather than per request, with every video for that title living inside it.',
-        constraints: 'We make eight to ten spots for the same title in a season. Per-request threads meant the same context \u2014 brand rules, voice, past feedback \u2014 got pasted in again every single time.',
-        solved: 'The bot opens a thread when a project starts and keeps it open. Each new request is a message inside it, so the brief is written once and every later render inherits it. A weekly digest posts what shipped.',
-        borrow: 'Match the thread to whatever the work actually repeats around. Per request was right for Whow\u2019s one-off spots and wrong for our seasons.' },
+      /* x1–x3 — the real exchange between the studios. See the note on the
+         CARDS entries; x3's body is a placeholder until today's write-up lands. */
+      { title: 'AI video pipeline on Slack \u2014 how Dave, Jiny and Blitz are built', summary: 'Three bots, one shape: fully automatic, approval-gated, or fast.',
+        made: 'A Slack-native AI video pipeline. Three bots share one shape \u2014 Dave runs fully automatic, Jiny pauses for approval between steps, Blitz is the fast API-only track. Trigger by keyword in the channel; every stage posts back to Slack as it happens.',
+        constraints: 'Built around AI subscriptions we already pay for \u2014 not the fastest setup, the most cost-effective one. The computer should keep producing videos unattended; nobody babysits a render.',
+        solved: 'Custom Python + Slack Bolt (Socket Mode), no n8n, no Workflow Builder. Sequential function calls \u2014 Gemini 2.5 plans scenes, GPT Image renders keyframes, Seedance renders video. A waiting_for marker decides what each incoming message means. Files hand off as plain paths on local disk \u2014 no queue, no database.',
+        borrow: 'The waiting_for pattern for reading Slack messages in context, and the submit \u2192 poll \u2192 verify unit for slow render steps (with retry that checks whether the previous attempt actually finished \u2014 no wasted credits).' },
+      { title: 'Self-serve social asset generator on n8n \u2014 built from the Slack pipeline idea', summary: 'The support team makes on-brand assets from Slack, unattended.',
+        made: 'A self-serve generator where the support team creates on-brand social assets (stills and 5-second videos) directly from Slack. A /jackpot command opens a structured modal; results post back into the same thread. Built on n8n Cloud + kie.ai \u2014 no local codebase, no server to babysit.',
+        constraints: 'Fully unattended operation for a social-casino product \u2014 cost, access, and compliance checks wired in before any spend. No art team involvement per request. Video rendering takes minutes, so the slow step needed hang guards and a bounded worst case (~7-8 min per request).',
+        solved: 'One n8n workflow (76 nodes) handles routing, generation, and delivery. Structured modal input removes free-text parsing errors. A 7-point vision QA gate checks every image before posting (retry twice, then flag \u2014 never silently). The approved still becomes frame 1 of the video, keeping the character consistent. Each request is an isolated execution \u2014 parallel requests never collide.',
+        borrow: 'The credit gate pattern (soft warning, then hard stop before any spend) and the fail-open QA design are liftable as-is. Typed input from the start removes a whole class of routing errors.' },
+      { title: 'Pipeline update \u2014 thread-based grouping and what we took back from Whow\u2019s build', summary: 'Grouping by thread, and two ideas borrowed back from Whow.',
+        made: 'Placeholder. The pipeline now groups a whole request into one Slack thread rather than scattering it across a channel, and Whow\u2019s typed-input and QA-gate ideas came back into our own build.',
+        constraints: 'Placeholder. Written up properly today \u2014 this card is here so the chain is visible while that happens.',
+        solved: 'Placeholder.',
+        borrow: 'Placeholder.' },
     ],
   },
   ko: {
@@ -6773,6 +6809,9 @@ const TRANSLATIONS = {
         imageReplace: '교체',
         imageRemove: '삭제',
         attachmentsLabel: '첨부파일',
+        /* Shown in place of a file size when a card names an attachment whose
+           file is not in assets/ yet. */
+        attachmentPending: '아직 업로드 전',
         attachmentsHint: '파일을 끌어다 놓거나 클릭해서 추가하세요 (PDF 권장)',
         submitHint: '2분 정도면 충분해요. 그만한 가치가 있을 거예요.',
         submitHintByType: {
@@ -6850,27 +6889,22 @@ const TRANSLATIONS = {
       { title: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', summary: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', note: '이번 주에 일일 보상 화면을 다시 만들고 있어요. 카운트다운 타이머가 사실상 디자인 문제 전부예요. 너무 눈에 띄면 잔소리 같고, 너무 조용하면 아무도 안 돌아와요.' },
       { title: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', summary: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', note: '튜토리얼을 많이 줄여봤어요. 2일차 복귀는 괜찮은데 3일차가 떨어져서, 이탈을 없앤 게 아니라 옮긴 것일 수도 있어요. 일주일 더 보고 얘기하려고요.' },
       { title: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', summary: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', note: 'SVG 최적화를 아이콘 세트 전체에 한 번 돌렸더니 눈에 띄는 차이 없이 용량이 40% 줄었어요. 대단한 건 아니고, 그냥 아무도 안 해봤던 거예요.' },
-      /* c18–c21 — 샘프을 사슬 */
-      { title: 'AI 영상 제작을 위한 Slack 파이프라인', summary: '요정은 들어가고 영상은 나오는데, Slack 밖으로 나가지 않습니다.',
-        made: '제작 도구를 열지 않고도 요정이 완성된 AI 영상이 되어 나오는 Slack 워플로우. 봇이 #video-requests 를 지키며 요정과 레퓌런스 링키를 모아 렌더를 옌리고, 결과를 같은 채널에 다시 올립니다.',
-        constraints: '영상을 겸하는 사람 둘, 전용 제작 도구 예산은 없음, 그리고 이해간계자 전원이 이밌 하루 종일 Slack에 있다는 사상.',
-        solved: 'Slack Events API로 봇을 만들었습니다. 슬래시 명령으로 요정을 여면 봇이 대본 초안을 지리고 렌더를 옌리고 결과를 첨부로 올립니다. 승인은 이모지 하나 — 체킹은 발행, 다시 돌림 화살표는 리뷰어 의건을 수정 지시로 붙여 되돌립니다.',
-        borrow: '요정과 결과를 같은 자리에 둔다. 리뷰를 문서로 엮긴 주, 횟수가 하루에서 일주일로 늦어지고 아무도 이유를 설명하지 못했어요.' },
-      { title: 'DoubleU의 Slack 영상 파이프라인을 독일어 스포트용으로 다시 만들었습니다', summary: '같은 파이프라인에, 언어 하나와 검토자 한 사람을 더했습니다.',
-        made: 'DoubleU의 Slack 파이프라인을 우리 족에서 돌립니다. 독일어·영어 이벤트 스포트용이고, 봇 구조는 그대로, 모델 설정과 독일어 보이스 승인 단계만 다릅니다.',
-        constraints: '우리 스포트는 이중 언어이고, 독일어 보이스는 독일어를 하는 사람이 승인해야 합니다. 원래 파이프라인은 언어 하나와 검토자 한 사람을 전제로 했었습니다.',
-        solved: '슬래시 명령에 언어 허우를 더하고 승인 게이트를 하나 늘렸습니다. 영어와 독일어 반응이 모둘 달렸을 때만 렌더가 발행됩니다. 나머지는 전혀 손대지 않았습니다.',
-        borrow: '개선하기 전에 그대로 복사하세요. 심짜에 언어 분기를 같이 넣었다가 둘 중 어느 썰이 고장인지 분별할 수 없었어요.' },
-      { title: '채널이 아니라 요정당 Slack 쓰레드 하나로 모으기', summary: '일의 단위는 메시지가 아니라 쓰레드여습니다.',
-        goal: '언어가 둘로 늦어나며 스포트 하나에 세네 개의 메시지가 생기게 된 지금, 요정 하나를 쓰레드 하나에 다 담으면 리뷰가 사라지는 일을 막을 수 있을지.',
-        method: '4주간 봇이 요정당 쓰레드를 여고 모든 초안·렌더·승인을 그 안에 올렸습니다. 이전의 평면 채널 주차와 승인까지 걸린 시간, 그리고 같은 렌더를 실수로 두 번 리뷰한 발생 횟수를 바교했습니다.',
-        happened: '승인까지 걸리는 시간이 약 3분의 1 줄었습니다. 중복 리뷰는 일상에서 거의 없음으로 바눲어요. 요정 하나의 이력 전부가 한 자리에 있었기 때문입니다.',
-        learned: '일의 단위는 메시지가 아니라 쓰레드입니다. 한 요정에 관한 모든 것이 그 안에 들어가야 해요 — 실패한 렌더까지. 성공한 췬영만 들어있는 쓰레드는 아무도 신뢰하지 않습니다.' },
-      { title: '요정당이 아니라 플로젝트당 쓰레드 하나', summary: '플로젝트가 계속되는 동안엔 쓰레드가 요정보다 오래 살아남습니다.',
-        made: 'Whow의 쓰레드 아이디어를 한 단계 위로 올렸습니다. 요정당이 아니라 플로젝트당 Slack 쓰레드 하나, 그 타이틀의 모든 영상이 그 안에 살아있습니다.',
-        constraints: '한 시즌에 같은 타이틀로 스포트 열 편 전후를 만듭니다. 요정당 쓰레드로는 밍그 룰·톤·지난번 피드백 같은 같은 맥맥이 매번 다시 붙여졌어요.',
-        solved: '봇은 플로젝트가 시작할 때 쓰레드를 여고 그대로 역어둡니다. 새 요정은 그 쓰레드 안의 메시지라서 밍그는 한 번만 쓰면 이후 렌더가 그것을 그대로 받아썽니다. 주 단위 다이제스트로 발행 내역을 올립니다.',
-        borrow: '쓰레드를 일이 실제로 반복되는 단위에 맞추세요. 요정당은 Whow의 단발 스포트에는 맞았고 우리 시즌에는 틀렸습니다.' },
+      /* x1–x3 — 스튜디오 사이의 실제 오가니. x3 본문은 오늘 문서가 나오면 교체합니다. */
+      { title: 'Slack 에서 도는 AI 영상 파이프라인 — Dave, Jiny, Blitz를 어떻게 만들었는지', summary: '봇 셋, 한 구조: 전자동·승인대기·고속.',
+        made: 'Slack 에서 바로 돌는 AI 영상 파이프라인. 봇 셋이 한 구조를 공유합니다 — Dave는 전자동, Jiny는 단계 사이에 승인을 기다리고, Blitz는 API만 쓰는 고속 트랙입니다. 채널에서 키워드로 시작하고, 모든 단계가 진행되는 대로 Slack에 다시 올라옵니다.',
+        constraints: '이밌 들어가고 있는 AI 구독을 기준으로 짜습니다 — 가장 뱠른 구성이 아니라 가장 남는 구성으로. 사람이 붙지 않아도 컴퓰톰가 알아서 영상을 계속 만들어야 합니다.',
+        solved: 'n8n도 Workflow Builder도 안 쓰고 Python + Slack Bolt(Socket Mode)로 직접 만들었습니다. 상태기계 없이 순서대로 함수 호출 — Gemini 2.5가 장면을 짜고, GPT Image가 키프레임을, Seedance가 영상을 렌더합니다. waiting_for 표지로 들어오는 메시지가 무엇을 뜻하는지 결정합니다. 파일은 로얼 디스킬의 경로만 넘깁니다 — 큐도 DB도 없습니다.',
+        borrow: 'Slack 메시지를 문맥 안에서 읽는 waiting_for 패턴, 그리고 느린 렌더 단계를 위한 제산 → 폴링 → 검증 단위(지난 시도가 실제로 끝났는지 확인하는 재시도 — 헛된 툴 크레딧 없이).' },
+      { title: 'n8n 으로 만든 셀프서버스 소셜 에셋 생성기 — Slack 파이프라인 아이디어에서', summary: '지원팀이 Slack 에서 밍그에 맞는 에셋을 사람 없이 만듭니다.',
+        made: '지원팀이 Slack 에서 바로 밍그에 맞는 소셜 에셋(이미지와 5초 영상)을 만드는 셀프서버스 생성기. /jackpot 명령이 구조화된 모달을 여고, 결과는 같은 쓰레드로 돌아옵니다. n8n Cloud + kie.ai 기반 — 로여 코드도, 관리할 서버도 없습니다.',
+        constraints: '소셜 카지노 제품이니 완전 방치 운용이 전제 — 보상 지출 전에 버진·접근 권한·켤필라이언스 점검을 먼저 개니다. 요정마다 아트팀이 붙지 않습니다. 영상 렌더가 수 분 걸리니, 느린 단계에는 멈쵤 방지와 최악 상황 상한(요정당 7~8분)이 필요했습니다.',
+        solved: 'n8n 워플로우 하나(76노드)가 라우팝·생성·전달을 다 맡습니다. 구조화된 모달 입력으로 자유 텍스트 파싱 오류가 사라집니다. 7개 항목 뱄전 QA 게이트가 모든 이미지를 게시 전에 점검합니다(두 번 재시도, 그런 다음 표시 — 조용히 넘기지 않습니다). 승인된 이미지가 영상의 1프레임이 되어 캠릭터가 유지됩니다. 요정마다 독립 실행이라 동시 요정이 서로 엉키지 않습니다.',
+        borrow: '툴 크레딧 게이트 패턴(경고 한 번, 그리고 지출 전 완전 정지)과 fail-open QA 설계는 그대로 가지셔도 됩니다. 처음부터 타이프된 입력을 받으면 라우팝 오류 한 부류가 통째로 사라집니다.' },
+      { title: '파이프라인 업데이트 — 쓰레드 기반 그룹핑, 그리고 Whow에서 다시 가지고 온 것', summary: '쓰레드로 모으기, 그리고 Whow에서 되돌린 아이디어 두 가지.',
+        made: '자리표시. 이제 한 요정을 채널에 헤트리지 않고 Slack 쓰레드 하나로 모으고, Whow의 타이프된 입력과 QA 게이트 아이디어를 우리 파이프라인에 다시 넣었습니다.',
+        constraints: '자리표시. 오늘 제대로 쓰고 있습니다 — 그동안에도 사슬이 보이도록 이 글을 먼저 올렸습니다.',
+        solved: '자리표시.',
+        borrow: '자리표시.' },
     ],
   },
   de: {
@@ -7239,6 +7273,9 @@ const TRANSLATIONS = {
         imageReplace: 'Ersetzen',
         imageRemove: 'Entfernen',
         attachmentsLabel: 'Anhänge',
+        /* Shown in place of a file size when a card names an attachment whose
+           file is not in assets/ yet. */
+        attachmentPending: 'Noch nicht hochgeladen',
         attachmentsHint: 'Datei hierher ziehen (PDF eignet sich gut) oder klicken, um eine hinzuzufügen',
         submitHint: 'Dauert etwa zwei Minuten. Es lohnt sich.',
         submitHintByType: {
@@ -7316,27 +7353,22 @@ const TRANSLATIONS = {
       { title: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', summary: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', note: 'Wir bauen diese Woche den Daily-Reward-Screen neu. Der Countdown-Timer ist praktisch das gesamte Designproblem: zu präsent und er nervt, zu leise und niemand kommt zurück.' },
       { title: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', summary: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', note: 'Wir testen ein deutlich kürzeres Tutorial. Tag 2 sieht gut aus, aber Tag 3 ist gefallen — vielleicht haben wir den Absprung nur verschoben statt beseitigt. Wir schauen noch eine Woche zu.' },
       { title: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', summary: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', note: 'Das ganze Icon-Set einmal durch einen SVG-Optimierer geschickt: 40% kleiner, kein sichtbarer Unterschied. Nichts Cleveres, es hatte nur nie jemand gemacht.' },
-      /* c18–c21 — die Beispielkette */
-      { title: 'Eine Slack-Pipeline f\u00fcr KI-Videoproduktion', summary: 'Briefings rein, fertige Videos raus, ohne Slack zu verlassen.',
-        made: 'Ein Slack-Workflow, der aus einem Briefing ein fertiges KI-Video macht, ohne dass jemand ein Produktionstool \u00f6ffnet. Ein Bot beobachtet #video-requests, sammelt Briefing und Referenzlinks, stellt den Render in die Warteschlange und postet jedes Ergebnis zur\u00fcck in denselben Kanal.',
-        constraints: 'Zwei Leute, die nebenbei Video machen, kein Budget f\u00fcr eine eigene Produktionssuite, und alle Beteiligten sitzen ohnehin den ganzen Tag in Slack.',
-        solved: 'Den Bot auf Slacks Events API gebaut. Ein Slash-Befehl \u00f6ffnet eine Anfrage, der Bot entwirft ein Skript, stellt den Render in die Warteschlange und postet das Ergebnis als Anhang. Freigabe ist eine Reaktion \u2014 ein H\u00e4kchen ver\u00f6ffentlicht, ein Wiederholungspfeil schickt es mit dem Kommentar als \u00c4nderungsnotiz zur\u00fcck.',
-        borrow: 'Anfrage und Ergebnis am selben Ort halten. In der Woche, in der die Abnahme in ein Dokument wanderte, wurde aus einem Tag eine Woche, und niemand konnte sagen warum.' },
-      { title: 'Wir haben DoubleUs Slack-Video-Pipeline f\u00fcr deutsche Spots neu gebaut', summary: 'Dieselbe Pipeline, mit einer zweiten Sprache und einem zweiten Paar Augen.',
-        made: 'DoubleUs Slack-Pipeline bei uns im Einsatz, f\u00fcr deutsche und englische Event-Spots. Gleiche Bot-Form, andere Modelleinstellungen und eine zus\u00e4tzliche Freigabe f\u00fcr die deutsche Tonspur.',
-        constraints: 'Unsere Spots sind zweisprachig, und die deutsche Stimme muss von jemandem abgenommen werden, der Deutsch spricht. Die urspr\u00fcngliche Pipeline ging von einer Sprache und einem Pr\u00fcfer aus.',
-        solved: 'Ein Sprachflag am Slash-Befehl und eine zweite Freigabestufe: Der Render geht erst raus, wenn die englische und die deutsche Reaktion beide an der Nachricht h\u00e4ngen. Alles andere blieb genau so, wie es war.',
-        borrow: 'Die Pipeline kopieren, bevor man sie verbessert. Wir wollten die Sprachtrennung am ersten Tag mit einbauen und konnten dann nicht sagen, welche H\u00e4lfte kaputt war.' },
-      { title: 'Jede Anfrage in einen Slack-Thread statt in einen Kanal', summary: 'Die Arbeitseinheit ist der Thread, nicht die Nachricht.',
-        goal: 'Ob eine komplette Anfrage in einem einzigen Thread daf\u00fcr sorgt, dass keine Abnahme mehr verloren geht \u2014 jetzt, wo zwei Sprachen drei bis vier Nachrichten pro Spot bedeuten.',
-        method: 'Vier Wochen, in denen der Bot pro Anfrage einen Thread \u00f6ffnete und jeden Entwurf, Render und jede Freigabe darin postete. Verglichen mit den Wochen im flachen Kanal, gemessen an der Zeit bis zur Freigabe und daran, wie oft ein Render versehentlich zweimal gepr\u00fcft wurde.',
-        happened: 'Die Zeit bis zur Freigabe sank um etwa ein Drittel. Doppelte Pr\u00fcfungen gingen von Routine auf fast null zur\u00fcck, weil die ganze Geschichte einer Anfrage an einem Ort lag.',
-        learned: 'Die Arbeitseinheit ist der Thread, nicht die Nachricht. Alles zu einer Anfrage geh\u00f6rt hinein \u2014 auch die Renders, die nichts wurden. Ein Thread mit nur der guten Aufnahme ist ein Thread, dem niemand traut.' },
-      { title: 'Ein Thread pro Projekt, nicht pro Anfrage', summary: 'Der Thread \u00fcberlebt die Anfrage, solange das Projekt l\u00e4uft.',
-        made: 'Whows Thread-Idee eine Ebene h\u00f6her: ein Slack-Thread pro Projekt statt pro Anfrage, mit allen Videos zu diesem Titel darin.',
-        constraints: 'Wir machen acht bis zehn Spots f\u00fcr denselben Titel pro Saison. Threads pro Anfrage hie\u00dfen, dass derselbe Kontext \u2014 Markenregeln, Tonalit\u00e4t, fr\u00fcheres Feedback \u2014 jedes Mal neu hineinkopiert wurde.',
-        solved: 'Der Bot \u00f6ffnet einen Thread, wenn ein Projekt startet, und l\u00e4sst ihn offen. Jede neue Anfrage ist eine Nachricht darin, das Briefing wird einmal geschrieben und jeder sp\u00e4tere Render erbt es. Ein w\u00f6chentlicher \u00dcberblick postet, was rausgegangen ist.',
-        borrow: 'Den Thread an das anpassen, worum sich die Arbeit tats\u00e4chlich wiederholt. Pro Anfrage war richtig f\u00fcr Whows einzelne Spots und falsch f\u00fcr unsere Saisons.' },
+      /* x1–x3 — der echte Austausch zwischen den Studios. x3 ist ein Platzhalter. */
+      { title: 'KI-Videopipeline auf Slack \u2014 wie Dave, Jiny und Blitz gebaut sind', summary: 'Drei Bots, eine Form: vollautomatisch, mit Freigabe, oder schnell.',
+        made: 'Eine Slack-native KI-Videopipeline. Drei Bots teilen eine Form \u2014 Dave l\u00e4uft vollautomatisch, Jiny h\u00e4lt zwischen den Schritten f\u00fcr eine Freigabe an, Blitz ist die schnelle Spur nur \u00fcber API. Start per Stichwort im Kanal; jede Stufe meldet sich in Slack zur\u00fcck, w\u00e4hrend sie l\u00e4uft.',
+        constraints: 'Gebaut um KI-Abos, die wir schon bezahlen \u2014 nicht das schnellste Setup, das wirtschaftlichste. Der Rechner soll unbeaufsichtigt weiter Videos produzieren; niemand sitzt bei einem Render daneben.',
+        solved: 'Eigenes Python + Slack Bolt (Socket Mode), kein n8n, kein Workflow Builder. Sequenzielle Funktionsaufrufe \u2014 Gemini 2.5 plant die Szenen, GPT Image rendert Keyframes, Seedance rendert das Video. Ein waiting_for-Marker entscheidet, was eine eingehende Nachricht bedeutet. Dateien werden als reine Pfade auf der lokalen Platte weitergegeben \u2014 keine Queue, keine Datenbank.',
+        borrow: 'Das waiting_for-Muster, um Slack-Nachrichten im Kontext zu lesen, und die Einheit aus abschicken \u2192 pollen \u2192 pr\u00fcfen f\u00fcr langsame Render-Schritte (mit einem Retry, der erst nachsieht, ob der vorige Versuch nicht doch fertig geworden ist \u2014 keine verbrannten Credits).' },
+      { title: 'Self-Service-Generator f\u00fcr Social Assets auf n8n \u2014 aus der Slack-Pipeline-Idee', summary: 'Das Support-Team baut markenkonforme Assets aus Slack, unbeaufsichtigt.',
+        made: 'Ein Self-Service-Generator, mit dem das Support-Team markenkonforme Social Assets (Stills und 5-Sekunden-Videos) direkt aus Slack erzeugt. Ein /jackpot-Befehl \u00f6ffnet ein strukturiertes Modal; die Ergebnisse landen im selben Thread. Auf n8n Cloud + kie.ai \u2014 keine lokale Codebasis, kein Server zu betreuen.',
+        constraints: 'Vollst\u00e4ndig unbeaufsichtigter Betrieb f\u00fcr ein Social-Casino-Produkt \u2014 Kosten, Zugriff und Compliance werden gepr\u00fcft, bevor Geld ausgegeben wird. Kein Art-Team pro Anfrage. Video-Rendering dauert Minuten, der langsame Schritt brauchte also H\u00e4nger-Schutz und einen begrenzten schlechtesten Fall (~7-8 Min pro Anfrage).',
+        solved: 'Ein n8n-Workflow (76 Nodes) macht Routing, Erzeugung und Auslieferung. Strukturierte Modal-Eingabe nimmt Parsing-Fehler aus Freitext heraus. Ein Vision-QA-Gate mit sieben Punkten pr\u00fcft jedes Bild vor dem Posten (zweimal wiederholen, dann markieren \u2014 nie stillschweigend). Das freigegebene Still wird Frame 1 des Videos und h\u00e4lt die Figur konstant. Jede Anfrage ist eine eigene Ausf\u00fchrung \u2014 parallele Anfragen kollidieren nie.',
+        borrow: 'Das Credit-Gate-Muster (erst eine Warnung, dann harter Stopp vor jeder Ausgabe) und das Fail-open-QA-Design lassen sich unver\u00e4ndert \u00fcbernehmen. Typisierte Eingabe von Anfang an nimmt eine ganze Klasse von Routing-Fehlern heraus.' },
+      { title: 'Pipeline-Update \u2014 Gruppierung nach Thread und was wir von Whow zur\u00fcckgeholt haben', summary: 'Nach Thread gruppieren, und zwei Ideen von Whow zur\u00fcck im eigenen Bau.',
+        made: 'Platzhalter. Die Pipeline fasst eine Anfrage jetzt in einem Slack-Thread zusammen statt sie \u00fcber einen Kanal zu verstreuen, und Whows typisierte Eingabe und QA-Gate sind in unseren eigenen Bau zur\u00fcckgewandert.',
+        constraints: 'Platzhalter. Wird heute richtig aufgeschrieben \u2014 diese Karte steht hier, damit die Kette in der Zwischenzeit sichtbar ist.',
+        solved: 'Platzhalter.',
+        borrow: 'Platzhalter.' },
     ],
   },
   tr: {
@@ -7705,6 +7737,9 @@ const TRANSLATIONS = {
         imageReplace: 'Değiştir',
         imageRemove: 'Kaldır',
         attachmentsLabel: 'Ekler',
+        /* Shown in place of a file size when a card names an attachment whose
+           file is not in assets/ yet. */
+        attachmentPending: 'Henüz yüklenmedi',
         attachmentsHint: 'Bir dosyayı buraya sürükle (PDF için ideal) ya da eklemek için tıkla',
         submitHint: 'Yaklaşık iki dakika sürer. Buna değer.',
         submitHintByType: {
@@ -7782,27 +7817,22 @@ const TRANSLATIONS = {
       { title: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', summary: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', note: 'Bu hafta günlük ödül ekranını yeniden yapıyoruz. Geri sayım sayacı aslında tasarım probleminin tamamı: fazla belirgin olursa dırdır gibi, fazla sessiz olursa kimse dönmüyor.' },
       { title: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', summary: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', note: 'Çok daha kısa bir eğitim deniyoruz. 2. gün dönüş iyi ama 3. gün düştü, yani kopuşu ortadan kaldırmak yerine sadece ötelemiş olabiliriz. Bir hafta daha izleyeceğiz.' },
       { title: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', summary: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', note: 'Tüm ikon setini bir SVG optimize ediciden geçirdik, gözle görülür fark olmadan %40 küçüldü. Zekice bir şey değil, sadece kimse yapmamıştı.' },
-      /* c18–c21 — \u00f6rnek zincir */
-      { title: 'Yapay zek\u00e2 video \u00fcretimi i\u00e7in bir Slack hattı', summary: 'Brief girer, biten video \u00e7ıkar \u2014 Slack\u2019tan hi\u00e7 \u00e7ıkmadan.',
-        made: 'Kimse bir prod\u00fcksiyon aracı a\u00e7madan brief\u2019i biten bir yapay zek\u00e2 videosuna \u00e7eviren bir Slack ak\u0131\u015f\u0131. Bot #video-requests kanal\u0131n\u0131 izliyor, brief ve referans linklerini topluyor, render\u2019\u0131 s\u0131raya al\u0131yor ve her sonucu ayn\u0131 kanala geri g\u00f6nderiyor.',
-        constraints: 'Videoyu yar\u0131 zamanl\u0131 yapan iki ki\u015fi, ayr\u0131 bir prod\u00fcksiyon paketi i\u00e7in b\u00fct\u00e7e yok ve b\u00fct\u00fcn payda\u015flar zaten g\u00fcn boyu Slack\u2019te.',
-        solved: 'Botu Slack\u2019in Events API\u2019si \u00fczerine kurduk. Bir slash komutu istek a\u00e7\u0131yor, bot senaryo taslağı \u00e7\u0131kar\u0131yor, render\u2019\u0131 s\u0131raya al\u0131yor ve sonucu ek olarak payla\u015f\u0131yor. Onay bir tepki \u2014 tik yay\u0131nl\u0131yor, tekrar oku yorumu revizyon notu olarak ekleyip geri g\u00f6nderiyor.',
-        borrow: '\u0130stek ile sonucu ayn\u0131 yerde tutun. \u0130ncelemeyi bir dok\u00fcmana ta\u015f\u0131d\u0131\u011f\u0131m\u0131z hafta s\u00fcre bir g\u00fcnden bir haftaya \u00e7\u0131kt\u0131 ve kimse nedenini s\u00f6yleyemedi.' },
-      { title: 'DoubleU\u2019nun Slack video hatt\u0131n\u0131 Almanca spotlar i\u00e7in yeniden kurduk', summary: 'Ayn\u0131 hat; bir dil ve bir \u00e7ift g\u00f6z daha.',
-        made: 'DoubleU\u2019nun Slack hatt\u0131 bizde \u00e7al\u0131\u015f\u0131yor \u2014 Almanca ve \u0130ngilizce etkinlik spotlar\u0131 i\u00e7in. Ayn\u0131 bot yap\u0131s\u0131, farkl\u0131 model ayarlar\u0131 ve Almanca ses i\u00e7in bir onay daha.',
-        constraints: 'Spotlar\u0131m\u0131z iki dilli ve Almanca sesi Almanca bilen birinin onaylamas\u0131 gerekiyor. \u00d6zg\u00fcn hat tek dil ve tek incelemeci varsay\u0131yordu.',
-        solved: 'Slash komutuna bir dil bayra\u011f\u0131 ve ikinci bir onay kap\u0131s\u0131 ekledik: render ancak hem \u0130ngilizce hem Almanca tepki mesaja d\u00fc\u015ft\u00fc\u011f\u00fcnde yay\u0131nlan\u0131yor. Geri kalan her \u015feyi oldu\u011fu gibi b\u0131rakt\u0131k.',
-        borrow: '\u0130yile\u015ftirmeden \u00f6nce hatt\u0131 aynen kopyalay\u0131n. Dil ayr\u0131m\u0131n\u0131 ilk g\u00fcn eklemeye \u00e7al\u0131\u015ft\u0131k ve sonra hangi yar\u0131n\u0131n bozuk oldu\u011funu s\u00f6yleyemedik.' },
-      { title: 'Her iste\u011fi kanal yerine tek bir Slack thread\u2019inde toplamak', summary: '\u0130\u015fin birimi mesaj de\u011fil, thread \u00e7\u0131kt\u0131.',
-        goal: '\u0130ki dil spot ba\u015f\u0131na \u00fc\u00e7 d\u00f6rt mesaj demeye ba\u015flad\u0131ktan sonra, bir iste\u011fin tamam\u0131n\u0131 tek thread\u2019de tutmak incelemelerin kaybolmas\u0131n\u0131 engeller mi.',
-        method: 'D\u00f6rt hafta boyunca bot her istek i\u00e7in bir thread a\u00e7t\u0131 ve her taslak, render ve onay onun i\u00e7ine d\u00fc\u015ft\u00fc. Onaya kadar ge\u00e7en s\u00fcre ve bir render\u2019\u0131n yanl\u0131\u015fl\u0131kla iki kez incelenme s\u0131kl\u0131\u011f\u0131 a\u00e7\u0131s\u0131ndan \u00f6nceki d\u00fcz kanal haftalar\u0131yla kar\u015f\u0131la\u015ft\u0131rd\u0131k.',
-        happened: 'Onaya kadar ge\u00e7en s\u00fcre yakla\u015f\u0131k \u00fc\u00e7te bir azald\u0131. M\u00fckerrer incelemeler rutinden neredeyse s\u0131f\u0131ra indi, \u00e7\u00fcnk\u00fc bir iste\u011fin b\u00fct\u00fcn ge\u00e7mi\u015fi tek yerdeydi.',
-        learned: '\u0130\u015fin birimi mesaj de\u011fil thread. Bir istekle ilgili her \u015fey onun i\u00e7inde olmal\u0131 \u2014 tutmayan renderlar dahil. Sadece iyi \u00e7ekimi tutan bir thread, kimsenin g\u00fcvenmedi\u011fi bir thread\u2019dir.' },
-      { title: '\u0130stek ba\u015f\u0131na de\u011fil, proje ba\u015f\u0131na tek thread', summary: 'Proje s\u00fcrd\u00fck\u00e7e thread iste\u011fi a\u015far.',
-        made: 'Whow\u2019un thread fikrini bir seviye yukar\u0131 ta\u015f\u0131d\u0131k: istek ba\u015f\u0131na de\u011fil proje ba\u015f\u0131na bir Slack thread\u2019i, o yap\u0131m\u0131n b\u00fct\u00fcn videolar\u0131 i\u00e7inde.',
-        constraints: 'Bir sezonda ayn\u0131 yap\u0131m i\u00e7in sekiz on spot yap\u0131yoruz. \u0130stek ba\u015f\u0131na thread, ayn\u0131 ba\u011flam\u0131n \u2014 marka kurallar\u0131, ton, ge\u00e7mi\u015f geri bildirim \u2014 her seferinde yeniden yap\u0131\u015ft\u0131r\u0131lmas\u0131 demekti.',
-        solved: 'Bot bir proje ba\u015flad\u0131\u011f\u0131nda thread a\u00e7\u0131yor ve a\u00e7\u0131k tutuyor. Her yeni istek onun i\u00e7inde bir mesaj, b\u00f6ylece brief bir kez yaz\u0131l\u0131yor ve sonraki her render onu devral\u0131yor. Haftal\u0131k bir \u00f6zet neyin yay\u0131nland\u0131\u011f\u0131n\u0131 payla\u015f\u0131yor.',
-        borrow: 'Thread\u2019i i\u015fin ger\u00e7ekten neyin etraf\u0131nda tekrarland\u0131\u011f\u0131na g\u00f6re se\u00e7in. \u0130stek ba\u015f\u0131na Whow\u2019un tek seferlik spotlar\u0131 i\u00e7in do\u011fruydu, bizim sezonlar\u0131m\u0131z i\u00e7in yanl\u0131\u015f.' },
+      /* x1–x3 — stüdyolar arasındaki gerçek alışveriş. x3 bir yer tutucudur. */
+      { title: 'Slack \u00fczerinde yapay zek\u00e2 video hatt\u0131 \u2014 Dave, Jiny ve Blitz nas\u0131l kuruldu', summary: '\u00dc\u00e7 bot, tek bir bi\u00e7im: tam otomatik, onay bekleyen ya da h\u0131zl\u0131.',
+        made: 'Slack i\u00e7inde \u00e7al\u0131\u015fan bir yapay zek\u00e2 video hatt\u0131. \u00dc\u00e7 bot ayn\u0131 bi\u00e7imi payla\u015f\u0131yor \u2014 Dave tam otomatik, Jiny ad\u0131mlar aras\u0131nda onay i\u00e7in duruyor, Blitz yaln\u0131zca API kullanan h\u0131zl\u0131 hat. Kanalda anahtar kelimeyle ba\u015fl\u0131yor; her a\u015fama olurken Slack\u2019e geri d\u00fc\u015f\u00fcyor.',
+        constraints: 'Zaten \u00f6dedi\u011fimiz yapay zek\u00e2 aboneliklerinin etraf\u0131nda kuruldu \u2014 en h\u0131zl\u0131 kurulum de\u011fil, en hesapl\u0131 olan\u0131. Bilgisayar kimse ba\u015f\u0131nda durmadan video \u00fcretmeye devam etmeli.',
+        solved: '\u00d6zel Python + Slack Bolt (Socket Mode); n8n yok, Workflow Builder yok. S\u0131ral\u0131 fonksiyon \u00e7a\u011fr\u0131lar\u0131 \u2014 Gemini 2.5 sahneleri planl\u0131yor, GPT Image ana kareleri, Seedance videoyu \u00fcretiyor. Bir waiting_for i\u015faretle\u00e7i, gelen her mesaj\u0131n ne anlama geldi\u011fine karar veriyor. Dosyalar yerel diskte d\u00fcz yol olarak devrediliyor \u2014 kuyruk da veritaban\u0131 da yok.',
+        borrow: 'Slack mesajlar\u0131n\u0131 ba\u011flam i\u00e7inde okumak i\u00e7in waiting_for kal\u0131b\u0131 ve yava\u015f render ad\u0131mlar\u0131 i\u00e7in g\u00f6nder \u2192 yokla \u2192 do\u011frula birimi (\u00f6nceki denemenin ger\u00e7ekten bitip bitmedi\u011fini kontrol eden bir yeniden deneme ile \u2014 bo\u015fa kredi harcamadan).' },
+      { title: 'n8n \u00fczerinde kendin-yap sosyal i\u00e7erik \u00fcreteci \u2014 Slack hatt\u0131 fikrinden', summary: 'Destek ekibi Slack\u2019ten, kimse ba\u015f\u0131nda durmadan marka uyumlu i\u00e7erik \u00fcretiyor.',
+        made: 'Destek ekibinin marka uyumlu sosyal i\u00e7erikleri (g\u00f6rseller ve 5 saniyelik videolar) do\u011frudan Slack\u2019ten \u00fcretti\u011fi kendin-yap bir \u00fcrete\u00e7. /jackpot komutu yap\u0131land\u0131r\u0131lm\u0131\u015f bir modal a\u00e7\u0131yor; sonu\u00e7lar ayn\u0131 thread\u2019e d\u00f6n\u00fcyor. n8n Cloud + kie.ai \u00fczerinde \u2014 yerel kod taban\u0131 yok, bak\u0131lacak sunucu yok.',
+        constraints: 'Sosyal kumar \u00fcr\u00fcn\u00fc i\u00e7in tamamen g\u00f6zetimsiz \u00e7al\u0131\u015fma \u2014 harcama \u00f6ncesinde maliyet, eri\u015fim ve uyumluluk kontrolleri devrede. Her istek i\u00e7in sanat ekibi devreye girmiyor. Video render dakikalar ald\u0131\u011f\u0131 i\u00e7in yava\u015f ad\u0131m tak\u0131lma korumas\u0131 ve s\u0131n\u0131rl\u0131 bir en k\u00f6t\u00fc durum (istek ba\u015f\u0131na ~7-8 dk) gerektirdi.',
+        solved: 'Tek bir n8n ak\u0131\u015f\u0131 (76 d\u00fc\u011f\u00fcm) y\u00f6nlendirme, \u00fcretim ve teslimi yap\u0131yor. Yap\u0131land\u0131r\u0131lm\u0131\u015f modal girdisi serbest metin ayr\u0131\u015ft\u0131rma hatalar\u0131n\u0131 ortadan kald\u0131r\u0131yor. Yedi maddelik bir g\u00f6r\u00fc QA kap\u0131s\u0131 her g\u00f6rseli payla\u015fmadan \u00f6nce denetliyor (iki kez yeniden dene, sonra i\u015faretle \u2014 asla sessizce ge\u00e7me). Onaylanan g\u00f6rsel videonun 1. karesi oluyor, karakter tutarl\u0131 kal\u0131yor. Her istek ayr\u0131 bir \u00e7al\u0131\u015fma \u2014 paralel istekler \u00e7arp\u0131\u015fm\u0131yor.',
+        borrow: 'Kredi kap\u0131s\u0131 kal\u0131b\u0131 (\u00f6nce yumu\u015fak uyar\u0131, sonra harcamadan \u00f6nce kesin duru\u015f) ve fail-open QA tasar\u0131m\u0131 oldu\u011fu gibi al\u0131nabilir. Ba\u015ftan tiplenmi\u015f girdi, bir s\u0131n\u0131f y\u00f6nlendirme hatas\u0131n\u0131 tamamen ortadan kald\u0131r\u0131yor.' },
+      { title: 'Hat g\u00fcncellemesi \u2014 thread bazl\u0131 gruplama ve Whow\u2019un yap\u0131s\u0131ndan geri ald\u0131klar\u0131m\u0131z', summary: 'Thread\u2019e g\u00f6re gruplama ve Whow\u2019dan geri gelen iki fikir.',
+        made: 'Yer tutucu. Hat art\u0131k bir iste\u011fin tamam\u0131n\u0131 kanala da\u011f\u0131tmak yerine tek bir Slack thread\u2019inde topluyor ve Whow\u2019un tiplenmi\u015f girdi ile QA kap\u0131s\u0131 fikirleri bizim yap\u0131m\u0131za geri d\u00f6nd\u00fc.',
+        constraints: 'Yer tutucu. Bug\u00fcn d\u00fczg\u00fcn yaz\u0131l\u0131yor \u2014 bu kart, o s\u0131rada zincir g\u00f6r\u00fcn\u00fcr olsun diye burada.',
+        solved: 'Yer tutucu.',
+        borrow: 'Yer tutucu.' },
     ],
   },
 };
@@ -8473,24 +8503,36 @@ const CARDS = [
   { id: 'u2', keywords: ['Onboarding'], studio: 'doubleu', type: 'update', author: 'Haeun Lee', timeValue: 2, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
   { id: 'u3', keywords: ['Art pipeline'], studio: 'whow', type: 'update', author: 'Mira Keller', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: null },
 
-  /* c18 → c19 → c20 → c21: one working practice crossing between the two
-     studios twice, and changing shape as it goes. Both layers are here on
-     purpose, because they say different things:
+  /* x1 → x2 → x3: the real round trip between the two studios, and the reason
+     the Threads page exists. DoubleU built a Slack-native AI video pipeline;
+     Whow took the idea and rebuilt it on n8n for their own social assets;
+     DoubleU took what Whow learned back into the next version.
 
-       the keywords  — "Slack pipeline" on the first three, "Thread" on the
-                       last two. Nobody declared these related; they share a
-                       word, which is all the same-thread layer ever needs.
-       the relations — appliedFrom, then continuedFrom twice. Someone pressed
-                       a button to say each of these, and they are directed:
-                       c19 came out of c18, not merely near it.
+     Both layers of connection run through it, and they say different things —
+     the keywords ("Slack pipeline" on all three) put them in one thread without
+     anyone declaring anything, while appliedFrom/continuedFrom are the directed
+     claims somebody actually made.
 
-     Appended rather than inserted: staticIndex is this array's position, so
-     anything added in the middle would silently re-point every later card at
-     the wrong translated copy. */
-  { id: 'c18', keywords: ['Slack pipeline'], studio: 'doubleu', type: 'project', author: 'Minji Yoon', timeValue: 3, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null },
-  { id: 'c19', keywords: ['Slack pipeline'], studio: 'whow', type: 'project', author: 'Mira Keller', timeValue: 2, timeUnit: 'week', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c18', derivedRelation: 'appliedFrom', derivedNote: 'Same bot, same channel — a language flag on the request and a second pair of eyes on the German voice track.' },
-  { id: 'c20', keywords: ['Slack pipeline', 'Thread'], studio: 'whow', type: 'experiment', author: 'Lena Fischer', timeValue: 1, timeUnit: 'week', appliedBy: ['doubleu'], image: null, relatedTo: [], derivedFrom: 'c19', derivedRelation: 'continuedFrom', derivedNote: 'Two languages meant four messages per spot, so we tried keeping each request in one thread.' },
-  { id: 'c21', keywords: ['Thread'], studio: 'doubleu', type: 'project', author: 'Doyoon Kim', timeValue: 4, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'c20', derivedRelation: 'continuedFrom', derivedNote: 'Took the thread-as-unit idea and moved it up a level, from per request to per project.' },
+     Ids are x-prefixed rather than continuing the c-series on purpose: these
+     replaced four earlier sample cards that shipped as c18–c21, and reusing
+     those ids would have silently re-pointed any seed edit, reaction or
+     connection stored against the old cards in a reader's browser at these
+     completely different ones. Orphaned rows are dropped on read (cardById
+     returns nothing and the row is filtered out), which is the outcome we want.
+
+     Appended, never inserted: staticIndex is this array's position, so anything
+     added in the middle re-points every later card at the wrong translated copy. */
+  { id: 'x1', keywords: ['Slack pipeline', 'AI video pipeline'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', timeValue: 5, timeUnit: 'week', appliedBy: ['whow'], image: null, relatedTo: [], derivedFrom: null,
+    attachments: [{ name: 'doubleu-pipeline-architecture.pdf', path: 'assets/doubleu-pipeline-architecture.pdf' }] },
+  { id: 'x2', keywords: ['Slack pipeline', 'AI social pipeline'], studio: 'whow', type: 'project', author: 'Bengt Ott', timeValue: 2, timeUnit: 'week', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'x1', derivedRelation: 'appliedFrom', derivedNote: 'Same idea, different stack — n8n Cloud instead of a local codebase, and the support team drives it themselves.',
+    attachments: [{ name: 'whow-n8n-architecture.pdf', path: 'assets/whow-n8n-architecture.pdf' }] },
+  /* TODO(content): the body here is a placeholder. Replace made/constraints/
+     solved/borrow — in all four languages — once today's write-up is finished,
+     and drop the PDF in at the path below. Until it is there the attachment row
+     renders as unavailable rather than as a broken link (see
+     renderAttachmentsInto). */
+  { id: 'x3', keywords: ['Slack pipeline', 'Thread'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', justNow: true, timeValue: 0, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'x2', derivedRelation: 'continuedFrom', derivedNote: 'Whow\u2019s typed-input and QA-gate ideas came back into our own pipeline.',
+    attachments: [{ name: 'doubleu-pipeline-update.pdf', path: 'assets/doubleu-pipeline-update.pdf' }] },
 ];
 
 /* ======================================================================
@@ -8951,10 +8993,12 @@ function renderMenuOverlay() {
       if (item.comingSoon) { showToast(t().toolsComingSoon); return; }
       // Designers is a surface, and only one surface can hold the screen — the
       // menu's close animation has to finish before the next one starts.
+      /* enterDesignersMode now takes Threads down itself, so this needs no
+         special case for it — which is the point of having one teardown. */
       if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
       if (item.threads) {
-        // Two full-screen surfaces cannot both be up; leave whichever is first.
-        if (isDesignersMode) { exitDesignersMode(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
+        /* Share and a detail both animate closed and have to finish first;
+           Designers and Threads hand over inside enterThreadsMode. */
         if (isShareMode) { exitShareMode(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
         if (isCardExpanded) { closeCard(); setTimeout(enterThreadsMode, CONFIG.MODE_SWAP_MS * 2 + 80); return; }
         setTimeout(enterThreadsMode, MENU_CLOSE_DUR_MS);
@@ -8964,7 +9008,7 @@ function renderMenuOverlay() {
       // The three floors: leaving whatever surface is up first, or goToFloor
       // moves a feed nobody can see.
       if (isShareMode) { exitShareMode(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
-      if (isThreadsMode) { exitThreadsMode(() => goToFloor(item.tier)); return; }
+      if (isThreadsMode) { leaveThreadsFor(() => goToFloor(item.tier)); return; }
       if (isDesignersMode) { exitDesignersMode(() => goToFloor(item.tier)); return; }
       if (isCardExpanded) { closeCard(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
       // Browse means all of it: arriving from the menu shouldn't land you on a
@@ -13878,6 +13922,9 @@ let threadsGraph = null;      // { nodes, links } — positions live on the node
 let threadsRaf = null;
 let threadsOpenKey = null;    // which keyword's story is showing
 let threadsArrivalTimers = [];
+let threadsDragNode = null;   // the word currently under the pointer, if held
+let threadsDragMoved = false; // whether that hold has travelled far enough to be a drag
+const THREAD_DRAG_SLOP_PX = 4; // under this it is a click, over it a drag
 
 const THREAD_R_MIN = 34;       // how far a one-piece keyword's marks orbit
 const THREAD_R_MAX = 50;       // and a busy one's. Deliberately close together.
@@ -14427,8 +14474,14 @@ function threadEdgeOffset(node, dx, dy) {
 function positionThreads(now) {
   if (!threadsGraph) return;
   threadsGraph.nodes.forEach((n) => {
-    n.dx = Math.sin((now / n.periodX) * Math.PI * 2 + n.phaseX) * n.driftA;
-    n.dy = Math.cos((now / n.periodY) * Math.PI * 2 + n.phaseY) * n.driftB;
+    // A word being held sits exactly where the pointer put it. Its drift is not
+    // paused so much as zeroed — the offset is what drifts, and while dragging
+    // the offset is nothing, so x/y alone place it.
+    if (n === threadsDragNode) { n.dx = 0; n.dy = 0; }
+    else {
+      n.dx = Math.sin((now / n.periodX) * Math.PI * 2 + n.phaseX) * n.driftA;
+      n.dy = Math.cos((now / n.periodY) * Math.PI * 2 + n.phaseY) * n.driftB;
+    }
     if (n.el) n.el.setAttribute('transform', `translate(${(n.x + n.dx).toFixed(2)}, ${(n.y + n.dy).toFixed(2)})`);
   });
   threadsGraph.links.forEach((l) => {
@@ -14503,16 +14556,115 @@ function focusThreadsOn(key) {
   svg.classList.add('is-focusing');
 }
 
+/* Screen pixels to the coordinates the map is drawn in. The SVG scales its
+   viewBox to the stage, so a pointer delta is not a diagram delta. */
+function threadsClientToView(clientX, clientY) {
+  const svg = document.getElementById('threadsSvg');
+  const r = svg.getBoundingClientRect();
+  const vb = svg.viewBox.baseVal;
+  if (!vb || !vb.width || !r.width) return { x: clientX, y: clientY };
+  return { x: (clientX - r.left) * (vb.width / r.width), y: (clientY - r.top) * (vb.height / r.height) };
+}
+
+/* ---- moving a word by hand ----
+   The map arranges itself, but where a word sits is also an opinion, and this
+   lets the reader have one. Two details make it feel like picking something up
+   rather than nudging a data point:
+
+     while held, that word's drift is zeroed and its current drift offset is
+     baked into its position, so it does not lurch by however far it happened to
+     have wandered at the moment you grabbed it;
+
+     on release its drift is re-phased to start from zero, so it eases away from
+     exactly where you left it instead of snapping to wherever its sine wave had
+     got to in the meantime.
+
+   Only the grabbed word is pinned. Its threads and its marks follow because
+   they are drawn from its position every frame anyway. */
+function beginThreadsDrag(node, e) {
+  threadsDragNode = node;
+  threadsDragMoved = false;
+  // bake in the wander so there is no jump on the first frame of the drag
+  node.x += node.dx;
+  node.y += node.dy;
+  node.dx = 0; node.dy = 0;
+  const at = threadsClientToView(e.clientX, e.clientY);
+  node.grabDX = node.x - at.x;
+  node.grabDY = node.y - at.y;
+  node.grabClientX = e.clientX;
+  node.grabClientY = e.clientY;
+  document.getElementById('threadsSvg').classList.add('is-dragging');
+}
+
+function moveThreadsDrag(e) {
+  const node = threadsDragNode;
+  if (!node) return;
+  if (!threadsDragMoved) {
+    const travelled = Math.hypot(e.clientX - node.grabClientX, e.clientY - node.grabClientY);
+    if (travelled < THREAD_DRAG_SLOP_PX) return; // still a click, as far as anyone knows
+    threadsDragMoved = true;
+  }
+  const at = threadsClientToView(e.clientX, e.clientY);
+  const svg = document.getElementById('threadsSvg');
+  const vb = svg.viewBox.baseVal;
+  // Kept on the page: a word dragged off the edge is a word you cannot get back
+  // without reloading, since there is no pan.
+  const edgeX = Math.max(node.halfW * 0.5, node.bleed * 0.45);
+  const edgeY = Math.max(node.halfH * 0.6, node.bleed * 0.45);
+  node.x = Math.max(edgeX, Math.min(vb.width - edgeX, at.x + node.grabDX));
+  node.y = Math.max(edgeY, Math.min(vb.height - edgeY, at.y + node.grabDY));
+  // so a later resize-relayout has somewhere honest to spring back toward
+  node.homeX = node.x; node.homeY = node.y;
+}
+
+function endThreadsDrag() {
+  const node = threadsDragNode;
+  if (!node) return;
+  threadsDragNode = null;
+  document.getElementById('threadsSvg').classList.remove('is-dragging');
+  /* Re-phase so the wander restarts at zero offset from where it was dropped.
+     sin(2π·t/period + phase) = 0 and cos(...) = 0 at these phases. */
+  const now = performance.now();
+  node.phaseX = -(now / node.periodX) * Math.PI * 2;
+  node.phaseY = Math.PI / 2 - (now / node.periodY) * Math.PI * 2;
+  node.dx = 0; node.dy = 0;
+}
+
 function initThreadsInteraction() {
   const svg = document.getElementById('threadsSvg');
   const tip = document.getElementById('threadsTip');
   const stage = document.getElementById('threadsStage');
 
   threadsGraph.nodes.forEach((n) => {
-    n.el.addEventListener('mouseenter', () => focusThreadsOn(n.key));
-    n.el.addEventListener('mouseleave', () => { if (!threadsOpenKey) focusThreadsOn(null); else focusThreadsOn(threadsOpenKey); });
-    n.el.addEventListener('click', (e) => { e.stopPropagation(); openThreadStory(n.key); });
+    n.el.addEventListener('mouseenter', () => { if (!threadsDragNode) focusThreadsOn(n.key); });
+    n.el.addEventListener('mouseleave', () => {
+      if (threadsDragNode) return; // keep the held word lit while it travels
+      focusThreadsOn(threadsOpenKey || null);
+    });
+    /* A press is not yet a click or a drag. Which one it was is decided by how
+       far it travels — see THREAD_DRAG_SLOP_PX — so the story panel and the drag
+       never both fire. */
+    n.el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault();
+      beginThreadsDrag(n, e);
+    });
+    n.el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (threadsDragMoved) { threadsDragMoved = false; return; } // that was a drag
+      openThreadStory(n.key);
+    });
   });
+
+  /* On the window, not the node: the pointer routinely leaves the word it is
+     dragging (that is rather the point), and listeners on the node would drop
+     the drag the moment it did. */
+  if (!window.__threadsDragBound) {
+    window.__threadsDragBound = true;
+    window.addEventListener('pointermove', (e) => { if (threadsDragNode) moveThreadsDrag(e); });
+    window.addEventListener('pointerup', endThreadsDrag);
+    window.addEventListener('pointercancel', endThreadsDrag);
+  }
 
   // Delegated, because there are a lot of marks and they are rebuilt whenever
   // the map is.
@@ -14630,12 +14782,36 @@ function openCardFromThreads(cardId) {
   exitThreadsMode(() => openCardById(cardId));
 }
 
+/* Threads is a surface, so leaving it for one of the three floors has to wait
+   for its fade — otherwise goToFloor moves a feed nobody can see yet. */
+function leaveThreadsFor(fn) {
+  if (!isThreadsMode) { fn(); return; }
+  exitThreadsMode(fn);
+}
+
 /* ---- the surface ---- */
 function enterThreadsMode() {
-  if (isThreadsMode || isShareMode || isCardExpanded || isDesignersMode) return;
+  if (isThreadsMode || isShareMode || isCardExpanded) return;
+
+  /* Whatever surface is up comes down here rather than the caller sequencing
+     two animations by hand. Doing it with timeouts left the roster still
+     displayed underneath the map — invisible only because the map covered it.
+
+     Before `isThreadsMode = true`, not after: teardownActiveSurface reads the
+     mode flags to decide what is showing, so setting ours first made it tear
+     down *this* surface and clear the flag we had just set. The map then opened
+     with isThreadsMode false, which meant no drift and a back button that
+     refused to do anything. */
+  const leaving = teardownActiveSurface();
+  if (leaving) {
+    leaving.style.display = 'none';
+    document.getElementById('feedMain').style.display = 'block';
+  }
+
   isThreadsMode = true;
   pauseAutoScroll();
   closeThreadStory();
+
   updateChrome(); // floor 2's search box has no business on a lookout
 
   const gallery = document.getElementById('feedMain');
@@ -14687,6 +14863,8 @@ function initThreads() {
   // clicking off any panel.
   document.getElementById('threadsStage').addEventListener('click', (e) => {
     if (e.target.closest('.threads-node') || e.target.closest('.threads-dot')) return;
+    // a drag that happens to end over the paper is not a click on the paper
+    if (threadsDragMoved) { threadsDragMoved = false; return; }
     closeThreadStory();
   });
   document.addEventListener('keydown', (e) => {
@@ -15400,17 +15578,48 @@ function initAttachmentUpload() {
 function renderAttachmentsInto(wrapEl, data) {
   wrapEl.innerHTML = '';
   (data.attachments || []).forEach((file) => {
-    const a = document.createElement('a');
-    a.className = 'attachment-link';
-    a.href = file.dataUrl;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.download = file.name;
+    /* Two kinds of attachment, and the difference is where the bytes are.
+
+       An upload carries `dataUrl` — the whole file, base64, in localStorage.
+       A seed card carries `path` — a file committed under assets/. Both open in
+       a new tab and neither needs the other's machinery.
+
+       A `path` that is not there yet gets a row that is not a link: the name and
+       a quiet note instead of an anchor to a 404. The alternative — rendering
+       the link anyway — means the one attachment somebody actually clicks in a
+       demo is the one that breaks. */
+    const href = file.dataUrl || file.path;
+    const a = document.createElement(href ? 'a' : 'div');
+    a.className = 'attachment-link' + (href ? '' : ' is-unavailable');
+    if (href) {
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      // Only an upload is a download; a path should just open.
+      if (file.dataUrl) a.download = file.name;
+    }
+    /* A path is checked before it is offered, the same way a card's image is
+       (see applyCardMedia). The row starts as a link and steps down to plain
+       text if the file is not committed yet — offering a link to a 404 means
+       the one attachment somebody clicks in a demo is the one that breaks, and
+       these paths are deliberately wired up before the PDFs land. */
+    if (file.path && !file.dataUrl) {
+      fetch(file.path, { method: 'HEAD' })
+        .then((res) => { if (!res.ok) throw new Error(String(res.status)); })
+        .catch(() => {
+          a.classList.add('is-unavailable');
+          a.removeAttribute('href');
+          const sizeEl = a.querySelector('.attachment-item-size');
+          if (sizeEl && !sizeEl.textContent.trim()) sizeEl.textContent = t().share.attachmentPending;
+        });
+    }
+    const size = typeof file.size === 'number' ? formatFileSize(file.size)
+      : (file.note || '');
     a.innerHTML = `
       <span class="attachment-item-icon">${ATTACHMENT_ICON}</span>
       <span class="attachment-item-info">
-        <div class="attachment-item-name">${file.name}</div>
-        <div class="attachment-item-size">${formatFileSize(file.size)}</div>
+        <div class="attachment-item-name">${escapeHtml(file.name || '')}</div>
+        <div class="attachment-item-size">${escapeHtml(size)}</div>
       </span>
     `;
     wrapEl.appendChild(a);
@@ -16607,11 +16816,52 @@ function refreshShareText() {
    reason: these are alternate surfaces occupying the gallery's real estate,
    not separate pages, so the topbar and the language switcher never blink. */
 function activeSurfaceEl() {
-  return document.getElementById(isDesignersMode ? 'designersViewport' : 'feedMain');
+  if (isDesignersMode) return document.getElementById('designersViewport');
+  if (isThreadsMode) return document.getElementById('threadsViewport');
+  return document.getElementById('feedMain');
+}
+
+/* Whichever full-screen surface is holding the screen, torn down without its
+   own exit animation — for the case where something else is about to fade in
+   over the top of it and playing two transitions would just be slower.
+
+   This exists because every "go somewhere else" path had grown its own list of
+   surfaces to check, and Threads was simply missing from two of them: the menu's
+   Designers branch called enterDesignersMode, whose guard refuses to run while
+   Threads is up, so pressing Designers from the map did nothing at all. One
+   function that knows the set is the only way that stays fixed. */
+function teardownActiveSurface() {
+  if (isThreadsMode) {
+    isThreadsMode = false;
+    stopThreadsDrift();
+    threadsArrivalTimers.forEach(clearTimeout);
+    threadsArrivalTimers = [];
+    closeThreadStory();
+    return document.getElementById('threadsViewport');
+  }
+  if (isDesignersMode) {
+    isDesignersMode = false;
+    return document.getElementById('designersViewport');
+  }
+  return null;
 }
 
 function enterDesignersMode() {
-  if (isDesignersMode || isShareMode || isCardExpanded || isThreadsMode) return;
+  if (isDesignersMode || isShareMode || isCardExpanded) return;
+
+  /* Threads may be what is on screen. It used to be in the guard above, which
+     meant pressing Designers from the map silently did nothing; taking the map
+     down here instead makes the roster reachable from wherever you are. The
+     feed is put back first because the swap below fades `gallery` out, and it
+     has to be the thing actually showing.
+
+     Before the flag is set, for the reason spelled out in enterThreadsMode. */
+  const leaving = teardownActiveSurface();
+  if (leaving) {
+    leaving.style.display = 'none';
+    document.getElementById('feedMain').style.display = 'block';
+  }
+
   isDesignersMode = true;
   pauseAutoScroll();
 
@@ -16668,7 +16918,7 @@ function exitDesignersMode(onShown) {
 // .mode-fade-out), always starting share mode from a clean compose step no
 // matter how the previous visit ended.
 function enterShareMode() {
-  if (isShareMode || isCardExpanded || isThreadsMode) return;
+  if (isShareMode || isCardExpanded) return;
   isShareMode = true;
   pauseAutoScroll();
 
@@ -16676,8 +16926,9 @@ function enterShareMode() {
   // whichever surface is actually showing — and make sure the feed, not the
   // roster, is what's underneath when share mode closes again.
   const leaving = activeSurfaceEl();
-  if (isDesignersMode) {
-    isDesignersMode = false;
+  // Designers or Threads: either can be the thing on screen when the pencil is
+  // pressed, and both leave the same way.
+  if (teardownActiveSurface()) {
     document.getElementById('feedMain').style.display = 'block';
   }
 
