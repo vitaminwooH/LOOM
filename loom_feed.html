@@ -8271,6 +8271,24 @@ const MENU_ITEMS = [
    contact details everywhere they appear: a job title and an email address tell
    you who somebody is, and neither tells you whether it is worth writing to
    them this week, which is the only question anyone opens a roster with. */
+/* ======================================================================
+   Naming things in assets/
+   ----------------------------------------------------------------------
+   Lower case, hyphen separated, no spaces. minwoo-heo.jpg, never
+   "Minwoo Heo.png".
+
+   Local development is served off a case-insensitive filesystem (NTFS/APFS) and
+   GitHub Pages is not, so `assets/Minwoo Heo.png` resolves locally and 404s in
+   production — the failure mode that costs the most, because the machine you
+   test on is the one that cannot show it to you. Spaces then have to be
+   percent-encoded in every reference, and one written raw works in some
+   browsers and not others.
+
+   Photographs are JPEG, not PNG: these are camera images with no transparency,
+   and the same picture is roughly a tenth of the size. Long edge 1500px is
+   enough for the roster card on a 2x display, which is 667x934 css at its
+   largest.
+   ====================================================================== */
 const DEFAULT_DESIGNERS = [
   { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null, photoPos: null,
     workingOn: 'First-payment reward flow, round two',
