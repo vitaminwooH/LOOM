@@ -154,11 +154,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 0;
     max-height: 100vh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 12px 0;
+    padding: 10px 0;
   }
 
   /* opacity/transform here are the resting (closed) state; openMenuOverlay/
@@ -172,7 +172,12 @@
     cursor: pointer;
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    font-size: clamp(30px, 5.2vw, 52px);
+    /* Down from clamp(30px, 5.2vw, 52px). Six doors, two sub-items and a
+       description row each did not fit a short window, and the fix everywhere
+       else in this menu is to take height out of the rows rather than to let the
+       column scroll — a menu you have to scroll is a menu that has stopped being
+       a handful of big words. 41px is still cover-scale type. */
+    font-size: clamp(25px, 4.1vw, 41px);
     letter-spacing: -0.01em;
     color: rgba(255, 255, 255, 0.82);
     padding: 8px 20px;
@@ -235,19 +240,24 @@
        whatever the language, and every item is the same width and so the same
        size of target */
     width: min(46ch, 82vw);
-    padding: 8px 20px 12px;
+    padding: 2px 20px 4px;
   }
   .menu-item-desc {
     display: block;
     margin-top: 5px;
     font-family: 'Inter', sans-serif;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.4;
-    /* two lines held open whatever this item's description needs, so the six
-       rows keep an even rhythm instead of each being its own height */
-    min-height: 2.8em;
+    /* One line held open, not two. The reserve is still here and still the whole
+       point — nothing may shift when the pointer arrives — but two lines were
+       reserved for descriptions that have never needed them: the measure is
+       46ch of 41px Cormorant, which is ~900px, and the longest description in
+       any of the four languages is a third of that at 12px. Two lines cost 35px
+       on every one of six rows for nothing. If a description ever does wrap,
+       this is the number to put back up. */
+    min-height: 1.4em;
     text-align: center;
     color: rgba(255, 255, 255, 0.55);
     opacity: 0;
@@ -257,6 +267,49 @@
   }
   .menu-item:hover .menu-item-desc,
   .menu-item:focus-visible .menu-item-desc { opacity: 1; transform: translateY(0); }
+
+  /* ---------- the two ways into Knowledge ----------
+     Projects and Experiments are the same floor with a filter already applied,
+     so they are not doors of their own — they sit under Knowledge, in its own
+     typeface at a third of the size, and read as two ways in rather than as two
+     more places. Side by side, because they are alternatives to each other.
+
+     No border and no plate at rest: a pill here would be the only boxed thing
+     in a menu made of bare words, and it would read as a control that had
+     wandered in from the filter dock. The plate arrives on hover, which is when
+     "this is a target" is the thing you need to know. */
+  .menu-subrow {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 4px;
+    /* tucked up against the item above: the description row leaves exactly this
+       much air, and these belong to that item rather than to the gap */
+    margin: -2px 0 7px;
+  }
+  .menu-subitem {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: clamp(14px, 1.55vw, 19px);
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.46);
+    padding: 2px 13px;
+    border-radius: 999px;
+    /* same two properties the doors animate, so the stagger can drive these with
+       exactly the same inline delay/duration — see MENU_STAGGER_SELECTOR */
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.2s ease, transform 0.2s ease, color 0.3s ease, background 0.3s ease;
+  }
+  .menu-subitem:hover,
+  .menu-subitem:focus-visible { color: rgba(255, 255, 255, 0.92); background: rgba(255, 255, 255, 0.09); }
+  /* Which filter floor 2 is currently holding. It is a state, not a selection to
+     be undone here: pressing Knowledge clears it. */
+  .menu-subitem.is-active { color: #ffffff; }
+  .menu-subitem.is-visible { opacity: 1; transform: translateY(0); }
 
   /* ---------- app content ---------- */
   .app {
@@ -4662,6 +4715,31 @@
   .image-thumb-media.is-dragging ~ .image-thumb-hint { opacity: 0; }
   .file-slot.is-dropping { outline: 2px dashed var(--ink); outline-offset: 3px; border-radius: 12px; }
 
+  /* Reads as a field that exists but is not open yet: the same dashed edge the
+     two pickers above it use, at rest, with no hover state and no cursor. The
+     "coming soon" note next to the label is what carries the explanation — the
+     placeholder is long, and a long placeholder in a disabled box is read once
+     and then ignored. */
+  .canvas-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    cursor: not-allowed;
+  }
+  .canvas-input::placeholder { color: var(--ink-faint); }
+  .canvas-hint {
+    margin: 7px 0 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--ink-faint);
+  }
+  .canvas-input:disabled { opacity: 1; } /* Safari greys disabled text to unreadable */
+
   /* Stacked, not side by side: the column is half the width it was, and two
      dashed buttons squeezed next to each other read as one broken control. */
   .compose-attach-row {
@@ -5596,6 +5674,32 @@
               </div>
               <input type="file" id="attachmentFileInput" multiple style="display:none;" />
             </div>
+
+            <!-- Not wired up, and says so. This is the shape of the thing that
+                 makes writing a card nearly free: most of what belongs on one has
+                 already been written in a Slack Canvas by the time anybody thinks
+                 to share it, and retyping it is the actual reason a studio does
+                 not. Disabled rather than accepting text and dropping it —
+                 a field that takes what you paste and then loses it is worse than
+                 one that admits it is not ready.
+
+                 TODO(server) 서버 단계 1순위 — Slack Canvas API + AI 요약으로 자동 글 생성.
+                 First thing to build server-side: read the Canvas through Slack's
+                 API and have a model draft the card from it — title, the body
+                 fields for the chosen type, and the keywords. Needs an OAuth token
+                 per studio and a model call, so it belongs next to the write path,
+                 not in the browser. The composer stays exactly as it is; this
+                 fills it in rather than replacing it, because the person sharing
+                 still has to agree with what it says. -->
+            <div class="field compose-attach-col compose-attach-col-canvas">
+              <div class="field-label"><span id="canvasFieldLabel"></span> <span class="optional" id="canvasSoonLabel"></span></div>
+              <input type="url" class="canvas-input" id="canvasLinkInput" disabled aria-disabled="true" />
+              <!-- The sentence lives here rather than in the placeholder. The
+                   right-hand column is ~305px and an input does not wrap, so the
+                   whole point of it — that pasting a link is all this will ever
+                   ask of you — was being cut off at "정리됩니다 —". -->
+              <p class="canvas-hint" id="canvasHintLabel"></p>
+            </div>
           </div>
         </div>
       </div>
@@ -5941,7 +6045,7 @@ const TRANSLATIONS = {
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', threads: 'Threads', designers: 'Designers', tools: 'Tools' },
+      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', threads: 'Threads', designers: 'Designers', tools: 'Tools', projects: 'Projects', experiments: 'Experiments' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -6342,6 +6446,14 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Not uploaded yet',
         attachmentsHint: 'Drop a file here (PDF works great), or click to add one',
+        /* The Slack Canvas field is not wired up; these three strings are what
+           says so. `canvasSoon` repeats menuToolsAside's words rather than
+           borrowing the key: one is a menu door with nowhere to go, this is a
+           field that is not open yet, and they will not always agree. */
+        canvasLabel: 'Slack Canvas',
+        canvasSoon: 'Coming soon',
+        canvasPlaceholder: 'slack.com/canvas/…',
+        canvasHint: 'Paste a Slack Canvas link and it is written up for you — coming soon.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Drag inside the picture to choose what the card shows',
@@ -6449,7 +6561,7 @@ const TRANSLATIONS = {
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', threads: '실', designers: '디자이너', tools: '툴' },
+      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', threads: '실', designers: '디자이너', tools: '툴', projects: '프로젝트', experiments: '실험' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -6810,6 +6922,14 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: '아직 업로드 전',
         attachmentsHint: '파일을 끌어다 놓거나 클릭해서 추가하세요 (PDF 권장)',
+        /* The Slack Canvas field is not wired up; these three strings are what
+           says so. `canvasSoon` repeats menuToolsAside's words rather than
+           borrowing the key: one is a menu door with nowhere to go, this is a
+           field that is not open yet, and they will not always agree. */
+        canvasLabel: 'Slack Canvas',
+        canvasSoon: '준비 중',
+        canvasPlaceholder: 'slack.com/canvas/…',
+        canvasHint: 'Slack Canvas 링크를 붙이면 자동으로 정리됩니다 — 준비 중.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: '사진 안을 드래그해서 카드에 보일 부분을 정하세요',
@@ -6913,7 +7033,7 @@ const TRANSLATIONS = {
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', threads: 'Fäden', designers: 'Designer', tools: 'Werkzeuge' },
+      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', threads: 'Fäden', designers: 'Designer', tools: 'Werkzeuge', projects: 'Projekte', experiments: 'Experimente' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -7274,6 +7394,14 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Noch nicht hochgeladen',
         attachmentsHint: 'Datei hierher ziehen (PDF eignet sich gut) oder klicken, um eine hinzuzufügen',
+        /* The Slack Canvas field is not wired up; these three strings are what
+           says so. `canvasSoon` repeats menuToolsAside's words rather than
+           borrowing the key: one is a menu door with nowhere to go, this is a
+           field that is not open yet, and they will not always agree. */
+        canvasLabel: 'Slack Canvas',
+        canvasSoon: 'Demnächst',
+        canvasPlaceholder: 'slack.com/canvas/…',
+        canvasHint: 'Slack-Canvas-Link einfügen und er wird automatisch aufbereitet — in Vorbereitung.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Im Bild ziehen, um zu wählen, was die Karte zeigt',
@@ -7377,7 +7505,7 @@ const TRANSLATIONS = {
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', threads: 'İplikler', designers: 'Tasarımcılar', tools: 'Araçlar' },
+      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', threads: 'İplikler', designers: 'Tasarımcılar', tools: 'Araçlar', projects: 'Projeler', experiments: 'Deneyler' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -7738,6 +7866,14 @@ const TRANSLATIONS = {
            file is not in assets/ yet. */
         attachmentPending: 'Henüz yüklenmedi',
         attachmentsHint: 'Bir dosyayı buraya sürükle (PDF için ideal) ya da eklemek için tıkla',
+        /* The Slack Canvas field is not wired up; these three strings are what
+           says so. `canvasSoon` repeats menuToolsAside's words rather than
+           borrowing the key: one is a menu door with nowhere to go, this is a
+           field that is not open yet, and they will not always agree. */
+        canvasLabel: 'Slack Canvas',
+        canvasSoon: 'Yakında',
+        canvasPlaceholder: 'slack.com/canvas/…',
+        canvasHint: 'Slack Canvas bağlantısını yapıştır, otomatik olarak düzenlenir — yakında.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Kartın neyi göstereceğini seçmek için görselin içinde sürükle',
@@ -8095,6 +8231,9 @@ const WEAVE_STUDIOS = Object.keys(STUDIOS)
    to. Threads is last because it is the closing line, and you get there by
    carrying on downward rather than by leaving the feed to look at it. */
 const FLOOR_COUNT = 4;
+// Named because the menu's sub-items go to floor 2 without being floor 2's own
+// entry in MENU_ITEMS, so the number would otherwise be written twice.
+const FLOOR_BROWSE = 1;
 const FLOOR_THREADS = 3;
 
 const MENU_ITEMS = [
@@ -8103,7 +8242,13 @@ const MENU_ITEMS = [
   // which is on every screen; a menu item that opened a composer under a name
   // that reads as a destination sent people somewhere they had not asked to go.
   { key: 'newest', tier: 0 },
-  { key: 'browse', tier: 1 },
+  /* Knowledge is the whole floor; its two sub-items are the same floor with the
+     type filter already set. They are declared here rather than as items of
+     their own because they are not destinations — see renderMenuOverlay. */
+  { key: 'browse', tier: FLOOR_BROWSE, subItems: [
+    { key: 'projects', filter: 'project' },
+    { key: 'experiments', filter: 'experiment' },
+  ] },
   { key: 'question', tier: 2 },
   { key: 'threads', tier: FLOOR_THREADS },
   { key: 'designers', designers: true },
@@ -8182,6 +8327,9 @@ const MENU_ITEMS = [
    Felix Heitmann with Whow. Neither authors a card, so unlike the other two
    there is nothing in the data that says which studio they belong to.
 
+   Three to a studio: the two real people, then the one seeded card that shows
+   what a filled-in one looks like.
+
    Editing any of them in the app still works exactly as before, and still wins:
    loadDesigners() returns the stored list whole when there is one. Which also
    means a browser that has edited the roster before will not see this list until
@@ -8199,18 +8347,29 @@ const DEFAULT_DESIGNERS = [
   { id: 'wh-felix', studio: 'whow', name: 'Felix Heitmann', roleKey: '', photo: 'assets/felix-heitmann.jpg', photoPos: { x: 55, y: 33 },
     workingOn: '', canHelp: '', links: {} },
 
-  /* The seeded six. They stay: they are the authors of most of the sample
-     cards, so the roster is where "who is Lena Fischer" gets answered when a
-     card of hers is open — and deleting them would leave those cards pointing
-     at nobody (see the designerRoster lookup in the author filter). */
-  { id: 'du-doyoon', studio: 'doubleu', name: 'Doyoon Kim', roleKey: 'productDesigner', photo: null, photoPos: null,
-    workingOn: 'First-payment reward flow, round two',
-    canHelp: 'Monetisation flows, paywall timing',
-    links: { email: 'doyoon.kim@doubleugames.com', website: 'https://doyoonkim.design' } },
-  { id: 'du-haeun', studio: 'doubleu', name: 'Haeun Lee', roleKey: 'motionDesigner', photo: null, photoPos: null,
-    workingOn: 'AI production pipeline for event art',
-    canHelp: 'Motion systems, reward animation timing',
-    links: { email: 'haeun.lee@doubleugames.com', vimeo: 'vimeo.com/haeunlee', instagram: 'instagram.com/haeun.motion' } },
+  /* One seeded person per studio, kept deliberately.
+
+     Three a side, not five and three: a card's width follows from its height
+     (aspect-ratio 1/1.4), so how many tiles are in the row is what decides how
+     big any of them can be — see sizeAllRosters, where the width bound beats the
+     65%-of-viewport ceiling the moment there are more than three. Five tiles is
+     why the cards had quietly become small. Three is the number at which the
+     ceiling wins and the row fills the screen.
+
+     These two stay rather than being dropped with the other four because a
+     roster of nothing but the real four would have no filled-in card left to
+     read: the real people have no role, no contact details and nothing typed
+     about what they are working on, on purpose (see the note above), so a
+     visitor would see four names and four photographs and would never learn what
+     the back of a card is for. Lena Fischer and Minji Yoon are what the finished
+     thing looks like. Both are also card authors, so their backs fill in from
+     the network as well.
+
+     The four whose entries are gone — Doyoon Kim, Haeun Lee, Jonas Weber, Mira
+     Keller — still author sample cards, and nothing breaks: an author is matched
+     to a roster entry only to colour the filter chip, which already falls back
+     when there is no match, and the filter itself can only be set by clicking a
+     roster card in the first place. */
   { id: 'du-minji', studio: 'doubleu', name: 'Minji Yoon', roleKey: 'brandDesigner', photo: null, photoPos: null,
     workingOn: 'Onboarding rewrite, screens three and four',
     canHelp: 'Brand systems, localisation that keeps the tone',
@@ -8219,14 +8378,6 @@ const DEFAULT_DESIGNERS = [
     workingOn: 'Merge board sizing, follow-up test',
     canHelp: 'A/B test design, session-length research',
     links: { email: 'lena.fischer@whow.com', website: 'https://lenafischer.de', behance: 'behance.net/lenafischer' } },
-  { id: 'wh-jonas', studio: 'whow', name: 'Jonas Weber', roleKey: 'artDirector', photo: null, photoPos: null,
-    workingOn: 'Seasonal event teasers',
-    canHelp: 'Event art direction, teaser pacing',
-    links: { email: 'jonas.weber@whow.com', instagram: 'instagram.com/jonas.ad' } },
-  { id: 'wh-mira', studio: 'whow', name: 'Mira Keller', roleKey: 'uiDesigner', photo: null, photoPos: null,
-    workingOn: 'Daily-reward screen rebuild',
-    canHelp: 'Icon systems, UI performance passes',
-    links: {} },
 ];
 
 /* The five kinds, in the order they appear on a card back and in the editor.
@@ -9057,6 +9208,11 @@ let isDesignersMode = false;
 // Stagger timing for the menu items — open reads as a deliberate, weighty
 // reveal (top to bottom, generous per-item delay); close is the same motion
 // undone quickly and in reverse (bottom to top), like a stack unwinding.
+/* Doors and sub-items alike. Both animate the same two properties from the same
+   resting state, so one query in document order staggers the column top to
+   bottom without caring which kind of row each one is. */
+const MENU_STAGGER_SELECTOR = '.menu-item, .menu-subitem';
+
 const MENU_OPEN_STAGGER_MS = 50;
 const MENU_OPEN_DUR_MS = 440;
 const MENU_OPEN_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -9066,6 +9222,43 @@ const MENU_OPEN_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const MENU_CLOSE_STAGGER_MS = 18;
 const MENU_CLOSE_DUR_MS = 220;
 const MENU_CLOSE_EASE = 'cubic-bezier(0.5, 0, 0.85, 0.35)';
+
+/* Every menu row lands on a floor the same way, and the surfaces are the reason
+   it takes more than goToFloor: Share, Designers and an open card each hold the
+   screen in front of the feed, and moving a feed nobody can see is how you end
+   up on the wrong floor when the surface finally closes. `before` runs with the
+   floor still hidden, which is where a filter change belongs — applied by the
+   time the floor is looked at, rather than visibly rearranging itself after. */
+function menuGoToFloor(tier, before) {
+  const go = () => { if (before) before(); goToFloor(tier); };
+  if (isShareMode) { exitShareMode(); setTimeout(go, CONFIG.MODE_SWAP_MS + 60); return; }
+  if (isDesignersMode) { exitDesignersMode(go); return; }
+  if (isCardExpanded) { closeCard(); setTimeout(go, CONFIG.MODE_SWAP_MS + 60); return; }
+  go();
+}
+
+/* The type filter, set from anywhere. The dropdown on floor 2 used to own this
+   inline; the menu's sub-items set the same state before the floor is even
+   shown, so both now go through here and neither can forget one of the four
+   things that have to happen. */
+function setBrowseTypeFilter(key) {
+  selectedTypeFilter = key;
+  document.querySelectorAll('.type-filter-menu-item')
+    .forEach((el) => el.classList.toggle('is-active', el.dataset.value === key));
+  updateTypeFilterButtonUI();
+  applyBrowseFilters();
+}
+
+/* Which of the two ways into Knowledge is the one currently in force. Only ever
+   marks a sub-item when floor 2 is actually the floor being held: the filter
+   survives leaving the floor, but "Projects" lit up while you are looking at
+   Threads would be describing somewhere you are not. */
+function refreshMenuSubItems() {
+  const onBrowse = !isShareMode && !isDesignersMode && currentFloor === FLOOR_BROWSE;
+  document.querySelectorAll('.menu-subitem').forEach((el) => {
+    el.classList.toggle('is-active', onBrowse && el.dataset.filter === selectedTypeFilter);
+  });
+}
 
 function renderMenuOverlay() {
   const list = document.getElementById('menuList');
@@ -9099,22 +9292,35 @@ function renderMenuOverlay() {
          special case for it — which is the point of having one teardown. */
       if (item.designers) { setTimeout(enterDesignersMode, MENU_CLOSE_DUR_MS); return; }
 
-      // The three floors: leaving whatever surface is up first, or goToFloor
-      // moves a feed nobody can see.
-      if (isShareMode) { exitShareMode(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
-      if (isDesignersMode) { exitDesignersMode(() => goToFloor(item.tier)); return; }
-      if (isCardExpanded) { closeCard(); setTimeout(() => goToFloor(item.tier), CONFIG.MODE_SWAP_MS + 60); return; }
-      // Browse means all of it: arriving from the menu shouldn't land you on a
-      // floor still filtered down by a choice made minutes ago.
-      if (item.key === 'browse' && selectedTypeFilter !== 'all') {
-        selectedTypeFilter = 'all';
-        updateTypeFilterButtonUI();
-        applyBrowseFilters();
-      }
-      goToFloor(item.tier);
+      // Knowledge means all of it: arriving through the door itself shouldn't
+      // land you on a floor still filtered down by a choice made minutes ago —
+      // and now also not by its own sub-item from the last visit.
+      menuGoToFloor(item.tier, item.key === 'browse' ? () => setBrowseTypeFilter('all') : null);
     });
 
     list.appendChild(btn);
+
+    /* The sub-items go in as siblings of the door they belong to, not children
+       of it: a button inside a button is not a thing, and the stagger walks the
+       column in document order, so being the next rows down is what makes them
+       arrive on the beat after Knowledge. */
+    if (item.subItems) {
+      const row = document.createElement('div');
+      row.className = 'menu-subrow';
+      item.subItems.forEach((sub) => {
+        const subBtn = document.createElement('button');
+        subBtn.type = 'button';
+        subBtn.className = 'menu-subitem';
+        subBtn.dataset.value = sub.key;
+        subBtn.dataset.filter = sub.filter;
+        subBtn.addEventListener('click', () => {
+          closeMenuOverlay();
+          menuGoToFloor(item.tier, () => setBrowseTypeFilter(sub.filter));
+        });
+        row.appendChild(subBtn);
+      });
+      list.appendChild(row);
+    }
   });
 
   refreshMenuLabels();
@@ -9138,6 +9344,12 @@ function refreshMenuLabels() {
     const desc = btn.querySelector('.menu-item-desc');
     if (desc) desc.textContent = (t().menuDesc || {})[btn.dataset.value] || '';
   });
+  // Same table as the doors — these are menu words, not filter words, so they
+  // are plural ("Projects") where the dropdown's are singular ("Project").
+  document.querySelectorAll('.menu-subitem').forEach((btn) => {
+    btn.textContent = t().menu[btn.dataset.value] || '';
+  });
+  refreshMenuSubItems();
 }
 
 // A brief, dismiss-itself pill for actions with no real destination yet
@@ -9160,7 +9372,15 @@ function openMenuOverlay() {
   const overlay = document.getElementById('menuOverlay');
   if (overlay.classList.contains('is-open')) return;
   pauseAutoScroll();
-  const items = Array.from(overlay.querySelectorAll('.menu-item'));
+  /* Read the mark here rather than writing it whenever the filter changes.
+     setBrowseTypeFilter runs *before* goToFloor — deliberately, so the floor is
+     already filtered the first time it is seen — which means currentFloor is
+     still the old floor at that moment and "am I on floor 2" answers no. And
+     leaving floor 2 afterwards has nothing to do with the filter, so no filter
+     event would ever clear a mark left behind on another floor. Both problems go
+     away by asking the question at the only moment the answer is visible. */
+  refreshMenuSubItems();
+  const items = Array.from(overlay.querySelectorAll(MENU_STAGGER_SELECTOR));
   items.forEach((el, i) => {
     el.style.transitionDelay = (i * MENU_OPEN_STAGGER_MS) + 'ms';
     el.style.transitionDuration = MENU_OPEN_DUR_MS + 'ms';
@@ -9178,7 +9398,7 @@ function openMenuOverlay() {
 function closeMenuOverlay() {
   const overlay = document.getElementById('menuOverlay');
   if (!overlay.classList.contains('is-open')) return;
-  const items = Array.from(overlay.querySelectorAll('.menu-item'));
+  const items = Array.from(overlay.querySelectorAll(MENU_STAGGER_SELECTOR));
   const n = items.length;
   items.forEach((el, i) => {
     el.style.transitionDelay = ((n - 1 - i) * MENU_CLOSE_STAGGER_MS) + 'ms';
@@ -9250,11 +9470,10 @@ function renderTypeFilterDropdown() {
     menuItem.innerHTML = `<span class="type-filter-menu-icon">${item.icon || FILTER_ICON}</span><span class="type-filter-menu-label">${item.label}</span>`;
     menuItem.addEventListener('click', (e) => {
       e.stopPropagation();
-      selectedTypeFilter = item.key;
       dropdown.classList.remove('is-open');
-      document.querySelectorAll('.type-filter-menu-item').forEach((el) => el.classList.toggle('is-active', el.dataset.value === selectedTypeFilter));
-      updateTypeFilterButtonUI();
-      applyBrowseFilters();
+      // setBrowseTypeFilter does the other four things, and keeps the menu's own
+      // two sub-items in step with a choice made down here.
+      setBrowseTypeFilter(item.key);
     });
     menu.appendChild(menuItem);
   });
@@ -16889,6 +17108,11 @@ function refreshShareText() {
   setText('attachmentsFieldLabel', s.attachmentsLabel);
   setText('attachmentsOptionalLabel', s.imageOptional);
   setText('attachmentHintLabel', s.attachmentsHint);
+  setText('canvasFieldLabel', s.canvasLabel);
+  setText('canvasSoonLabel', s.canvasSoon);
+  const canvasInput = document.getElementById('canvasLinkInput');
+  if (canvasInput) canvasInput.placeholder = s.canvasPlaceholder;
+  setText('canvasHintLabel', s.canvasHint);
   setText('submitBtnLabel', s.submitButton);
   // Heading, intro, button and hint are all per-type, and refreshComposeCopy
   // owns all four. Writing the generic hint here after updateComposeChrome has
