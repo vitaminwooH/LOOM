@@ -150,7 +150,22 @@
   /* Every row is taller now that descriptions are held open, so on a short
      window the six of them can exceed the viewport — which previously could not
      happen and so was never guarded. */
+  /* ---------- one number sets the whole menu ----------
+     Every size in here is a ratio of --menu-word: the description is 0.293 of
+     it, the sub-items 0.463, and all the padding and margins are em, so the
+     proportions between a door, its description and its two sub-items are fixed
+     and the only thing that ever changes is this one length. Getting the type
+     bigger used to mean re-tuning six numbers and hoping the column still fit.
+
+     min(vw, vh) is the point of it. The menu's problem has always been height —
+     six doors, two sub-items and a description row each — and a width-only
+     clamp cannot see that: 41px was chosen to survive a 720p window and so was
+     small on every screen that wasn't one. Taking the smaller of the two means a
+     tall window gets 63px words and a short one quietly gets 47px, which is the
+     same decision the old fixed number was making, made per window instead of
+     once for the worst case. */
   .menu-list {
+    --menu-word: clamp(27px, min(5.4vw, 6.6vh), 66px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -158,7 +173,8 @@
     max-height: 100vh;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 10px 0;
+    padding: 0.5em 0;
+    font-size: var(--menu-word);
   }
 
   /* opacity/transform here are the resting (closed) state; openMenuOverlay/
@@ -172,15 +188,15 @@
     cursor: pointer;
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    /* Down from clamp(30px, 5.2vw, 52px). Six doors, two sub-items and a
-       description row each did not fit a short window, and the fix everywhere
-       else in this menu is to take height out of the rows rather than to let the
-       column scroll — a menu you have to scroll is a menu that has stopped being
-       a handful of big words. 41px is still cover-scale type. */
-    font-size: clamp(25px, 4.1vw, 41px);
+    font-size: var(--menu-word);
+    /* Stated, not left to `normal`. Cormorant's own line box is ~1.2, but Hangul
+       falls through to a system serif with a taller one, so the Korean menu was
+       64px longer than the English for the same six rows — which is height spent
+       on nothing, and it was the language that decided how big the type could
+       be. One number for both. */
+    line-height: 1.12;
     letter-spacing: -0.01em;
     color: rgba(255, 255, 255, 0.82);
-    padding: 8px 20px;
     opacity: 0;
     transform: translateY(22px);
     transition: opacity 0.2s ease, transform 0.2s ease, color 0.3s ease;
@@ -195,7 +211,7 @@
   .menu-item-label { display: inline; }
   .menu-item-aside {
     display: inline;
-    margin-left: 14px;
+    margin-left: 0.34em;
     font-family: 'Inter', sans-serif;
     font-size: 0.34em;
     font-weight: 600;
@@ -240,23 +256,26 @@
        whatever the language, and every item is the same width and so the same
        size of target */
     width: min(46ch, 82vw);
-    padding: 2px 20px 4px;
+    padding: 0.05em 0.49em 0.1em;
   }
   .menu-item-desc {
     display: block;
-    margin-top: 5px;
+    /* em of its own size, so it keeps its distance from the word above it at
+       every scale */
+    margin-top: 0.42em;
     font-family: 'Inter', sans-serif;
-    font-size: 12px;
+    font-size: 0.293em;
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.4;
     /* One line held open, not two. The reserve is still here and still the whole
        point — nothing may shift when the pointer arrives — but two lines were
        reserved for descriptions that have never needed them: the measure is
-       46ch of 41px Cormorant, which is ~900px, and the longest description in
-       any of the four languages is a third of that at 12px. Two lines cost 35px
-       on every one of six rows for nothing. If a description ever does wrap,
-       this is the number to put back up. */
+       min(46ch, 82vw), which is over a thousand pixels at any window worth
+       showing this on, and the longest description in any of the four languages
+       is a fifth of that. Two lines cost most of a line of type on every one of
+       six rows for nothing. If a description ever does wrap, this is the number
+       to put back up. */
     min-height: 1.4em;
     text-align: center;
     color: rgba(255, 255, 255, 0.55);
@@ -282,10 +301,14 @@
     display: flex;
     justify-content: center;
     align-items: baseline;
-    gap: 4px;
+    /* Carries the sub-items' size so their own padding, the gap and this row's
+       margins are all em of the same thing — 0.463 of a door, the ratio the two
+       had when the menu was small. */
+    font-size: calc(var(--menu-word) * 0.463);
+    gap: 0.21em;
     /* tucked up against the item above: the description row leaves exactly this
        much air, and these belong to that item rather than to the gap */
-    margin: -2px 0 7px;
+    margin: -0.105em 0 0.37em;
   }
   .menu-subitem {
     border: none;
@@ -293,10 +316,11 @@
     cursor: pointer;
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
-    font-size: clamp(14px, 1.55vw, 19px);
+    font-size: 1em; /* from .menu-subrow */
+    line-height: 1.12;
     letter-spacing: 0.01em;
     color: rgba(255, 255, 255, 0.46);
-    padding: 2px 13px;
+    padding: 0.105em 0.68em;
     border-radius: 999px;
     /* same two properties the doors animate, so the stagger can drive these with
        exactly the same inline delay/duration — see MENU_STAGGER_SELECTOR */
@@ -4720,16 +4744,45 @@
      "coming soon" note next to the label is what carries the explanation — the
      placeholder is long, and a long placeholder in a disabled box is read once
      and then ignored. */
+  /* The wrapper is the target; the input inside it is scenery. pointer-events
+     off on the input as well as disabled, so the wrapper gets the click even
+     where a browser would have let the input swallow it. */
+  .canvas-field { position: relative; cursor: pointer; }
+  .canvas-field .canvas-input { pointer-events: none; }
+  .canvas-field:hover .canvas-input { border-color: var(--ink-faint); }
+  .canvas-field:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 12px; }
+
   .canvas-input {
     width: 100%;
-    padding: 11px 14px;
+    /* room on the right for the badge, which is inside the box */
+    padding: 11px 90px 11px 14px;
     border: 1px dashed var(--border-strong);
     border-radius: 12px;
     background: transparent;
     font-family: inherit;
     font-size: 12.5px;
     color: var(--ink-dim);
-    cursor: not-allowed;
+    cursor: pointer;
+  }
+
+  /* Small, upper case, and on the field it describes. Not the studio accent and
+     not a warning colour: it is a note about timing, not a state to be fixed. */
+  .canvas-badge {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.07);
+    font-family: 'Inter', sans-serif;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-faint);
+    pointer-events: none;
   }
   .canvas-input::placeholder { color: var(--ink-faint); }
   .canvas-hint {
@@ -5692,8 +5745,19 @@
                  fills it in rather than replacing it, because the person sharing
                  still has to agree with what it says. -->
             <div class="field compose-attach-col compose-attach-col-canvas">
-              <div class="field-label"><span id="canvasFieldLabel"></span> <span class="optional" id="canvasSoonLabel"></span></div>
-              <input type="url" class="canvas-input" id="canvasLinkInput" disabled aria-disabled="true" />
+              <div class="field-label"><span id="canvasFieldLabel"></span></div>
+              <!-- The wrapper exists to catch the click. A disabled input is
+                   inert — it fires no pointer events at all — so without
+                   something over it, pressing the one control on this screen that
+                   does not work would produce no response whatsoever, which reads
+                   as broken rather than as unfinished. The badge sits inside the
+                   field's own edge rather than up by the label: "coming soon" is a
+                   fact about this box, and next to the label it was a fact about
+                   the words "Slack Canvas". -->
+              <div class="canvas-field" id="canvasField" role="button" tabindex="0">
+                <input type="url" class="canvas-input" id="canvasLinkInput" disabled aria-disabled="true" tabindex="-1" />
+                <span class="canvas-badge" id="canvasSoonLabel"></span>
+              </div>
               <!-- The sentence lives here rather than in the placeholder. The
                    right-hand column is ~305px and an input does not wrap, so the
                    whole point of it — that pasting a link is all this will ever
@@ -6454,6 +6518,7 @@ const TRANSLATIONS = {
         canvasSoon: 'Coming soon',
         canvasPlaceholder: 'slack.com/canvas/…',
         canvasHint: 'Paste a Slack Canvas link and it is written up for you — coming soon.',
+        canvasComingSoon: 'An import that writes the card for you, straight from a Slack Canvas — in the works.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Drag inside the picture to choose what the card shows',
@@ -6930,6 +6995,7 @@ const TRANSLATIONS = {
         canvasSoon: '준비 중',
         canvasPlaceholder: 'slack.com/canvas/…',
         canvasHint: 'Slack Canvas 링크를 붙이면 자동으로 정리됩니다 — 준비 중.',
+        canvasComingSoon: 'Slack Canvas에서 자동으로 글이 넘어오는 기능을 준비 중입니다.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: '사진 안을 드래그해서 카드에 보일 부분을 정하세요',
@@ -7402,6 +7468,7 @@ const TRANSLATIONS = {
         canvasSoon: 'Demnächst',
         canvasPlaceholder: 'slack.com/canvas/…',
         canvasHint: 'Slack-Canvas-Link einfügen und er wird automatisch aufbereitet — in Vorbereitung.',
+        canvasComingSoon: 'Ein Import, der die Karte direkt aus einem Slack Canvas schreibt — in Arbeit.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Im Bild ziehen, um zu wählen, was die Karte zeigt',
@@ -7874,6 +7941,7 @@ const TRANSLATIONS = {
         canvasSoon: 'Yakında',
         canvasPlaceholder: 'slack.com/canvas/…',
         canvasHint: 'Slack Canvas bağlantısını yapıştır, otomatik olarak düzenlenir — yakında.',
+        canvasComingSoon: 'Kartı doğrudan bir Slack Canvas’tan yazan bir içe aktarma — hazırlanıyor.',
         /* On the thumbnail, on hover. The framing drag used to live on a mock-up
            of a card; now it is on the picture, so it has to say so. */
         imageDragHint: 'Kartın neyi göstereceğini seçmek için görselin içinde sürükle',
@@ -17047,6 +17115,20 @@ function paintWeaveState() {
   document.getElementById('weaveStateNote').textContent = s.note;
 }
 
+/* The one control on this screen that does not work, and the only one that has
+   to explain itself. Keyboard too: it is role="button" with a tabindex, so it is
+   reachable, and something reachable that answers nothing is worse than one that
+   is not reachable at all. */
+function initCanvasField() {
+  const field = document.getElementById('canvasField');
+  if (!field) return;
+  const explain = () => showToast(t().share.canvasComingSoon);
+  field.addEventListener('click', explain);
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); explain(); }
+  });
+}
+
 function initShareAnother() {
   document.getElementById('shareAnotherBtn').addEventListener('click', () => {
     goToComposeStep();
@@ -17113,6 +17195,13 @@ function refreshShareText() {
   const canvasInput = document.getElementById('canvasLinkInput');
   if (canvasInput) canvasInput.placeholder = s.canvasPlaceholder;
   setText('canvasHintLabel', s.canvasHint);
+  // Hover says it without a click; the click says it again for touch, where
+  // there is no hover to say it with.
+  const canvasField = document.getElementById('canvasField');
+  if (canvasField) {
+    canvasField.title = s.canvasComingSoon;
+    canvasField.setAttribute('aria-label', s.canvasLabel + ' — ' + s.canvasComingSoon);
+  }
   setText('submitBtnLabel', s.submitButton);
   // Heading, intro, button and hint are all per-type, and refreshComposeCopy
   // owns all four. Writing the generic hint here after updateComposeChrome has
@@ -17399,6 +17488,7 @@ safeInit('preview image input', initPreviewImageInput);
 safeInit('submit handler', initSubmit);
 safeInit('weave canvas', initWeaveCanvas);
 safeInit('see full weave stub', initSeeFullWeave);
+safeInit('canvas field', initCanvasField);
 safeInit('share another', initShareAnother);
 safeInit('share mode', initShareMode);
 safeInit('page transitions', initPageTransitions);
