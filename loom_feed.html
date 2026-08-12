@@ -23,7 +23,23 @@
     /* A floor is exactly one viewport. There is no chrome in the layout to
        subtract — everything fixed floats over the floors rather than stacking
        above them — and that exactness is what makes one wheel tick always land
-       on exactly one floor (see initFeedWheelSnap). */
+       on exactly one floor (see initFeedWheelSnap).
+
+       100vh is the fallback and 100dvh is the answer, in a @supports block just
+       below — a custom property will happily store `100dvh` as an unrecognised
+       token in a browser that has never heard of it, so the usual two-declaration
+       fallback idiom does not work here; `height: var(--floor-h)` would resolve
+       to garbage and the floor would collapse to auto.
+
+       This is what broke the phones. On mobile Safari and Chrome, 100vh is the
+       viewport with the address bar *retracted* — the largest it ever gets — so
+       with the bar on screen every floor was ~90px taller than the window you
+       could see. Floor 1 lost its Update strip below the fold, unreachably,
+       because the body does not scroll. Worse, the stage translates by
+       floorHeight() per floor, so floor 2 arrived 90px off, floor 3 arrived 180px
+       off, and by floor 4 you were looking at a seam between two floors. Tapping
+       a menu item and landing on that is indistinguishable from the tap not
+       working, which is exactly how it was reported. */
     --floor-h: 100vh;
     /* Floor 1's lower band, shared by the Update strip and the banner caption
        that has to stay clear of it. One pair of numbers, used by both, because
@@ -419,6 +435,7 @@
     height: 26px;
     flex-shrink: 0;
   }
+
   .hamburger-btn svg { width: 22px; height: 22px; }
 
   /* Back (←) — the single "leave this screen" control, in one place on every
@@ -582,6 +599,36 @@
     transition: background 0.2s ease, color 0.2s ease;
   }
   .lang-menu-item:hover { background: rgba(20, 20, 20, 0.05); color: var(--ink); }
+
+  /* ---------- reach, on a touch screen ----------
+     These marks are 26px, which is right for the mark and much too small for a
+     fingertip — the guidance everywhere is ~44px, and a corner is the hardest
+     case of all, because half the ways you can miss it are off the edge of the
+     glass. Each box grows to 44 and its own offset comes back by the same 9px, so
+     the glyph stays on exactly the pixel it was on and only the target moves.
+
+     Written out per control rather than as one rule over .icon-ghost, which is
+     what it was first. `position: relative` on that class has the same
+     specificity as `.hamburger-btn { position: fixed }` and came later in the
+     sheet, so it won — the hamburger dropped out of the viewport and into normal
+     flow, and pushed #app, #feedMain and the whole four-floor stage down by its
+     own 26px height. Every floor was then 26px out for the rest of the session.
+     Nothing here touches `position`.
+
+     pointer: coarse only: a mouse keeps the precise target it can actually use,
+     and these grown boxes never reach across something a cursor was aiming at. */
+  @media (pointer: coarse) {
+    .hamburger-btn { width: 44px; height: 44px; top: 15px; left: 17px; }
+    .back-btn { width: 44px; height: 44px; top: 15px; left: 61px; }
+    /* Already position: relative, and inside a fixed dock — so the negative
+       margin is what keeps the glyph where it was. */
+    .corner-btn { width: 44px; height: 44px; margin: -9px; }
+    /* 20px apart, which is less than the reach they just gained: without this the
+       two boxes would overlap and the upper one would take taps meant for the
+       lower. */
+    .corner-dock { gap: 38px; }
+    .lang-btn { height: 44px; padding: 0 9px; margin: 0 -9px; }
+  }
   .lang-menu-item.is-active { color: #ffffff; background: var(--ink); }
 
   /* ---------- bottom-centre: this floor's tools, and the wordmark ----------
@@ -676,6 +723,7 @@
     .questions-scroll { padding-bottom: 214px; }
   }
 
+
   /* ======================================================================
      Feed — two tiers, deliberately different in size/density/character:
      Discover (top, a few big cards, what's new) vs. Browse (below, small
@@ -692,6 +740,12 @@
      ticks. A translate3d stage can travel past its landing point and settle
      back, and since every floor is exactly --floor-h tall, one tick is always
      exactly one floor. See initFeedWheelSnap / goToFloor. */
+  /* Tracks the address bar as it comes and goes. Every floor, and the stage
+     arithmetic in floorHeight(), follows from this one length. */
+  @supports (height: 100dvh) {
+    :root { --floor-h: 100dvh; }
+  }
+
   .feed-main {
     height: var(--floor-h);
     overflow: hidden;
@@ -1047,6 +1101,24 @@
      lane the floor dock and the wordmark sit in — a poster must never end up
      underneath the search field. */
   .browse-section { padding: 34px 56px 162px; }
+
+  /* Narrower, and the dock stops being one row: search on the first, the studio
+     chips and the type filter on the second, ~140px tall instead of 54. It is
+     fixed to the bottom centre, so that extra height climbs — 243px up from the
+     bottom — and it sat across the bottom third of every poster. That is exactly
+     where the keyword chips are, so on a phone they were visible, looked live,
+     and could not be tapped: the dock had them.
+
+     Down here, not up with the other breakpoints. There is a `@media (max-width:
+     1240px)` block ~380 lines above that sets `.browse-section { padding-bottom:
+     214px }` for the same reason, and it has never done anything: the shorthand
+     on the line above this one comes later in the sheet, media queries add no
+     specificity, and a `padding` shorthand resets `padding-bottom`. Anything that
+     needs to beat it has to be written after it. */
+  @media (max-width: 820px) {
+    .browse-section { padding: 34px 24px 292px; }
+    .questions-scroll { padding-bottom: 292px; }
+  }
   .filter-divider { width: 1px; height: 22px; background: var(--border-strong); flex-shrink: 0; }
 
   .browse-empty, .questions-empty {
@@ -3990,6 +4062,26 @@
     transition: height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* Three cards need ~590px at their readable floor (ROSTER_MIN_H) and a phone
+     gives the row about 220 — so on a narrow screen it overflows, and centred
+     overflow puts the first and last card off opposite edges of the screen with
+     no way to get to either. Scrolling the row is the smallest honest fix: the
+     cards stay legible and nothing is unreachable. Left-aligned because a centred
+     flex row's left overflow cannot be scrolled to.
+
+     Swiping the row sideways does not fight the studio swipe, which is vertical
+     only — see the touchmove axis lock in the Designers wiring. */
+  @media (max-width: 820px) {
+    .designer-roster {
+      justify-content: flex-start;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+    .designer-roster::-webkit-scrollbar { display: none; }
+    .designers-panel { padding-left: 22px; padding-right: 22px; }
+  }
+
   /* ---------- the card, and its two faces ----------
      Hover turns the card over: the portrait on the front, how to reach the
      person on the back. The card itself carries no border or background — each
@@ -4018,6 +4110,11 @@
      turned — otherwise the thing you are focused on is facing away from you */
   .designer-card:hover .designer-card-inner,
   .designer-card:focus-within .designer-card-inner { transform: rotateY(180deg); }
+  /* And on a touch screen, where there is no hover at all: without this the back
+     of every card — the role, what they are working on, what they can help with,
+     what they last shared, how to reach them — was simply unreachable on a phone.
+     A tap sets this; see the coarse-pointer branch in buildDesignerCard. */
+  .designer-card.is-flipped .designer-card-inner { transform: rotateY(180deg); }
   /* while a studio is arranging its roster the card is an object, not something
      to read: it stays face-up and the whole surface opens the editor */
   .designer-card.is-editing { cursor: pointer; }
@@ -10432,6 +10529,24 @@ function buildDesignerCard(person, studio) {
     card.addEventListener('click', () => openDesignerEditor(person));
   }
 
+  /* Touch has no hover, so the flip needs a gesture of its own. Only on coarse
+     pointers: a mouse already turns the card by arriving, and a click handler
+     there would give it a card that turns back the moment the pointer leaves and
+     needs pressing twice to stay.
+
+     Taps that land on something with its own job — the "see their work" button, a
+     contact link — are left alone. Turning the card away from under a finger that
+     just pressed a link is the one thing worse than not turning it at all. */
+  if (!editable && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('a, button')) return;
+      const wasFlipped = card.classList.contains('is-flipped');
+      // one at a time: two cards facing away at once reads as a rendering fault
+      document.querySelectorAll('.designer-card.is-flipped').forEach((c) => c.classList.remove('is-flipped'));
+      card.classList.toggle('is-flipped', !wasFlipped);
+    });
+  }
+
   return card;
 }
 
@@ -10951,7 +11066,50 @@ function initDesigners() {
 
      preventDefault stops the surface itself from scrolling, which is also what
      keeps a scrollbar from appearing mid-transition. */
+  /* The same gesture with a finger, and the same three guards: not while the
+     editor is open over it (the editor scrolls itself), not mid-slide, and only
+     while this surface actually holds the screen. Vertical, matching the wheel it
+     mirrors — the panels are arranged horizontally but the movement between them
+     has always been "one notch further on", not "drag the row". */
+  const rosterTouch = { x: 0, y: 0, tracking: false, decided: false, vertical: false };
   const viewport = document.getElementById('designersViewport');
+
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { rosterTouch.tracking = false; return; }
+    if (e.target.closest && e.target.closest('.designer-editor')) { rosterTouch.tracking = false; return; }
+    rosterTouch.x = e.touches[0].clientX;
+    rosterTouch.y = e.touches[0].clientY;
+    rosterTouch.tracking = true;
+    rosterTouch.decided = false;
+    rosterTouch.vertical = false;
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', (e) => {
+    if (!rosterTouch.tracking || !isDesignersMode || e.touches.length !== 1) return;
+    const dy = e.touches[0].clientY - rosterTouch.y;
+    const dx = e.touches[0].clientX - rosterTouch.x;
+    if (!rosterTouch.decided) {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
+      rosterTouch.decided = true;
+      rosterTouch.vertical = Math.abs(dy) > Math.abs(dx);
+    }
+    if (rosterTouch.vertical && e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  viewport.addEventListener('touchend', (e) => {
+    if (!rosterTouch.tracking) return;
+    rosterTouch.tracking = false;
+    if (!isDesignersMode || !rosterTouch.decided || !rosterTouch.vertical) return;
+    if (rosterSlideAnimating) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dy = t.clientY - rosterTouch.y;
+    if (Math.abs(dy) < SWIPE_MIN_PX) return;
+    goToRosterStudio(rosterStudioIndex + (dy < 0 ? 1 : -1));
+  }, { passive: true });
+
+  viewport.addEventListener('touchcancel', () => { rosterTouch.tracking = false; }, { passive: true });
+
   viewport.addEventListener('wheel', (e) => {
     if (!isDesignersMode) return;
     if (e.target.closest && e.target.closest('.designer-editor')) return; // the editor scrolls itself
@@ -11367,6 +11525,103 @@ function innerScrollHasRoom(el, deltaY) {
   return deltaY > 0 ? el.scrollTop < max - 1 : el.scrollTop > 1;
 }
 
+/* ---- the same gesture with a finger ----
+   Floor-to-floor movement was wheel-only, and the page is a transform-driven
+   stage inside overflow:hidden — so on a phone there was nothing to scroll and
+   nothing listening, and the feed simply could not be moved at all.
+
+   Every guard the wheel handler applies is applied here too, and deliberately
+   from the same helpers: feedNavBlocked() is shared by both, so the two inputs
+   cannot drift apart, and innerScrollHasRoom() is reused so a Questions floor or
+   a Threads story list still consumes the gesture until it reaches its own edge.
+
+   Where this differs from the wheel is what it does when it declines. The wheel
+   handler calls preventDefault() while blocked, because a mouse has nothing else
+   it wanted to do. A finger does: inside an expanded card, the Share form or a
+   scrolling region, the browser's own scrolling is the correct behaviour and must
+   not be touched. So when this handler is not going to move a floor it returns
+   without preventDefault, and native scrolling happens exactly as it would have
+   if none of this existed. */
+const SWIPE_MIN_PX = 50;        // below this it is a tap or a twitch, not a swipe
+const SWIPE_AXIS_LOCK_PX = 8;   // movement needed before the axis can be called
+
+/* Shared with the wheel handler, so "when does the feed refuse to move" has one
+   answer. A word being dragged on floor 4 pins the floor: without this a drag
+   would carry the floor out from under the word being moved. */
+function feedNavBlocked() {
+  return isCardExpanded || isShareMode || isDesignersMode || feedSnapAnimating || !!threadsDragNode;
+}
+
+/* One vertical swipe = one floor, in the direction the content moves: dragging
+   the page up pulls the next floor into view, which is `deltaY > 0` in wheel
+   terms. Returns the equivalent wheel delta sign so innerScrollHasRoom can be
+   asked the same question either input arrives by. */
+function initFeedTouchSnap() {
+  let startX = 0, startY = 0;
+  let tracking = false, axisDecided = false, isVertical = false;
+  let inner = null;
+
+  document.addEventListener('touchstart', (e) => {
+    // Two fingers is a pinch or a zoom; neither is a floor change.
+    if (e.touches.length !== 1) { tracking = false; return; }
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    tracking = true;
+    axisDecided = false;
+    isVertical = false;
+    /* .threads-story-list is a scroller that is not a .floor-scroll — it lives in
+       a panel over floor 4 — so it is named here for the same reason the wheel
+       handler names it. Captured at touchstart: which region a gesture belongs to
+       is decided by where it began, not by whatever ends up under the finger. */
+    inner = e.target.closest ? e.target.closest('.floor-scroll, .threads-story-list') : null;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!tracking || e.touches.length !== 1) return;
+    if (feedNavBlocked()) return;   // no preventDefault: let it scroll
+    const t = e.touches[0];
+    const dy = t.clientY - startY;
+    const dx = t.clientX - startX;
+
+    if (!axisDecided) {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
+      axisDecided = true;
+      /* Strictly greater, so a diagonal resolves to horizontal and the poster
+         row's own drag keeps it. The row is the one place where both axes mean
+         something. */
+      isVertical = Math.abs(dy) > Math.abs(dx);
+    }
+    if (!isVertical) return;
+
+    if (inner && innerScrollHasRoom(inner, -dy)) return;  // its own scroll first
+
+    /* Only now, and only if the browser will still listen: once a pan has been
+       handed to the compositor (a `touch-action: pan-y` region, say) touchmove
+       stops being cancelable, and calling preventDefault would log a console
+       error and change nothing. Suppresses rubber-banding at the ends of the
+       stage rather than being required for the movement itself. */
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  const finish = (e) => {
+    if (!tracking) return;
+    tracking = false;
+    if (!axisDecided || !isVertical) return;
+    if (feedNavBlocked()) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dy = t.clientY - startY;
+    if (Math.abs(dy) < SWIPE_MIN_PX) return;   // a tap, or too small to mean it
+    if (inner && innerScrollHasRoom(inner, -dy)) return;
+    const next = currentFloor + (dy < 0 ? 1 : -1);
+    if (next < 0 || next > FLOOR_COUNT - 1) return;
+    goToFloor(next);
+  };
+  document.addEventListener('touchend', finish, { passive: true });
+  document.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+}
+
 function initFeedWheelSnap() {
   /* On the document, not on #feedMain: anything fixed floating over the feed
      would otherwise swallow a tick that happened to land on it, and the page
@@ -11377,7 +11632,12 @@ function initFeedWheelSnap() {
     /* A word being dragged on floor 4 pins the floor. Without this a trackpad
        two-finger drag — which is a pointer drag and a wheel gesture at the same
        time — would carry the floor out from under the word being moved, and the
-       drag would finish somewhere nobody asked for. */
+       drag would finish somewhere nobody asked for.
+
+       Kept as two explicit checks rather than feedNavBlocked() because the wheel
+       swallows the event in these two cases and merely ignores it in the three
+       above — a distinction the shared helper cannot carry. The touch handler
+       declines all five the same way; see initFeedTouchSnap. */
     if (threadsDragNode) { e.preventDefault(); return; }
     if (feedSnapAnimating) { e.preventDefault(); return; }
 
@@ -11392,6 +11652,29 @@ function initFeedWheelSnap() {
     if (next < 0 || next > FLOOR_COUNT - 1) return;
     goToFloor(next);
   }, { passive: false });
+
+  /* The address bar retracting is not a window resize on every mobile browser,
+     but it does change --floor-h (100dvh) and therefore every floor's height —
+     which would leave the stage parked between floors, since its offset is in
+     pixels committed at the last navigation. visualViewport reports it where
+     `resize` does not.
+
+     Deliberately re-derived rather than tweened: this is a correction to a
+     measurement, not a journey, and animating it would read as the page drifting
+     on its own. Skipped mid-tween, which will land on the right number anyway
+     because goToFloor recomputes the endpoint from floorHeight() on arrival. */
+  const realign = () => {
+    if (feedSnapAnimating) return;
+    setStageOffset(currentFloor * floorHeight());
+  };
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', realign);
+  }
+  /* Orientation lands a frame or two after the event, so the height read on the
+     event itself is still the old one. */
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => { realign(); sizeAllRosters(false); fitAllHeroTitles(); }, 120);
+  });
 
   // The stage is positioned in pixels, so a resized window would otherwise
   // leave it parked between floors — re-derive it from the floor we're on.
@@ -17472,6 +17755,7 @@ safeInit('demo trigger', initDemoTrigger);
 safeInit('hero controls', initHeroControls);
 safeInit('browse scroll', initBrowseScroll);
 safeInit('feed wheel snap', initFeedWheelSnap);
+safeInit('feed touch snap', initFeedTouchSnap);
 safeInit('card expand', initExpandCard);
 safeInit('apply flow', initApplyFlow);
 safeInit('card delete', initDeleteCard);
