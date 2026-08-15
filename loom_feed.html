@@ -6306,22 +6306,30 @@ const TRANSLATIONS = {
       fields: {
         update: {
           note: { label: 'In one line', placeholder: "Trying a new onboarding flow this week — the first screen is still fighting us." },
+          next: { label: "What's next", placeholder: 'The agreed next step, and who moves first.' },
+          openQuestion: { label: 'Open question', placeholder: "The question you're waiting on the other studio to answer." },
         },
         project: {
           made: { label: 'What we made', placeholder: 'The thing itself — a flow, a screen, a system. One or two sentences.' },
           constraints: { label: 'Constraints we had', placeholder: 'Deadline, platform, team size, legal, an engine limit — whatever shaped the decision.' },
           solved: { label: 'How we solved it', placeholder: 'The approach you landed on, and what you tried first that did not work.' },
           borrow: { label: "What we'd do differently", placeholder: "What you'd change next time, and the part another studio could lift straight out." },
+          next: { label: "What's next", placeholder: 'The agreed next step, and who moves first.' },
+          openQuestion: { label: 'Open question', placeholder: "The question you're waiting on the other studio to answer." },
         },
         experiment: {
           goal: { label: 'What we wanted to find out', placeholder: 'The question, and what you expected the answer to be.' },
           method: { label: 'How we tested it', placeholder: 'Cohorts, how long, what you measured, what you held constant.' },
           happened: { label: 'What happened', placeholder: 'The numbers, including the ones that went the wrong way.' },
           learned: { label: 'What we learned', placeholder: "What you now believe, and what you'd test differently." },
+          next: { label: "What's next", placeholder: 'The agreed next step, and who moves first.' },
+          openQuestion: { label: 'Open question', placeholder: "The question you're waiting on the other studio to answer." },
         },
         question: {
           blocked: { label: "What's blocking us", placeholder: 'Where you are stuck, concretely enough that someone could recognise it.' },
           triedSoFar: { label: "What we've tried so far", placeholder: "So nobody suggests what you've already ruled out." },
+          next: { label: "What's next", placeholder: 'The agreed next step, and who moves first.' },
+          openQuestion: { label: 'Open question', placeholder: "The question you're waiting on the other studio to answer." },
         },
       },
       imageChosenFallback: 'Image attached',
@@ -6699,7 +6707,7 @@ const TRANSLATIONS = {
       { title: 'Trying a shorter tutorial. Day-2 numbers look odd so far', summary: 'Trying a shorter tutorial. Day-2 numbers look odd so far', note: 'Trying a much shorter tutorial. Day-2 return looks fine but day-3 dropped, so we may just have moved the drop-off rather than removed it. Watching it another week before we say anything.' },
       { title: 'Our new icon set is 40% smaller after one pass with an optimiser', summary: 'Our new icon set is 40% smaller after one pass with an optimiser', note: 'Ran the whole icon set through an SVG optimiser and it came out 40% smaller with no visible difference. Nothing clever, just nobody had done it.' },
       /* x1–x3 — the real exchange between the studios. See the note on the
-         CARDS entries; x3's body is a placeholder until today's write-up lands. */
+         CARDS entries. */
       { title: 'AI video pipeline on Slack \u2014 how Dave, Jiny and Blitz are built', summary: 'Three bots, one shape: fully automatic, approval-gated, or fast.',
         made: 'A Slack-native AI video pipeline. Three bots share one shape \u2014 Dave runs fully automatic, Jiny pauses for approval between steps, Blitz is the fast API-only track. Trigger by keyword in the channel; every stage posts back to Slack as it happens.',
         constraints: 'Built around AI subscriptions we already pay for \u2014 not the fastest setup, the most cost-effective one. The computer should keep producing videos unattended; nobody babysits a render.',
@@ -6710,11 +6718,12 @@ const TRANSLATIONS = {
         constraints: 'Fully unattended operation for a social-casino product \u2014 cost, access, and compliance checks wired in before any spend. No art team involvement per request. Video rendering takes minutes, so the slow step needed hang guards and a bounded worst case (~7-8 min per request).',
         solved: 'One n8n workflow (76 nodes) handles routing, generation, and delivery. Structured modal input removes free-text parsing errors. A 7-point vision QA gate checks every image before posting (retry twice, then flag \u2014 never silently). The approved still becomes frame 1 of the video, keeping the character consistent. Each request is an isolated execution \u2014 parallel requests never collide.',
         borrow: 'The credit gate pattern (soft warning, then hard stop before any spend) and the fail-open QA design are liftable as-is. Typed input from the start removes a whole class of routing errors.' },
-      { title: 'Pipeline update \u2014 thread-based grouping and what we took back from Whow\u2019s build', summary: 'Grouping by thread, and two ideas borrowed back from Whow.',
-        made: 'Placeholder. The pipeline now groups a whole request into one Slack thread rather than scattering it across a channel, and Whow\u2019s typed-input and QA-gate ideas came back into our own build.',
-        constraints: 'Placeholder. Written up properly today \u2014 this card is here so the chain is visible while that happens.',
-        solved: 'Placeholder.',
-        borrow: 'Placeholder.' },
+      { title: 'What we built from Whow\u2019s note \u2014 four ideas now in production', summary: 'Four ideas from Whow\u2019s build, retuned and running in ours.',
+        made: 'A follow-up deck for Whow showing what we applied from their Architecture Overview \u2014 threaded delivery, progress pings, the self-QA gate, and concurrency \u2014 and how each was retuned to fit our stack.',
+        constraints: 'Our two tracks are built differently \u2014 one talks to APIs, the other drives a browser \u2014 with very different render times. And our trigger is a name, not a slash command, so the thread root needed rethinking.',
+        solved: 'The actual brief (not the bot confirmation) becomes the thread root, so channel previews are scannable. Progress pings calibrated per track: 1/5/10 min on the API track, 2/10/30/50 min on the browser track. QA gate kept to four checks, one retry with failure reasons, fail-open. Concurrency shipped in two forms \u2014 parallel per thread on Blitz, queued with position on Dave/Jiny.',
+        borrow: 'The thread-root reorder \u2014 Whow plans to take it back into their own generator. And the retuning pattern itself: the same idea usually needs different numbers on a different stack.',
+        next: 'Credit gate and cross-model fallback, sequenced behind full multi-user concurrency.' },
     ],
   },
   ko: {
@@ -6803,22 +6812,30 @@ const TRANSLATIONS = {
       fields: {
         update: {
           note: { label: '한 줄로', placeholder: '이번 주에 새 온보딩 플로우를 시도 중이에요 — 첫 화면이 아직 잘 안 풀려요.' },
+          next: { label: '다음 단계', placeholder: '합의된 다음 스텝과, 누가 먼저 움직이는지.' },
+          openQuestion: { label: '열린 질문', placeholder: '상대 스튜디오의 답을 기다리는 질문.' },
         },
         project: {
           made: { label: '무엇을 만들었나', placeholder: '만든 것 자체 — 플로우, 화면, 시스템. 한두 문장으로.' },
           constraints: { label: '어떤 제약이 있었나', placeholder: '기한, 플랫폼, 인원, 법무, 엔진 한계 — 판단을 좌우한 조건.' },
           solved: { label: '어떻게 풀었나', placeholder: '결국 택한 방식과, 먼저 시도했지만 안 됐던 것.' },
           borrow: { label: '다시 한다면 무엇을 바꿀까', placeholder: '다음엔 다르게 할 부분과, 다른 스튜디오가 그대로 가져다 쓸 수 있는 부분.' },
+          next: { label: '다음 단계', placeholder: '합의된 다음 스텝과, 누가 먼저 움직이는지.' },
+          openQuestion: { label: '열린 질문', placeholder: '상대 스튜디오의 답을 기다리는 질문.' },
         },
         experiment: {
           goal: { label: '무엇을 알고 싶었나', placeholder: '질문과, 답이 이럴 거라고 예상했던 것.' },
           method: { label: '어떻게 테스트했나', placeholder: '집단, 기간, 측정한 지표, 고정한 조건.' },
           happened: { label: '무슨 일이 일어났나', placeholder: '숫자 — 예상과 반대로 간 것까지.' },
           learned: { label: '무엇을 배웠나', placeholder: '지금 믿게 된 것과, 다음엔 다르게 볼 부분.' },
+          next: { label: '다음 단계', placeholder: '합의된 다음 스텝과, 누가 먼저 움직이는지.' },
+          openQuestion: { label: '열린 질문', placeholder: '상대 스튜디오의 답을 기다리는 질문.' },
         },
         question: {
           blocked: { label: '무엇이 막혀 있나', placeholder: '어디서 막혔는지, 남이 알아볼 만큼 구체적으로.' },
           triedSoFar: { label: '지금까지 무엇을 해봤나', placeholder: '이미 걸러낸 걸 다시 제안받지 않도록.' },
+          next: { label: '다음 단계', placeholder: '합의된 다음 스텝과, 누가 먼저 움직이는지.' },
+          openQuestion: { label: '열린 질문', placeholder: '상대 스튜디오의 답을 기다리는 질문.' },
         },
       },
       imageChosenFallback: '이미지 첨부됨',
@@ -7172,7 +7189,7 @@ const TRANSLATIONS = {
       { title: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', summary: '일일 보상 화면을 다시 만드는 중 — 타이머가 전부', note: '이번 주에 일일 보상 화면을 다시 만들고 있어요. 카운트다운 타이머가 사실상 디자인 문제 전부예요. 너무 눈에 띄면 잔소리 같고, 너무 조용하면 아무도 안 돌아와요.' },
       { title: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', summary: '튜토리얼을 확 줄여봤는데 2일차 숫자가 이상해요', note: '튜토리얼을 많이 줄여봤어요. 2일차 복귀는 괜찮은데 3일차가 떨어져서, 이탈을 없앤 게 아니라 옮긴 것일 수도 있어요. 일주일 더 보고 얘기하려고요.' },
       { title: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', summary: '아이콘 세트를 최적화 한 번 돌렸더니 40% 줄었어요', note: 'SVG 최적화를 아이콘 세트 전체에 한 번 돌렸더니 눈에 띄는 차이 없이 용량이 40% 줄었어요. 대단한 건 아니고, 그냥 아무도 안 해봤던 거예요.' },
-      /* x1–x3 — 스튜디오 사이의 실제 오가니. x3 본문은 오늘 문서가 나오면 교체합니다. */
+      /* x1–x3 — 스튜디오 사이의 실제 오가니. */
       { title: 'Slack 에서 도는 AI 영상 파이프라인 — Dave, Jiny, Blitz를 어떻게 만들었는지', summary: '봇 셋, 한 구조: 전자동·승인대기·고속.',
         made: 'Slack 에서 바로 돌는 AI 영상 파이프라인. 봇 셋이 한 구조를 공유합니다 — Dave는 전자동, Jiny는 단계 사이에 승인을 기다리고, Blitz는 API만 쓰는 고속 트랙입니다. 채널에서 키워드로 시작하고, 모든 단계가 진행되는 대로 Slack에 다시 올라옵니다.',
         constraints: '이밌 들어가고 있는 AI 구독을 기준으로 짜습니다 — 가장 뱠른 구성이 아니라 가장 남는 구성으로. 사람이 붙지 않아도 컴퓰톰가 알아서 영상을 계속 만들어야 합니다.',
@@ -7183,11 +7200,12 @@ const TRANSLATIONS = {
         constraints: '소셜 카지노 제품이니 완전 방치 운용이 전제 — 보상 지출 전에 버진·접근 권한·켤필라이언스 점검을 먼저 개니다. 요정마다 아트팀이 붙지 않습니다. 영상 렌더가 수 분 걸리니, 느린 단계에는 멈쵤 방지와 최악 상황 상한(요정당 7~8분)이 필요했습니다.',
         solved: 'n8n 워플로우 하나(76노드)가 라우팝·생성·전달을 다 맡습니다. 구조화된 모달 입력으로 자유 텍스트 파싱 오류가 사라집니다. 7개 항목 뱄전 QA 게이트가 모든 이미지를 게시 전에 점검합니다(두 번 재시도, 그런 다음 표시 — 조용히 넘기지 않습니다). 승인된 이미지가 영상의 1프레임이 되어 캠릭터가 유지됩니다. 요정마다 독립 실행이라 동시 요정이 서로 엉키지 않습니다.',
         borrow: '툴 크레딧 게이트 패턴(경고 한 번, 그리고 지출 전 완전 정지)과 fail-open QA 설계는 그대로 가지셔도 됩니다. 처음부터 타이프된 입력을 받으면 라우팝 오류 한 부류가 통째로 사라집니다.' },
-      { title: '파이프라인 업데이트 — 쓰레드 기반 그룹핑, 그리고 Whow에서 다시 가지고 온 것', summary: '쓰레드로 모으기, 그리고 Whow에서 되돌린 아이디어 두 가지.',
-        made: '자리표시. 이제 한 요정을 채널에 헤트리지 않고 Slack 쓰레드 하나로 모으고, Whow의 타이프된 입력과 QA 게이트 아이디어를 우리 파이프라인에 다시 넣었습니다.',
-        constraints: '자리표시. 오늘 제대로 쓰고 있습니다 — 그동안에도 사슬이 보이도록 이 글을 먼저 올렸습니다.',
-        solved: '자리표시.',
-        borrow: '자리표시.' },
+      { title: 'Whow의 노트에서 우리가 만든 것 — 4개 아이디어 실제 가동 중', summary: 'Whow의 시스템에서 가져온 4개 아이디어, 우리에 맞게 조정되어 가동 중.',
+        made: 'Whow의 Architecture Overview에서 적용한 것들을 보여주는 후속 문서 — 스레드 전달, 진행 알림, self-QA 게이트, 동시성 — 각각을 우리 스택에 맞게 재조정한 과정 포함.',
+        constraints: '우리 두 트랙은 구조가 다릅니다 — 하나는 API, 하나는 브라우저를 구동하고 렌더 시간도 크게 다릅니다. 트리거도 슬래시 명령이 아닌 이름이라 스레드 루트를 다시 생각해야 했습니다.',
+        solved: '봇 확인 메시지가 아니라 실제 브리프가 스레드 루트가 되어 채널 미리보기를 한눈에 읽을 수 있습니다. 진행 알림은 트랙별 보정: API 트랙 1/5/10분, 브라우저 트랙 2/10/30/50분. QA 게이트는 4개 검사, 실패 사유를 첨부한 재생성 1회, fail-open. 동시성은 두 형태 — Blitz는 스레드별 병렬, Dave/Jiny는 순번 안내 대기열.',
+        borrow: '스레드 루트 재배치 — Whow가 자기 생성기로 다시 가져갈 예정입니다. 그리고 재조정 패턴 자체: 같은 아이디어도 다른 스택에서는 대개 다른 숫자가 필요합니다.',
+        next: '크레딧 게이트와 크로스모델 폴백 — 완전한 멀티유저 동시성 다음 순서로.' },
     ],
   },
   de: {
@@ -7276,22 +7294,30 @@ const TRANSLATIONS = {
       fields: {
         update: {
           note: { label: 'In einer Zeile', placeholder: 'Diese Woche testen wir einen neuen Onboarding-Flow — der erste Screen macht noch Ärger.' },
+          next: { label: 'Wie es weitergeht', placeholder: 'Der vereinbarte nächste Schritt, und wer sich zuerst bewegt.' },
+          openQuestion: { label: 'Offene Frage', placeholder: 'Die Frage, auf deren Antwort ihr vom anderen Studio wartet.' },
         },
         project: {
           made: { label: 'Was wir gebaut haben', placeholder: 'Die Sache selbst — ein Flow, ein Screen, ein System. Ein oder zwei Sätze.' },
           constraints: { label: 'Unsere Einschränkungen', placeholder: 'Deadline, Plattform, Teamgröße, Recht, ein Engine-Limit — was die Entscheidung geprägt hat.' },
           solved: { label: 'Wie wir es gelöst haben', placeholder: 'Der Weg, den ihr genommen habt, und was zuerst nicht funktioniert hat.' },
           borrow: { label: 'Was wir anders machen würden', placeholder: 'Was ihr beim nächsten Mal ändern würdet, und was ein anderes Studio direkt übernehmen kann.' },
+          next: { label: 'Wie es weitergeht', placeholder: 'Der vereinbarte nächste Schritt, und wer sich zuerst bewegt.' },
+          openQuestion: { label: 'Offene Frage', placeholder: 'Die Frage, auf deren Antwort ihr vom anderen Studio wartet.' },
         },
         experiment: {
           goal: { label: 'Was wir herausfinden wollten', placeholder: 'Die Frage, und was ihr als Antwort erwartet habt.' },
           method: { label: 'Wie wir getestet haben', placeholder: 'Kohorten, Dauer, was gemessen wurde, was konstant blieb.' },
           happened: { label: 'Was passiert ist', placeholder: 'Die Zahlen — auch die, die in die falsche Richtung gingen.' },
           learned: { label: 'Was wir gelernt haben', placeholder: 'Was ihr jetzt glaubt, und was ihr anders testen würdet.' },
+          next: { label: 'Wie es weitergeht', placeholder: 'Der vereinbarte nächste Schritt, und wer sich zuerst bewegt.' },
+          openQuestion: { label: 'Offene Frage', placeholder: 'Die Frage, auf deren Antwort ihr vom anderen Studio wartet.' },
         },
         question: {
           blocked: { label: 'Was uns blockiert', placeholder: 'Wo ihr hängt — konkret genug, dass jemand es wiedererkennt.' },
           triedSoFar: { label: 'Was wir schon versucht haben', placeholder: 'Damit niemand vorschlägt, was ihr längst ausgeschlossen habt.' },
+          next: { label: 'Wie es weitergeht', placeholder: 'Der vereinbarte nächste Schritt, und wer sich zuerst bewegt.' },
+          openQuestion: { label: 'Offene Frage', placeholder: 'Die Frage, auf deren Antwort ihr vom anderen Studio wartet.' },
         },
       },
       imageChosenFallback: 'Bild angehängt',
@@ -7645,7 +7671,7 @@ const TRANSLATIONS = {
       { title: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', summary: 'Bauen den Daily-Reward-Screen neu — der Timer ist das ganze Problem', note: 'Wir bauen diese Woche den Daily-Reward-Screen neu. Der Countdown-Timer ist praktisch das gesamte Designproblem: zu präsent und er nervt, zu leise und niemand kommt zurück.' },
       { title: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', summary: 'Kürzeres Tutorial im Test. Die Tag-2-Zahlen sehen seltsam aus', note: 'Wir testen ein deutlich kürzeres Tutorial. Tag 2 sieht gut aus, aber Tag 3 ist gefallen — vielleicht haben wir den Absprung nur verschoben statt beseitigt. Wir schauen noch eine Woche zu.' },
       { title: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', summary: 'Unser Icon-Set ist nach einem Optimierer-Durchlauf 40% kleiner', note: 'Das ganze Icon-Set einmal durch einen SVG-Optimierer geschickt: 40% kleiner, kein sichtbarer Unterschied. Nichts Cleveres, es hatte nur nie jemand gemacht.' },
-      /* x1–x3 — der echte Austausch zwischen den Studios. x3 ist ein Platzhalter. */
+      /* x1–x3 — der echte Austausch zwischen den Studios. */
       { title: 'KI-Videopipeline auf Slack \u2014 wie Dave, Jiny und Blitz gebaut sind', summary: 'Drei Bots, eine Form: vollautomatisch, mit Freigabe, oder schnell.',
         made: 'Eine Slack-native KI-Videopipeline. Drei Bots teilen eine Form \u2014 Dave l\u00e4uft vollautomatisch, Jiny h\u00e4lt zwischen den Schritten f\u00fcr eine Freigabe an, Blitz ist die schnelle Spur nur \u00fcber API. Start per Stichwort im Kanal; jede Stufe meldet sich in Slack zur\u00fcck, w\u00e4hrend sie l\u00e4uft.',
         constraints: 'Gebaut um KI-Abos, die wir schon bezahlen \u2014 nicht das schnellste Setup, das wirtschaftlichste. Der Rechner soll unbeaufsichtigt weiter Videos produzieren; niemand sitzt bei einem Render daneben.',
@@ -7656,11 +7682,12 @@ const TRANSLATIONS = {
         constraints: 'Vollst\u00e4ndig unbeaufsichtigter Betrieb f\u00fcr ein Social-Casino-Produkt \u2014 Kosten, Zugriff und Compliance werden gepr\u00fcft, bevor Geld ausgegeben wird. Kein Art-Team pro Anfrage. Video-Rendering dauert Minuten, der langsame Schritt brauchte also H\u00e4nger-Schutz und einen begrenzten schlechtesten Fall (~7-8 Min pro Anfrage).',
         solved: 'Ein n8n-Workflow (76 Nodes) macht Routing, Erzeugung und Auslieferung. Strukturierte Modal-Eingabe nimmt Parsing-Fehler aus Freitext heraus. Ein Vision-QA-Gate mit sieben Punkten pr\u00fcft jedes Bild vor dem Posten (zweimal wiederholen, dann markieren \u2014 nie stillschweigend). Das freigegebene Still wird Frame 1 des Videos und h\u00e4lt die Figur konstant. Jede Anfrage ist eine eigene Ausf\u00fchrung \u2014 parallele Anfragen kollidieren nie.',
         borrow: 'Das Credit-Gate-Muster (erst eine Warnung, dann harter Stopp vor jeder Ausgabe) und das Fail-open-QA-Design lassen sich unver\u00e4ndert \u00fcbernehmen. Typisierte Eingabe von Anfang an nimmt eine ganze Klasse von Routing-Fehlern heraus.' },
-      { title: 'Pipeline-Update \u2014 Gruppierung nach Thread und was wir von Whow zur\u00fcckgeholt haben', summary: 'Nach Thread gruppieren, und zwei Ideen von Whow zur\u00fcck im eigenen Bau.',
-        made: 'Platzhalter. Die Pipeline fasst eine Anfrage jetzt in einem Slack-Thread zusammen statt sie \u00fcber einen Kanal zu verstreuen, und Whows typisierte Eingabe und QA-Gate sind in unseren eigenen Bau zur\u00fcckgewandert.',
-        constraints: 'Platzhalter. Wird heute richtig aufgeschrieben \u2014 diese Karte steht hier, damit die Kette in der Zwischenzeit sichtbar ist.',
-        solved: 'Platzhalter.',
-        borrow: 'Platzhalter.' },
+      { title: 'Was wir aus Whows Notiz gebaut haben \u2014 vier Ideen jetzt im Betrieb', summary: 'Vier Ideen aus Whows Bau, nachjustiert und bei uns im Einsatz.',
+        made: 'Ein Follow-up-Deck f\u00fcr Whow, das zeigt, was wir aus ihrem Architecture Overview \u00fcbernommen haben \u2014 Auslieferung im Thread, Fortschrittsmeldungen, das Self-QA-Gate und Parallelit\u00e4t \u2014 und wie jedes davon auf unseren Stack nachjustiert wurde.',
+        constraints: 'Unsere zwei Spuren sind unterschiedlich gebaut \u2014 eine spricht mit APIs, die andere steuert einen Browser \u2014 mit sehr unterschiedlichen Renderzeiten. Und unser Ausl\u00f6ser ist ein Name, kein Slash-Befehl, also musste die Thread-Wurzel neu gedacht werden.',
+        solved: 'Der eigentliche Brief (nicht die Bot-Best\u00e4tigung) wird zur Thread-Wurzel, damit die Kanal-Vorschau \u00fcberfliegbar bleibt. Fortschrittsmeldungen pro Spur kalibriert: 1/5/10 Min auf der API-Spur, 2/10/30/50 Min auf der Browser-Spur. Das QA-Gate bleibt bei vier Pr\u00fcfungen, ein Retry mit Fehlergr\u00fcnden, fail-open. Parallelit\u00e4t in zwei Formen \u2014 parallel pro Thread bei Blitz, Warteschlange mit Position bei Dave/Jiny.',
+        borrow: 'Die neue Thread-Wurzel \u2014 Whow will sie in den eigenen Generator zur\u00fcckholen. Und das Nachjustieren selbst: dieselbe Idee braucht auf einem anderen Stack meist andere Zahlen.',
+        next: 'Credit-Gate und Cross-Model-Fallback, eingereiht hinter voller Mehrnutzer-Parallelit\u00e4t.' },
     ],
   },
   tr: {
@@ -7749,22 +7776,30 @@ const TRANSLATIONS = {
       fields: {
         update: {
           note: { label: 'Tek satırda', placeholder: 'Bu hafta yeni bir onboarding akışı deniyoruz — ilk ekran hâlâ inat ediyor.' },
+          next: { label: 'Sırada ne var', placeholder: 'Üzerinde anlaşılan sonraki adım ve ilk kimin harekete geçeceği.' },
+          openQuestion: { label: 'Açık soru', placeholder: 'Diğer stüdyodan cevabını beklediğiniz soru.' },
         },
         project: {
           made: { label: 'Ne yaptık', placeholder: 'İşin kendisi — bir akış, bir ekran, bir sistem. Bir iki cümle.' },
           constraints: { label: 'Hangi kısıtlar vardı', placeholder: 'Teslim tarihi, platform, ekip büyüklüğü, hukuk, bir motor sınırı — kararı şekillendiren ne varsa.' },
           solved: { label: 'Nasıl çözdük', placeholder: 'Sonunda seçtiğiniz yol ve önce denediğiniz ama işlemeyen şey.' },
           borrow: { label: 'Neyi farklı yapardık', placeholder: 'Bir dahaki sefere neyi değiştirirdiniz ve başka bir stüdyonun doğrudan alabileceği kısım.' },
+          next: { label: 'Sırada ne var', placeholder: 'Üzerinde anlaşılan sonraki adım ve ilk kimin harekete geçeceği.' },
+          openQuestion: { label: 'Açık soru', placeholder: 'Diğer stüdyodan cevabını beklediğiniz soru.' },
         },
         experiment: {
           goal: { label: 'Neyi öğrenmek istedik', placeholder: 'Soru ve cevabın ne olacağını beklediğiniz.' },
           method: { label: 'Nasıl test ettik', placeholder: 'Gruplar, süre, ölçtükleriniz, sabit tuttuklarınız.' },
           happened: { label: 'Ne oldu', placeholder: 'Sayılar — ters yöne gidenler dahil.' },
           learned: { label: 'Ne öğrendik', placeholder: 'Artık neye inanıyorsunuz ve neyi farklı test ederdiniz.' },
+          next: { label: 'Sırada ne var', placeholder: 'Üzerinde anlaşılan sonraki adım ve ilk kimin harekete geçeceği.' },
+          openQuestion: { label: 'Açık soru', placeholder: 'Diğer stüdyodan cevabını beklediğiniz soru.' },
         },
         question: {
           blocked: { label: 'Bizi ne engelliyor', placeholder: 'Nerede takıldığınız — birinin tanıyabileceği kadar somut.' },
           triedSoFar: { label: 'Şimdiye kadar ne denedik', placeholder: 'Kimse çoktan elediğinizi önermesin.' },
+          next: { label: 'Sırada ne var', placeholder: 'Üzerinde anlaşılan sonraki adım ve ilk kimin harekete geçeceği.' },
+          openQuestion: { label: 'Açık soru', placeholder: 'Diğer stüdyodan cevabını beklediğiniz soru.' },
         },
       },
       imageChosenFallback: 'Görsel eklendi',
@@ -8118,7 +8153,7 @@ const TRANSLATIONS = {
       { title: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', summary: 'Günlük ödül ekranını yeniden yapıyoruz — mesele tamamen sayaç', note: 'Bu hafta günlük ödül ekranını yeniden yapıyoruz. Geri sayım sayacı aslında tasarım probleminin tamamı: fazla belirgin olursa dırdır gibi, fazla sessiz olursa kimse dönmüyor.' },
       { title: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', summary: 'Daha kısa bir eğitim deniyoruz. 2. gün sayıları tuhaf', note: 'Çok daha kısa bir eğitim deniyoruz. 2. gün dönüş iyi ama 3. gün düştü, yani kopuşu ortadan kaldırmak yerine sadece ötelemiş olabiliriz. Bir hafta daha izleyeceğiz.' },
       { title: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', summary: 'İkon setimiz bir optimizasyon turundan sonra %40 küçüldü', note: 'Tüm ikon setini bir SVG optimize ediciden geçirdik, gözle görülür fark olmadan %40 küçüldü. Zekice bir şey değil, sadece kimse yapmamıştı.' },
-      /* x1–x3 — stüdyolar arasındaki gerçek alışveriş. x3 bir yer tutucudur. */
+      /* x1–x3 — stüdyolar arasındaki gerçek alışveriş. */
       { title: 'Slack \u00fczerinde yapay zek\u00e2 video hatt\u0131 \u2014 Dave, Jiny ve Blitz nas\u0131l kuruldu', summary: '\u00dc\u00e7 bot, tek bir bi\u00e7im: tam otomatik, onay bekleyen ya da h\u0131zl\u0131.',
         made: 'Slack i\u00e7inde \u00e7al\u0131\u015fan bir yapay zek\u00e2 video hatt\u0131. \u00dc\u00e7 bot ayn\u0131 bi\u00e7imi payla\u015f\u0131yor \u2014 Dave tam otomatik, Jiny ad\u0131mlar aras\u0131nda onay i\u00e7in duruyor, Blitz yaln\u0131zca API kullanan h\u0131zl\u0131 hat. Kanalda anahtar kelimeyle ba\u015fl\u0131yor; her a\u015fama olurken Slack\u2019e geri d\u00fc\u015f\u00fcyor.',
         constraints: 'Zaten \u00f6dedi\u011fimiz yapay zek\u00e2 aboneliklerinin etraf\u0131nda kuruldu \u2014 en h\u0131zl\u0131 kurulum de\u011fil, en hesapl\u0131 olan\u0131. Bilgisayar kimse ba\u015f\u0131nda durmadan video \u00fcretmeye devam etmeli.',
@@ -8129,11 +8164,12 @@ const TRANSLATIONS = {
         constraints: 'Sosyal kumar \u00fcr\u00fcn\u00fc i\u00e7in tamamen g\u00f6zetimsiz \u00e7al\u0131\u015fma \u2014 harcama \u00f6ncesinde maliyet, eri\u015fim ve uyumluluk kontrolleri devrede. Her istek i\u00e7in sanat ekibi devreye girmiyor. Video render dakikalar ald\u0131\u011f\u0131 i\u00e7in yava\u015f ad\u0131m tak\u0131lma korumas\u0131 ve s\u0131n\u0131rl\u0131 bir en k\u00f6t\u00fc durum (istek ba\u015f\u0131na ~7-8 dk) gerektirdi.',
         solved: 'Tek bir n8n ak\u0131\u015f\u0131 (76 d\u00fc\u011f\u00fcm) y\u00f6nlendirme, \u00fcretim ve teslimi yap\u0131yor. Yap\u0131land\u0131r\u0131lm\u0131\u015f modal girdisi serbest metin ayr\u0131\u015ft\u0131rma hatalar\u0131n\u0131 ortadan kald\u0131r\u0131yor. Yedi maddelik bir g\u00f6r\u00fc QA kap\u0131s\u0131 her g\u00f6rseli payla\u015fmadan \u00f6nce denetliyor (iki kez yeniden dene, sonra i\u015faretle \u2014 asla sessizce ge\u00e7me). Onaylanan g\u00f6rsel videonun 1. karesi oluyor, karakter tutarl\u0131 kal\u0131yor. Her istek ayr\u0131 bir \u00e7al\u0131\u015fma \u2014 paralel istekler \u00e7arp\u0131\u015fm\u0131yor.',
         borrow: 'Kredi kap\u0131s\u0131 kal\u0131b\u0131 (\u00f6nce yumu\u015fak uyar\u0131, sonra harcamadan \u00f6nce kesin duru\u015f) ve fail-open QA tasar\u0131m\u0131 oldu\u011fu gibi al\u0131nabilir. Ba\u015ftan tiplenmi\u015f girdi, bir s\u0131n\u0131f y\u00f6nlendirme hatas\u0131n\u0131 tamamen ortadan kald\u0131r\u0131yor.' },
-      { title: 'Hat g\u00fcncellemesi \u2014 thread bazl\u0131 gruplama ve Whow\u2019un yap\u0131s\u0131ndan geri ald\u0131klar\u0131m\u0131z', summary: 'Thread\u2019e g\u00f6re gruplama ve Whow\u2019dan geri gelen iki fikir.',
-        made: 'Yer tutucu. Hat art\u0131k bir iste\u011fin tamam\u0131n\u0131 kanala da\u011f\u0131tmak yerine tek bir Slack thread\u2019inde topluyor ve Whow\u2019un tiplenmi\u015f girdi ile QA kap\u0131s\u0131 fikirleri bizim yap\u0131m\u0131za geri d\u00f6nd\u00fc.',
-        constraints: 'Yer tutucu. Bug\u00fcn d\u00fczg\u00fcn yaz\u0131l\u0131yor \u2014 bu kart, o s\u0131rada zincir g\u00f6r\u00fcn\u00fcr olsun diye burada.',
-        solved: 'Yer tutucu.',
-        borrow: 'Yer tutucu.' },
+      { title: 'Whow\u2019un notundan ne kurduk \u2014 d\u00f6rt fikir art\u0131k \u00fcretimde', summary: 'Whow\u2019un yap\u0131s\u0131ndan d\u00f6rt fikir, bize g\u00f6re ayarlanm\u0131\u015f ve bizde \u00e7al\u0131\u015f\u0131yor.',
+        made: 'Whow i\u00e7in bir takip sunumu \u2014 Architecture Overview\u2019lar\u0131ndan neleri uygulad\u0131\u011f\u0131m\u0131z\u0131 g\u00f6steriyor: thread i\u00e7inde teslim, ilerleme bildirimleri, self-QA kap\u0131s\u0131 ve e\u015fzamanl\u0131l\u0131k \u2014 ve her birinin bizim yap\u0131m\u0131za g\u00f6re nas\u0131l yeniden ayarland\u0131\u011f\u0131.',
+        constraints: '\u0130ki hatt\u0131m\u0131z farkl\u0131 kurulmu\u015f \u2014 biri API\u2019lerle konu\u015fuyor, di\u011feri bir taray\u0131c\u0131 s\u00fcr\u00fcyor \u2014 render s\u00fcreleri de \u00e7ok farkl\u0131. \u00dcstelik tetikleyicimiz slash komutu de\u011fil bir isim; thread k\u00f6k\u00fcn\u00fc yeniden d\u00fc\u015f\u00fcnmek gerekti.',
+        solved: 'Thread k\u00f6k\u00fc bot onay\u0131 de\u011fil as\u0131l brief oluyor; b\u00f6ylece kanal \u00f6nizlemeleri bir bak\u0131\u015fta okunuyor. \u0130lerleme bildirimleri hat ba\u015f\u0131na ayarland\u0131: API hatt\u0131nda 1/5/10 dk, taray\u0131c\u0131 hatt\u0131nda 2/10/30/50 dk. QA kap\u0131s\u0131 d\u00f6rt kontrolde tutuldu; hata gerek\u00e7eleriyle bir kez yeniden deneme, fail-open. E\u015fzamanl\u0131l\u0131k iki bi\u00e7imde geldi \u2014 Blitz\u2019te thread ba\u015f\u0131na paralel, Dave/Jiny\u2019de s\u0131ra numaral\u0131 kuyruk.',
+        borrow: 'Thread k\u00f6k\u00fc d\u00fczenlemesi \u2014 Whow bunu kendi \u00fcretecine geri almay\u0131 planl\u0131yor. Bir de yeniden ayarlama kal\u0131b\u0131n\u0131n kendisi: ayn\u0131 fikir farkl\u0131 bir yap\u0131da \u00e7o\u011fu zaman farkl\u0131 say\u0131lar ister.',
+        next: 'Kredi kap\u0131s\u0131 ve modeller aras\u0131 yedek \u2014 tam \u00e7ok kullan\u0131c\u0131l\u0131 e\u015fzamanl\u0131l\u0131\u011f\u0131n hemen ard\u0131ndan s\u0131rada.' },
     ],
   },
 };
@@ -8692,10 +8728,10 @@ const FIELD_SETS = {
   // One line, and it doubles as the card's title — an Update has no headline
   // separate from its content, because a sentence that needs a headline is not
   // an Update. See isUpdate() for everywhere that changes.
-  update: ['note'],
-  project: ['made', 'constraints', 'solved', 'borrow'],
-  experiment: ['goal', 'method', 'happened', 'learned'],
-  question: ['blocked', 'triedSoFar'],
+  update: ['note', 'next', 'openQuestion'],
+  project: ['made', 'constraints', 'solved', 'borrow', 'next', 'openQuestion'],
+  experiment: ['goal', 'method', 'happened', 'learned', 'next', 'openQuestion'],
+  question: ['blocked', 'triedSoFar', 'next', 'openQuestion'],
 };
 
 /* The lightest type there is. Everything else in this app asks for a title and
@@ -8922,19 +8958,14 @@ const CARDS = [
     attachments: [{ name: 'doubleu-pipeline-architecture.pdf', path: 'assets/doubleu-pipeline-architecture.pdf' }] },
   { id: 'x2', keywords: ['Slack pipeline', 'AI social pipeline'], studio: 'whow', type: 'project', author: 'Bengt Ott', timeValue: 2, timeUnit: 'week', appliedBy: [], image: 'assets/whow-n8n-cover.png', imageFit: 'contain', imageBg: '#ffffff', relatedTo: [], derivedFrom: 'x1', derivedRelation: 'appliedFrom', derivedNote: 'Same idea, different stack — n8n Cloud instead of a local codebase, and the support team drives it themselves.',
     attachments: [{ name: 'whow-n8n-architecture.pdf', path: 'assets/whow-n8n-architecture.pdf' }] },
-  /* TODO(content): the body here is a placeholder. Replace made/constraints/
-     solved/borrow — in all four languages — once today's write-up is finished,
-     and drop the PDF in at the path below. Until it is there the attachment row
-     renders as unavailable rather than as a broken link (see
-     renderAttachmentsInto).
-
-     TODO(content): no cover either, so this one keeps the studio-tinted gradient
+  /* TODO(content): no cover yet, so this one keeps the studio-tinted gradient
      for now — which is a perfectly good visual and not a placeholder to
      apologise for. When doubleu-pipeline-update.pdf lands, render its page 1 the
      same way as the two above (see the note there) to
-     assets/doubleu-pipeline-update-cover.png and set `image` plus the same
-     imageFocal. */
-  { id: 'x3', keywords: ['Slack pipeline', 'Thread'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', justNow: true, timeValue: 0, timeUnit: 'day', appliedBy: [], image: null, relatedTo: [], derivedFrom: 'x2', derivedRelation: 'continuedFrom', derivedNote: 'Whow\u2019s typed-input and QA-gate ideas came back into our own pipeline.',
+     assets/doubleu-applied-cover.png and set `image` plus the same imageFocal.
+     Until the PDF is there the attachment row renders as unavailable rather
+     than as a broken link (see renderAttachmentsInto). */
+  { id: 'x3', keywords: ['Slack pipeline', 'Thread'], studio: 'doubleu', type: 'project', author: 'Minwoo Heo', justNow: true, timeValue: 0, timeUnit: 'day', appliedBy: ['whow'], image: null, /* assets/doubleu-applied-cover.png — drop the file in and put the path back */ relatedTo: [], derivedFrom: 'x2', derivedRelation: 'appliedFrom', derivedNote: 'Four ideas from Whow\u2019s build \u2014 threading, progress pings, the QA gate, concurrency \u2014 retuned and running in ours.',
     attachments: [{ name: 'doubleu-pipeline-update.pdf', path: 'assets/doubleu-pipeline-update.pdf' }] },
 ];
 
@@ -16811,7 +16842,9 @@ function readComposeLink() {
    problem statement does. */
 function composeSummary(title, body) {
   if (selectedType === 'update') return truncateForSummary((body.note || title || '').trim(), 120);
-  const keys = fieldsFor(selectedType);
+  // next/openQuestion point forward, not at what was learned, so they never
+  // speak for the card on a poster.
+  const keys = fieldsFor(selectedType).filter((k) => k !== 'next' && k !== 'openQuestion');
   for (let i = keys.length - 1; i >= 0; i--) {
     const v = (body[keys[i]] || '').trim();
     if (v) return truncateForSummary(v, 100);
