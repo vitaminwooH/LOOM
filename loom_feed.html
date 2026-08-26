@@ -6114,6 +6114,10 @@
   </div>
 </div>
 
+<!-- Data access layer — every Supabase call lives in data.js, nothing here
+     talks to the network directly (rule: one file to rewrite when the
+     backend moves in-house). -->
+<script src="data.js"></script>
 <script>
 'use strict';
 
@@ -9074,13 +9078,34 @@ function saveSeedEdit(id, patch) {
   return false;
 }
 
+/* Cards from Supabase (see data.js). null until LoomData delivers rows, and
+   null again forever if the DB is empty or unreachable — the hardcoded CARDS
+   below are the fallback, so a browser with no network (or a database that
+   hasn't been backfilled yet) sees exactly the screen it always did.
+   Remote cards arrive already carrying their resolved-language `text`, so
+   they take the same path through buildAllCards as an edited seed card. */
+let remoteCards = null;
+
+function initRemoteCards() {
+  if (!window.LoomData || !LoomData.isConfigured()) return;
+  LoomData.loadCards(currentLang).then((cards) => {
+    if (!cards) return; // empty or unreachable — keep the seed (safety net)
+    remoteCards = cards;
+    rebuildAllSurfaces();
+    renderNowStrip();
+  });
+}
+
 function buildAllCards() {
-  return [
-    ...sharedCards.map((c) => ({ ...c, isShared: true })),
+  const seed = remoteCards
+    ? remoteCards.map((c) => applySeedEdit({ ...c, isShared: false }))
     // The seed card's own translated copy is folded in here so an edit has
     // something to patch — before this, `text` only existed on shared cards and
     // was looked up per-language at render time (see cardText).
-    ...CARDS.map((c, i) => applySeedEdit({ ...c, isShared: false, staticIndex: i, text: ct(i) })),
+    : CARDS.map((c, i) => applySeedEdit({ ...c, isShared: false, staticIndex: i, text: ct(i) }));
+  return [
+    ...sharedCards.map((c) => ({ ...c, isShared: true })),
+    ...seed,
   ].filter((c) => isStudioEnabled(c.studio));
 }
 let ALL_CARDS = buildAllCards();
@@ -9098,6 +9123,10 @@ let ALL_CARDS = buildAllCards();
    Falling back to ct() for those keeps the switcher working. */
 function cardText(entry) {
   if (entry.isShared) return entry.text;
+  // A remote card's text was resolved to the active language when its list
+  // was fetched; the language switcher re-fetches and rebuilds (see
+  // setLanguage), so this stays a straight read like the shared case.
+  if (entry.isRemote) return entry.text;
   if (seedEditsMap()[entry.id]) return entry.text; // an edit is in one language on purpose
   return ct(entry.staticIndex);
 }
@@ -9761,6 +9790,23 @@ function setLanguage(lang) {
     try { localStorage.setItem(LANGUAGE_STORAGE_KEY, lang); } catch (err) { /* preference only */ }
     refreshAllText();
     fadeEls.forEach((el) => { if (el) el.style.opacity = '1'; });
+
+    /* Remote cards carry text in one resolved language (see cardText), so a
+       language switch needs their list re-fetched — cached per language in
+       data.js, so switching back is free. Until the fetch lands the reader
+       sees the previous language for a beat; the seed fallback path never
+       enters here. */
+    if (remoteCards && window.LoomData) {
+      LoomData.loadCards(lang).then((cards) => {
+        if (!cards || lang !== currentLang) return; // stale response — a newer switch won
+        remoteCards = cards;
+        rebuildAllSurfaces();
+        renderNowStrip();
+        if (isCardExpanded && currentOpenIndex !== null) {
+          populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
+        }
+      });
+    }
   }, CONFIG.LANG_FADE_MS);
 }
 
@@ -17809,6 +17855,9 @@ safeInit('canvas field', initCanvasField);
 safeInit('share another', initShareAnother);
 safeInit('share mode', initShareMode);
 safeInit('page transitions', initPageTransitions);
+// Last on purpose: the seed render above is already complete, so the remote
+// swap (if the DB has rows) is a quiet rebuild, not a race with first paint.
+safeInit('remote cards', initRemoteCards);
 </script>
 </body>
 </html>
