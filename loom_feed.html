@@ -9082,10 +9082,11 @@ function saveSeedEdit(id, patch) {
   return false;
 }
 
-/* Cards from Supabase (see data.js). null until LoomData delivers rows, and
-   null again forever if the DB is empty or unreachable — the hardcoded CARDS
-   below are the fallback, so a browser with no network (or a database that
-   hasn't been backfilled yet) sees exactly the screen it always did.
+/* Cards from Supabase (see data.js). null until LoomData delivers, and null
+   forever only when the DB is UNREACHABLE — the hardcoded CARDS below are
+   offline-demo insurance, knowingly stale now that the Slack canvas is the
+   source of record (the demo seeds were deleted from the DB at the canvas
+   cutover). An empty list from the DB is truth, not a reason to fall back.
    Remote cards arrive already carrying their resolved-language `text`, so
    they take the same path through buildAllCards as an edited seed card. */
 let remoteCards = null;
@@ -9093,7 +9094,9 @@ let remoteCards = null;
 function initRemoteCards() {
   if (!window.LoomData || !LoomData.isConfigured()) return;
   LoomData.loadCards(currentLang).then((cards) => {
-    if (!cards) return; // empty or unreachable — keep the seed (safety net)
+    // null = unknown (offline/failed) — only then keep the hardcoded seed,
+    // as offline-demo insurance. An empty array is the DB's actual truth.
+    if (!cards) return;
     remoteCards = cards;
     rebuildAllSurfaces();
     renderNowStrip();

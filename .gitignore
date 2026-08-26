@@ -8,8 +8,9 @@ scratchpad*
 *.webm
 *.gif
 
-# canvas-sync dry-run output — parsed Slack canvas content; never commit it
+# canvas-sync output — parsed Slack canvas content; never commit it
 canvas_dryrun*.json
+canvas_sync_result*.json
 
 # OS cruft
 .DS_Store

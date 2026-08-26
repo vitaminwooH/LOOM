@@ -242,15 +242,18 @@ const LoomData = (function () {
   /* ---- public API ---------------------------------------------------------- */
 
   /* Loads the knowledge cards for `lang`. Resolves to an array of cards in
-     the feed's own shape, or null when the table is empty, unreachable, or
-     not configured — null tells the caller to keep the hardcoded seed cards
-     (the safety net until the backfill lands). Never rejects. */
+     the feed's own shape — possibly EMPTY, which is the truth, not a failure
+     (the DB is the source of record; the canvas sync replaces its content
+     atomically, so a legitimate empty only happens if the canvas is empty).
+     Resolves to null ONLY when the answer is unknown: not configured, offline,
+     or the request failed — that is the one case the caller may fall back to
+     the hardcoded seed (an offline-demo insurance, knowingly stale). */
   async function loadCards(lang) {
     if (!isConfigured()) return null;
     if (cardCache[lang]) return cardCache[lang];
     try {
       const rows = await rpc('get_knowledge_items', { lang: lang });
-      if (!Array.isArray(rows) || rows.length === 0) return null;
+      if (!Array.isArray(rows)) return null;
       const cards = rows.map(toCard);
       cardCache[lang] = cards;
       remoteLive = true;
