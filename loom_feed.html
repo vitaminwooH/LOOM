@@ -6207,6 +6207,7 @@ const TRANSLATIONS = {
   en: {
     ui: {
       searchPlaceholder: 'Search knowledge',
+      writeCodePrompt: 'Enter the shared write code to save this card to the shared Loom.\nLeave empty to keep it on this device only.',
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
@@ -6733,6 +6734,7 @@ const TRANSLATIONS = {
   ko: {
     ui: {
       searchPlaceholder: '지식 검색',
+      writeCodePrompt: '공유 저장 코드를 입력하면 이 카드가 공동 Loom에 저장됩니다.\n비워두면 이 기기에만 남습니다.',
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
@@ -7215,6 +7217,7 @@ const TRANSLATIONS = {
   de: {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
+      writeCodePrompt: 'Gib den gemeinsamen Schreibcode ein, um die Karte im geteilten Loom zu speichern.\nLeer lassen, um sie nur auf diesem Gerät zu behalten.',
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
@@ -7697,6 +7700,7 @@ const TRANSLATIONS = {
   tr: {
     ui: {
       searchPlaceholder: 'Bilgi ara',
+      writeCodePrompt: 'Kartı ortak Loom’a kaydetmek için paylaşılan yazma kodunu girin.\nBoş bırakılırsa yalnızca bu cihazda kalır.',
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
@@ -9090,6 +9094,73 @@ function initRemoteCards() {
   if (!window.LoomData || !LoomData.isConfigured()) return;
   LoomData.loadCards(currentLang).then((cards) => {
     if (!cards) return; // empty or unreachable — keep the seed (safety net)
+    remoteCards = cards;
+    rebuildAllSurfaces();
+    renderNowStrip();
+  });
+}
+
+/* ---- the write path ------------------------------------------------------
+   Saving to the shared Loom is gated by a shared write code (checked
+   server-side — see db/0004_write_rpc.sql; the value is never in this repo).
+   Asked once per session via a plain prompt — deliberately the lightest
+   possible input until real sign-in exists — and remembered in
+   sessionStorage. Declining (cancel or empty) is also remembered: the card
+   stays in localStorage exactly as before, with no visible difference. */
+const WRITE_CODE_STORAGE_KEY = 'loom_write_code_v1';
+let writeCodeSession; // undefined = not asked yet, '' = declined, else the code
+
+function getWriteCode() {
+  if (writeCodeSession === undefined) {
+    try {
+      const stored = sessionStorage.getItem(WRITE_CODE_STORAGE_KEY);
+      if (stored !== null) writeCodeSession = stored;
+    } catch (err) { /* storage blocked — ask again */ }
+  }
+  if (writeCodeSession === undefined) {
+    const typed = window.prompt(t().writeCodePrompt);
+    writeCodeSession = typed === null ? '' : typed.trim();
+    try { sessionStorage.setItem(WRITE_CODE_STORAGE_KEY, writeCodeSession); } catch (err) { /* per-tab memory only */ }
+  }
+  return writeCodeSession;
+}
+
+// A mistyped code must not lock the whole session into silent fallback —
+// forget it so the next share asks again.
+function forgetWriteCode() {
+  writeCodeSession = undefined;
+  try { sessionStorage.removeItem(WRITE_CODE_STORAGE_KEY); } catch (err) { /* fine */ }
+}
+
+/* Fired alongside the local save on submit — the localStorage copy is the
+   safety net, so this never blocks and never surfaces an error UI. Cards
+   with an image or attachments stay local-only for now (no base64 into the
+   DB; Supabase Storage is a later decision). */
+function attemptRemoteSubmit(entry) {
+  if (!window.LoomData || !LoomData.isConfigured()) return;
+  if (entry.image || (entry.attachments && entry.attachments.length)) return;
+  const code = getWriteCode();
+  if (!code) return; // declined — same behaviour as before this existed
+  LoomData.submitCard(entry, code).then((res) => {
+    if (!res.ok) {
+      if (res.invalidCode) forgetWriteCode();
+      console.warn('[Loom write] card kept on this device only:', res.message || res.reason);
+      return;
+    }
+    adoptRemoteCard(entry.id);
+  });
+}
+
+/* The submission is in the DB: the localStorage copy stops being the source
+   of truth. Works whichever side of the weave flush the response lands on —
+   the id is filtered from both the stored list and the pending queue, and
+   the remote list (which data.js already updated) takes over. */
+function adoptRemoteCard(id) {
+  LoomData.loadCards(currentLang).then((cards) => {
+    if (!cards) return; // remote list unavailable — keep the local copy
+    sharedCards = sharedCards.filter((c) => c.id !== id);
+    writeSharedCards(sharedCards);
+    pendingSharedEntries = pendingSharedEntries.filter((c) => c.id !== id);
     remoteCards = cards;
     rebuildAllSurfaces();
     renderNowStrip();
@@ -17030,6 +17101,10 @@ function initSubmit() {
     pendingSharedEntries.push(entry);
     // TODO(backend): delete — see the Arrival simulation section.
     scheduleDemoReaction(entry.id);
+    // Before the weave starts: the code prompt (first share of the session
+    // only) is synchronous, and a browser prompt over a running animation
+    // would freeze it mid-frame. The network part runs during the weave.
+    attemptRemoteSubmit(entry);
     goToWeaveStep();
   });
 }

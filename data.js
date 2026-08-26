@@ -131,6 +131,114 @@ const LoomData = (function () {
     };
   }
 
+  /* ---- write path ----------------------------------------------------------
+     The tables stay locked for anon; submit_card is the one door in, and it
+     opens only to a valid shared write code (checked server-side, value never
+     in this repo). Everything here mirrors what the RPC will accept — the
+     server whitelist is the real boundary, this just avoids sending junk. */
+
+  // The share form's text object, minus empty/non-string fields.
+  function pickText(text) {
+    const out = {};
+    for (const k of Object.keys(text || {})) {
+      const v = text[k];
+      if (typeof v === 'string' && v.trim().length) out[k] = v;
+    }
+    return out;
+  }
+
+  /* Folds a just-accepted submission into the per-language caches so the feed
+     can swap its localStorage copy for the DB-backed card without refetching.
+     The card mirrors what a get_knowledge_items reload will return: one
+     source-language block served to every language (the RPC's coalesce), the
+     studio team person as author, question conversation split skeleton/text. */
+  function registerSubmitted(payload, row) {
+    const isQuestion = payload.type === 'question';
+    const txt = isQuestion
+      ? Object.assign({}, payload.text, {
+          conversation: [payload.text.blocked || payload.text.title],
+        })
+      : payload.text;
+    const card = toCard({
+      id: row.id,
+      type: payload.type,
+      studio: payload.studio,
+      author: row.author || '',
+      shared_by_name: null,
+      keywords: payload.keywords,
+      related_to: [],
+      derived_from: null,
+      relation_type: null,
+      relation_note: null,
+      status: isQuestion ? 'open' : null,
+      asked_to: payload.asked_to,
+      image: null,
+      link: payload.link,
+      source_lang: payload.source_lang,
+      demo_age: null,
+      created_at: row.created_at,
+      conversation: isQuestion
+        ? [{ author: row.author || payload.studio, studio: payload.studio, justNow: true }]
+        : null,
+      applied_by: [],
+      txt: txt,
+    });
+    for (const lang of Object.keys(cardCache)) cardCache[lang].unshift(card);
+    remoteLive = true;
+  }
+
+  /* Submits a card built by the share form. Resolves to:
+       { ok: true,  id }                       — saved; caches already updated
+       { ok: false, reason, invalidCode?, message? }
+         reason 'rejected'     — the RPC said no (bad code, invalid payload)
+         reason 'network'      — offline/timeout; nothing reached the server
+         reason 'unconfigured' — no Supabase constants
+     Never rejects; the caller's localStorage copy is the fallback either way. */
+  async function submitCard(entry, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const payload = {
+      id: entry.id,
+      type: entry.type,
+      studio: entry.studio,
+      source_lang: entry.sourceLang || 'en',
+      keywords: (entry.keywords || []).slice(0, 10),
+      asked_to: entry.askedTo || null,
+      link: entry.link || null,
+      text: pickText(entry.text),
+    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_card', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ payload: payload, code: code }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        let message = '';
+        try { message = (await res.json()).message || ''; } catch (err) { /* no body */ }
+        return {
+          ok: false,
+          reason: 'rejected',
+          invalidCode: /invalid code/i.test(message),
+          message: message,
+        };
+      }
+      const row = await res.json(); // { id, created_at, author }
+      registerSubmitted(payload, row);
+      return { ok: true, id: row.id };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /* ---- public API ---------------------------------------------------------- */
 
   /* Loads the knowledge cards for `lang`. Resolves to an array of cards in
@@ -157,7 +265,7 @@ const LoomData = (function () {
     return remoteLive;
   }
 
-  return { isConfigured, loadCards, hasRemote };
+  return { isConfigured, loadCards, hasRemote, submitCard };
 })();
 
 // Explicit, because a top-level `const` never becomes a window property —
