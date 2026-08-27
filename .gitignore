@@ -12,6 +12,9 @@ scratchpad*
 canvas_dryrun*.json
 canvas_sync_result*.json
 
+# roster export from localStorage — contains base64 photos; never commit it
+designers_export*.json
+
 # OS cruft
 .DS_Store
 Thumbs.db

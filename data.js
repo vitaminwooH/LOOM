@@ -134,6 +134,50 @@ const LoomData = (function () {
     };
   }
 
+  /* ---- roster (Designers) ---------------------------------------------------
+     persons is publicly readable (RLS read_all from 0001), so this is a plain
+     table select — a handful of rows, no RPC needed. Mapped straight into the
+     designer shape the feed renders, cached for the session. null = unknown
+     (offline/failed): the caller keeps whatever roster it has. */
+  let rosterCache = null;
+
+  async function loadRoster() {
+    if (!isConfigured()) return null;
+    if (rosterCache) return rosterCache;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(
+        SUPABASE_URL + '/rest/v1/persons?on_roster=eq.true' +
+          '&select=id,studio_id,name,role_key,photo_path,photo_pos,working_on,can_help,links&order=id',
+        {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+          signal: controller.signal,
+        }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return null;
+      rosterCache = rows.map((r) => ({
+        id: r.id,
+        studio: r.studio_id,
+        name: r.name,
+        roleKey: r.role_key || '',
+        photo: r.photo_path || null,
+        photoPos: r.photo_pos || null,
+        workingOn: r.working_on || '',
+        canHelp: r.can_help || '',
+        links: r.links || {},
+      }));
+      return rosterCache;
+    } catch (err) {
+      console.warn('[Loom data] roster load failed:', err);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /* ---- write path ----------------------------------------------------------
      The tables stay locked for anon; submit_card is the one door in, and it
      opens only to a valid shared write code (checked server-side, value never
@@ -271,7 +315,7 @@ const LoomData = (function () {
     return remoteLive;
   }
 
-  return { isConfigured, loadCards, hasRemote, submitCard };
+  return { isConfigured, loadCards, loadRoster, hasRemote, submitCard };
 })();
 
 // Explicit, because a top-level `const` never becomes a window property —

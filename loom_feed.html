@@ -1574,9 +1574,13 @@
      title owns the lower left, so the two never meet. Photographs (cover)
      are untouched, and the poster/detail document treatment above stays
      exactly as it was. */
-  .hero-slide .card-media.has-image.is-doc {
+  /* Shared with the detail banner (.expanded-media below) — one stage,
+     defined once, wherever a document cover has to carry a wide surface. */
+  .hero-slide .card-media.has-image.is-doc,
+  .expanded-media.has-image.is-doc {
     overflow: hidden;
     background-size: cover; /* the ground below, not the page — see ::after */
+    background-blend-mode: normal;
     background-image:
       radial-gradient(115% 125% at 72% 16%,
         color-mix(in srgb, var(--studio-ink, #378ADD) 44%, #0a0f26) 0%,
@@ -1747,6 +1751,22 @@
   }
   .expanded-media.has-image .card-media-icon { display: none; }
   .expanded-media:not(.has-image) .card-media-badge { display: none; }
+  /* Document cover on the detail banner: the studio-tinted stage comes from
+     the shared rule up with the hero's (see .hero-slide … .is-doc); here the
+     page simply centres — the banner is short and carries no title. `cover`
+     was stretching an 800px page across the full banner width before this. */
+  .expanded-media.has-image.is-doc::after {
+    content: '';
+    position: absolute;
+    inset: 14px clamp(24px, 18vw, 260px);
+    background-image: var(--card-img);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(0 12px 30px rgba(4, 8, 24, 0.45));
+  }
+  /* the type badge stays above the page object */
+  .expanded-media.has-image.is-doc .card-media-badge { z-index: 1; }
 
   /* ---------- the two panes ----------
      Written on the left, received on the right — the same split the Question
@@ -2962,18 +2982,6 @@
     color: rgba(28, 28, 30, 0.78);
     white-space: pre-wrap;
   }
-  /* Attachment lines under the body sections — same prose voice as the
-     paragraphs above; only a link underline on hover marks the openable ones. */
-  .attachment-line {
-    display: block;
-    margin: 0 0 4px;
-    font-size: 14px;
-    line-height: 1.55;
-    color: rgba(28, 28, 30, 0.78);
-    text-decoration: none;
-    word-break: break-all;
-  }
-  a.attachment-line:hover { text-decoration: underline; }
 
   .expanded-footer {
     margin-top: 22px;
@@ -6253,7 +6261,6 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Search knowledge',
       writeCodePrompt: 'Enter the shared write code to save this card to the shared Loom.\nLeave empty to keep it on this device only.',
-      attachmentsLabel: 'Attachments',
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
@@ -6781,7 +6788,6 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: '지식 검색',
       writeCodePrompt: '공유 저장 코드를 입력하면 이 카드가 공동 Loom에 저장됩니다.\n비워두면 이 기기에만 남습니다.',
-      attachmentsLabel: '첨부',
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
@@ -7265,7 +7271,6 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
       writeCodePrompt: 'Gib den gemeinsamen Schreibcode ein, um die Karte im geteilten Loom zu speichern.\nLeer lassen, um sie nur auf diesem Gerät zu behalten.',
-      attachmentsLabel: 'Anhänge',
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
@@ -7749,7 +7754,6 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Bilgi ara',
       writeCodePrompt: 'Kartı ortak Loom’a kaydetmek için paylaşılan yazma kodunu girin.\nBoş bırakılırsa yalnızca bu cihazda kalır.',
-      attachmentsLabel: 'Ekler',
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
@@ -8684,6 +8688,28 @@ function loadDesigners() {
 }
 
 let designerRoster = loadDesigners();
+
+/* The shared roster now lives in the persons table (see data.js loadRoster);
+   DEFAULT_DESIGNERS above is the offline fallback, same standing as the seed
+   cards. Loaded lazily on the first Designers open — the payload is a few KB
+   and nobody pays it who never visits the floor. A locally EDITED roster
+   stays the whole truth on this machine (the rule above), so remote only
+   ever replaces the seed; clearing loom_designers_v1 is how a machine with
+   stale local edits rejoins the shared roster. */
+let remoteRosterRequested = false;
+
+function initRemoteRoster() {
+  if (remoteRosterRequested || !window.LoomData || !LoomData.isConfigured()) return;
+  remoteRosterRequested = true;
+  let locallyEdited = false;
+  try { locallyEdited = localStorage.getItem(DESIGNERS_STORAGE_KEY) !== null; } catch (err) { /* blocked → seed */ }
+  if (locallyEdited) return;
+  LoomData.loadRoster().then((people) => {
+    if (!people || !people.length) return; // unreachable/empty — keep the seed
+    designerRoster = people;
+    renderDesigners();
+  });
+}
 
 /* Photos are downscaled hard on the way in (DESIGNER_PHOTO_MAX_DIM), so a full
    roster is a few hundred KB and this normally writes first time.
@@ -14041,31 +14067,8 @@ function renderBodySections(wrap, data, text) {
     section.appendChild(p);
     wrap.appendChild(section);
   });
-
-  /* Attachments — files that came with the canvas entry (see canvas-sync).
-     Entries with a url open in a new tab (originals load only on click, so
-     the feed never pays their egress); label-only entries render as text. */
-  const files = Array.isArray(data.attachments) ? data.attachments : [];
-  if (files.length) {
-    const section = document.createElement('div');
-    section.className = 'expanded-section';
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = t().attachmentsLabel;
-    section.appendChild(label);
-    files.forEach((f) => {
-      const line = document.createElement(f.url ? 'a' : 'p');
-      line.className = 'attachment-line';
-      line.textContent = '📎 ' + (f.label || f.name || f.url || '');
-      if (f.url) {
-        line.href = f.url;
-        line.target = '_blank';
-        line.rel = 'noopener';
-      }
-      section.appendChild(line);
-    });
-    wrap.appendChild(section);
-  }
+  // (attachments render in #attachmentsSection via renderAttachmentsInto,
+  //  which reads both the canvas-sync shape and the share-form shape)
 }
 
 function resetDeleteConfirm() {
@@ -16629,14 +16632,18 @@ function renderAttachmentsInto(wrapEl, data) {
        a quiet note instead of an anchor to a 404. The alternative — rendering
        the link anyway — means the one attachment somebody actually clicks in a
        demo is the one that breaks. */
-    const href = file.dataUrl || file.path;
+    /* Third kind since canvas-sync: a resolved canvas attachment carries
+       `url` (public Storage — or a Slack link for a file the bot could not
+       re-host) and `label`; a label with no url at all (e.g. "Felix's case
+       file") renders as an unavailable row rather than vanishing. */
+    const href = file.url || file.dataUrl || file.path;
     const a = document.createElement(href ? 'a' : 'div');
     a.className = 'attachment-link' + (href ? '' : ' is-unavailable');
     if (href) {
       a.href = href;
       a.target = '_blank';
       a.rel = 'noopener';
-      // Only an upload is a download; a path should just open.
+      // Only an upload is a download; a path or a hosted file should just open.
       if (file.dataUrl) a.download = file.name;
     }
     /* A path is checked before it is offered, the same way a card's image is
@@ -16655,11 +16662,12 @@ function renderAttachmentsInto(wrapEl, data) {
         });
     }
     const size = typeof file.size === 'number' ? formatFileSize(file.size)
+      : typeof file.bytes === 'number' ? formatFileSize(file.bytes)
       : (file.note || '');
     a.innerHTML = `
       <span class="attachment-item-icon">${ATTACHMENT_ICON}</span>
       <span class="attachment-item-info">
-        <div class="attachment-item-name">${escapeHtml(file.name || '')}</div>
+        <div class="attachment-item-name">${escapeHtml(file.name || file.label || '')}</div>
         <div class="attachment-item-size">${escapeHtml(size)}</div>
       </span>
     `;
@@ -17843,6 +17851,10 @@ function teardownActiveSurface() {
 
 function enterDesignersMode() {
   if (isDesignersMode || isShareMode || isCardExpanded) return;
+
+  // First open fetches the shared roster (no-op afterwards); the floor shows
+  // whatever it has now and re-renders when the remote list lands.
+  initRemoteRoster();
 
   /* Threads may be what is on screen. It used to be in the guard above, which
      meant pressing Designers from the map silently did nothing; taking the map
