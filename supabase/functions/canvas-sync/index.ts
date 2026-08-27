@@ -615,43 +615,88 @@ function validateTranslation(en: Record<string, unknown>, cand: unknown): Record
   return out;
 }
 
-/* ---- handler ----------------------------------------------------------------- */
-Deno.serve(async (req: Request) => {
-  const jsonResponse = (status: number, body: unknown) =>
-    new Response(JSON.stringify(body, null, 2), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    });
+/* ---- Slack notification + slash command ------------------------------------
+   Two ways a sync can be asked for besides a manual curl:
+     - pg_cron (db/0008): header-secret path with {"mode":"sync","notify":true}
+       — acked immediately, sync runs in the background (pg_net's short
+       timeout never truncates the work). Scheduled runs post NOTHING to
+       Slack; outcome and errors go to the function log only.
+     - /loom-sync slash command: Slack signs every request with the app's
+       Signing Secret (its own credential, fully separate from
+       CANVAS_SYNC_SECRET — leaking one never opens the other), we verify the
+       HMAC, ack within Slack's 3-second window, sync in the background and
+       post the result to the channel — a person asked and is waiting.
+   Posting the result needs chat:write on the bot and SLACK_CHANNEL_ID in
+   Secrets. A failed notification is logged, never fatal — same isolation
+   rule as everything else here. */
 
-  const secret = Deno.env.get('CANVAS_SYNC_SECRET');
-  if (!secret) return jsonResponse(500, { error: 'CANVAS_SYNC_SECRET is not set' });
-  if (req.headers.get('x-canvas-sync-secret') !== secret) {
-    return jsonResponse(401, { error: 'unauthorized' });
+async function postSlackMessage(text: string) {
+  const token = Deno.env.get('SLACK_BOT_TOKEN');
+  const channel = Deno.env.get('SLACK_CHANNEL_ID');
+  if (!token || !channel) {
+    console.error('[canvas-sync] notify skipped: SLACK_BOT_TOKEN / SLACK_CHANNEL_ID not set');
+    return;
   }
+  try {
+    const res = await fetch(`${SLACK_API}/chat.postMessage`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, text }),
+    });
+    const json = await res.json();
+    if (!json.ok) console.error('[canvas-sync] chat.postMessage failed:', json.error);
+  } catch (err) {
+    console.error('[canvas-sync] notify failed:', err);
+  }
+}
 
+// the one-line result message both trigger paths post
+function summarizeForSlack(payload: Record<string, unknown>): string {
+  const report = payload.report as Record<string, unknown> | null;
+  const enrichment = payload.enrichment as { gemini_failed: unknown[]; translation_failed: unknown[] };
+  const lineage = payload.lineage as { unresolved: unknown[] };
+  const inserted = (report?.inserted as string[]) || [];
+  const updated = (report?.updated as string[]) || [];
+  const skipped = (report?.skipped as string[]) || [];
+  const parts = [
+    `✅ canvas-sync — new: ${inserted.length}, updated: ${updated.length}, unchanged: ${skipped.length}`,
+  ];
+  if (inserted.length) parts.push(`new cards: ${inserted.join(', ')}`);
+  if (enrichment.gemini_failed.length) parts.push(`⚠️ gemini failed: ${enrichment.gemini_failed.length}`);
+  if (enrichment.translation_failed.length) parts.push(`⚠️ translations missing: ${enrichment.translation_failed.length}`);
+  if (lineage.unresolved.length) parts.push(`⚠️ unresolved Related: ${lineage.unresolved.length}`);
+  return parts.join('\n');
+}
+
+// HMAC check for slash-command requests: v0=<hex of HMAC(v0:{ts}:{body})>
+async function verifySlackSignature(rawBody: string, timestamp: string, signature: string, signingSecret: string) {
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false; // stale = replay
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(signingSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, enc.encode(`v0:${timestamp}:${rawBody}`));
+  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `v0=${hex}` === signature;
+}
+
+// Edge runtime keeps background promises alive via EdgeRuntime.waitUntil;
+// fall back to fire-and-forget if the global is ever absent (local tooling).
+function runInBackground(job: Promise<unknown>) {
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(job);
+}
+
+/* ---- the pipeline, shared by every trigger path ---------------------------- */
+async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
   const token = Deno.env.get('SLACK_BOT_TOKEN');
   const canvasId = Deno.env.get('SLACK_CANVAS_ID');
-  if (!token || !canvasId) {
-    return jsonResponse(500, { error: 'SLACK_BOT_TOKEN / SLACK_CANVAS_ID not set' });
-  }
+  if (!token || !canvasId) throw new Error('SLACK_BOT_TOKEN / SLACK_CANVAS_ID not set');
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceKey) {
-    return jsonResponse(500, { error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not available' });
-  }
+  if (!supabaseUrl || !serviceKey) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not available');
 
-  // mode comes from the POST body; anything but an explicit sync is a dry run
-  let mode = 'dry';
-  let purge = false;
-  let refresh = false;
-  try {
-    const body = await req.json();
-    if (body && body.mode === 'sync') mode = 'sync';
-    if (body && body.purge === true) purge = true;
-    if (body && body.refresh === true) refresh = true;
-  } catch (_) { /* empty body → dry run */ }
-
-  try {
+  {
     const { html, title } = await fetchCanvasHtml(token, canvasId);
     const { preamble, parsed, unparsable } = parseEntries(htmlToLines(html));
     const { cards, excluded, personNotes } = buildCards(parsed);
@@ -663,20 +708,31 @@ Deno.serve(async (req: Request) => {
     const existing = await fetchExistingTitles(supabaseUrl, serviceKey);
     const lineage = resolveLineage(cards, existing);
 
-    /* Gemini enrichment — sequential on purpose (keyword consistency), and
-       every failure is contained: a card that Gemini fails keeps keywords []
-       and its en block only, and the sync still runs. Dry runs enrich too,
-       so the preview shows exactly what sync would store. */
+    /* Gemini enrichment — ONLY for cards this run will actually write:
+       everything under purge/refresh, otherwise just the ids the DB does not
+       have yet. An ordinary sync with no new canvas entries makes zero
+       Gemini calls (an unchanged card would have its enrichment thrown away
+       by the RPC's skip anyway — calling was pure cost and noise).
+       Sequential on purpose (keyword consistency), and every failure is
+       contained: a failed card keeps keywords [] and its en block only, and
+       the sync still runs. Dry runs enrich the same scope sync would, so a
+       refresh preview needs {"refresh": true} in the dry body too. */
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const existingIds = new Set(existing.map((row) => row.id));
+    const enrichTargets = (purge || refresh)
+      ? cards
+      : cards.filter((c) => !existingIds.has(c.id));
     const enrichment = {
       enabled: !!geminiKey,
       model: GEMINI_MODEL,
+      scope: purge || refresh ? 'all' : 'new-only',
+      enriched: 0,
       gemini_failed: [] as { id: string; reason: string }[],
       translation_failed: [] as { id: string; lang: string }[],
     };
-    if (geminiKey && cards.length) {
+    if (geminiKey && enrichTargets.length) {
       const vocab = await fetchKeywordVocabulary(supabaseUrl, serviceKey);
-      for (const c of cards) {
+      for (const c of enrichTargets) {
         const en = (c.body as Record<string, Record<string, unknown>>).en;
         try {
           const res = await callGemini(geminiKey, buildGeminiPrompt(en, vocab));
@@ -686,11 +742,13 @@ Deno.serve(async (req: Request) => {
             if (block) (c.body as Record<string, unknown>)[lang] = block;
             else enrichment.translation_failed.push({ id: c.id, lang });
           }
+          enrichment.enriched++;
         } catch (err) {
-          enrichment.gemini_failed.push({
-            id: c.id,
-            reason: String(err instanceof Error ? err.message : err).slice(0, 300),
-          });
+          const reason = String(err instanceof Error ? err.message : err).slice(0, 300);
+          // also into the function log, so the dashboard shows WHY (the
+          // Slack summary only carries the count)
+          console.warn('[canvas-sync] gemini failed for ' + c.id + ': ' + reason);
+          enrichment.gemini_failed.push({ id: c.id, reason });
         }
       }
     }
@@ -711,7 +769,7 @@ Deno.serve(async (req: Request) => {
       report = await callSyncRpc(supabaseUrl, serviceKey, rows, purge, refresh);
     }
 
-    return jsonResponse(200, {
+    return {
       mode,
       dryRun: mode !== 'sync',
       purgeRequested: purge && mode === 'sync',
@@ -731,7 +789,87 @@ Deno.serve(async (req: Request) => {
       report, // null on dry run; the RPC's inserted/skipped/purged on sync
       unparsable,
       ...(mode === 'dry' ? { preamble, parsed } : {}),
+    } as Record<string, unknown>;
+  }
+}
+
+/* ---- handler ----------------------------------------------------------------- */
+Deno.serve(async (req: Request) => {
+  const jsonResponse = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body, null, 2), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
     });
+
+  /* Path 1 — Slack slash command (/loom-sync). Identified by Slack's
+     signature header; verified against the app's Signing Secret, which is
+     deliberately NOT the header secret below. Ack within 3s, sync in the
+     background, result posted to the channel. */
+  const slackSignature = req.headers.get('x-slack-signature');
+  if (slackSignature) {
+    const signingSecret = Deno.env.get('SLACK_SIGNING_SECRET');
+    if (!signingSecret) return jsonResponse(500, { error: 'SLACK_SIGNING_SECRET is not set' });
+    const timestamp = req.headers.get('x-slack-request-timestamp') || '';
+    const rawBody = await req.text();
+    if (!(await verifySlackSignature(rawBody, timestamp, slackSignature, signingSecret))) {
+      return jsonResponse(401, { error: 'bad slack signature' });
+    }
+    const params = new URLSearchParams(rawBody);
+    const user = params.get('user_name') || 'someone';
+    runInBackground((async () => {
+      try {
+        const result = await runPipeline('sync', false, false);
+        await postSlackMessage(summarizeForSlack(result) + `\n(triggered by @${user})`);
+      } catch (err) {
+        await postSlackMessage('❌ canvas-sync failed: ' + String(err instanceof Error ? err.message : err));
+      }
+    })());
+    return jsonResponse(200, {
+      response_type: 'in_channel',
+      text: '⏳ Canvas sync started — the result will be posted here shortly.',
+    });
+  }
+
+  /* Path 2 — header secret (curl, pg_cron). */
+  const secret = Deno.env.get('CANVAS_SYNC_SECRET');
+  if (!secret) return jsonResponse(500, { error: 'CANVAS_SYNC_SECRET is not set' });
+  if (req.headers.get('x-canvas-sync-secret') !== secret) {
+    return jsonResponse(401, { error: 'unauthorized' });
+  }
+
+  // mode comes from the POST body; anything but an explicit sync is a dry run
+  let mode = 'dry';
+  let purge = false;
+  let refresh = false;
+  let notify = false;
+  try {
+    const body = await req.json();
+    if (body && body.mode === 'sync') mode = 'sync';
+    if (body && body.purge === true) purge = true;
+    if (body && body.refresh === true) refresh = true;
+    if (body && body.notify === true) notify = true;
+  } catch (_) { /* empty body → dry run */ }
+
+  /* notify=true (the pg_cron shape) means the caller only needs an ack —
+     pg_net's timeout is seconds, the pipeline takes a minute. Run in the
+     background. Scheduled runs stay SILENT in Slack (the channel is not a
+     log; Loom isn't announced yet): outcome and errors go to the function
+     log only. The slash command above is the loud path, because a person
+     asked and is waiting. */
+  if (notify) {
+    runInBackground((async () => {
+      try {
+        const result = await runPipeline(mode, purge, refresh);
+        console.log('[canvas-sync] scheduled run: ' + summarizeForSlack(result).replace(/\n/g, ' | '));
+      } catch (err) {
+        console.error('[canvas-sync] scheduled run failed: ' + String(err instanceof Error ? err.message : err));
+      }
+    })());
+    return jsonResponse(202, { started: true, mode, notify: true });
+  }
+
+  try {
+    return jsonResponse(200, await runPipeline(mode, purge, refresh));
   } catch (err) {
     return jsonResponse(502, { error: String(err instanceof Error ? err.message : err) });
   }
