@@ -163,7 +163,9 @@ const LoomData = (function () {
     try {
       const res = await fetch(
         SUPABASE_URL + '/rest/v1/persons?on_roster=eq.true' +
-          '&select=id,studio_id,name,role_key,photo_path,photo_pos,working_on,can_help,links&order=id',
+          '&select=id,studio_id,name,role_key,photo_path,photo_pos,working_on,can_help,links' +
+          // curated order; the unordered (freshly created) go to the end
+          '&order=sort_order.asc.nullslast,id.asc',
         {
           headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
           signal: controller.signal,
@@ -251,6 +253,43 @@ const LoomData = (function () {
     if (!res.ok) return res;
     if (rosterCache) rosterCache = rosterCache.filter(function (d) { return d.id !== id; });
     return { ok: true };
+  }
+
+  /* Saves one studio's roster order — `ids` must be that studio's WHOLE
+     roster in its new order (the RPC enforces it); one call, one transaction. */
+  async function submitRosterOrder(studio, ids, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_roster_order', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ studio: studio, ids: ids, code: code }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        const message = (json && json.message) || '';
+        return { ok: false, reason: 'rejected', invalidCode: /invalid code/i.test(message), message: message };
+      }
+      if (rosterCache) {
+        const others = rosterCache.filter(function (d) { return d.studio !== studio; });
+        const mine = ids
+          .map(function (id) { return rosterCache.find(function (d) { return d.id === id; }); })
+          .filter(Boolean);
+        rosterCache = others.concat(mine);
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /* Uploads a dataURL photo for an EXISTING person via the roster-photo
@@ -422,7 +461,7 @@ const LoomData = (function () {
 
   return {
     isConfigured, loadCards, hasRemote, submitCard,
-    loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto,
+    loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
   };
 })();
 

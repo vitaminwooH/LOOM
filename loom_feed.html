@@ -4159,8 +4159,34 @@
   .designer-card.is-flipped .designer-card-inner { transform: rotateY(180deg); }
   /* while a studio is arranging its roster the card is an object, not something
      to read: it stays face-up and the whole surface opens the editor */
-  .designer-card.is-editing { cursor: pointer; }
+  .designer-card.is-editing { cursor: grab; }
   .designer-card.is-editing .designer-card-inner { transform: none; }
+  /* ---------- reordering (edit mode, mouse drag) ----------
+     The motion constants live in ONE place: ROSTER_DRAG_ANIM_MS / _EASE /
+     _SCALE in the drag JS, which writes --roster-drag-ms / --roster-drag-ease
+     here at startup. The card in hand follows the pointer raw (its transform
+     is set with NO transition — the hand comes first); everything else
+     slides: siblings FLIP between slots, the lift shadow is an ::after whose
+     opacity fades in and out (transform/opacity only, no layout, no painted
+     box-shadow animation on the card itself). */
+  .designer-card.is-dragging,
+  .designer-card.is-settling {
+    cursor: grabbing;
+    z-index: 6;
+  }
+  .designer-card.is-dragging { opacity: 0.94; }
+  .designer-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 26px; /* the face's own radius */
+    box-shadow: 0 20px 48px rgba(20, 20, 20, 0.24);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--roster-drag-ms, 220ms) var(--roster-drag-ease, ease-out);
+  }
+  .designer-card.is-dragging::after { opacity: 1; }
+  body.is-roster-dragging { cursor: grabbing; user-select: none; }
 
   .designer-face {
     position: absolute;
@@ -8750,6 +8776,211 @@ function attemptRemoteRosterSave(person) {
   });
 }
 
+/* ---- reorder by drag (edit mode, mouse) ------------------------------------
+   Three motions, three rules:
+     - the card in hand follows the pointer RAW — transform set every move,
+       transitions off, because the hand comes first;
+     - everyone else slides: when the row reorders, siblings FLIP from their
+       old slot to the new one (transform only, ROSTER_DRAG_ANIM_MS);
+     - letting go settles: the held card glides from wherever the hand left
+       it into its slot with the same easing, scale and shadow releasing with
+       it. A failed save glides everything back the same way.
+   prefers-reduced-motion skips all of it — instant placement, as before.
+   Below the 6px slop it is a click like any other. Touch is out of scope. */
+const ROSTER_DRAG_ANIM_MS = 220;
+const ROSTER_DRAG_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const ROSTER_DRAG_SCALE = 1.05;
+
+// one source of truth: the CSS side (the ::after shadow fade) reads these
+document.documentElement.style.setProperty('--roster-drag-ms', ROSTER_DRAG_ANIM_MS + 'ms');
+document.documentElement.style.setProperty('--roster-drag-ease', ROSTER_DRAG_EASE);
+
+function rosterMotionOff() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// current translate of an element, read off its computed matrix — the FLIP
+// below has to know where a mid-flight card VISUALLY is, not where its slot is
+function currentTranslate(el) {
+  const tr = getComputedStyle(el).transform;
+  if (!tr || tr === 'none') return { x: 0, y: 0 };
+  const m = new DOMMatrixReadOnly(tr);
+  return { x: m.e, y: m.f };
+}
+
+/* FLIP the given cards across `mutate()` (a DOM reorder): capture visual
+   rects, mutate, then transform each moved card back to where it was and
+   release it toward its new slot. Safe to re-trigger mid-flight. */
+function flipRosterCards(cards, mutate) {
+  if (rosterMotionOff()) { mutate(); return; }
+  const first = new Map(cards.map((c) => [c, c.getBoundingClientRect()]));
+  mutate();
+  cards.forEach((c) => {
+    const f = first.get(c);
+    const l = c.getBoundingClientRect();
+    const t = currentTranslate(c);
+    const dx = (f.left - l.left) + t.x;
+    const dy = (f.top - l.top) + t.y;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+    c.style.transition = 'none';
+    c.style.transform = `translate(${dx}px, ${dy}px)`;
+    void c.offsetWidth; // commit the start frame
+    c.style.transition = `transform ${ROSTER_DRAG_ANIM_MS}ms ${ROSTER_DRAG_EASE}`;
+    c.style.transform = '';
+    clearTimeout(c._rosterFlipTimer);
+    c._rosterFlipTimer = setTimeout(() => {
+      c.style.transition = '';
+      c.style.transform = '';
+    }, ROSTER_DRAG_ANIM_MS + 60);
+  });
+}
+
+let designerDrag = null;
+
+function initDesignerDrag(card, person) {
+  card.addEventListener('mousedown', (e) => {
+    if (!rosterEditMode || !canEditRoster(person.studio)) return;
+    if (e.button !== 0) return;
+    if (e.target.closest('button, a, input, textarea')) return;
+    e.preventDefault(); // no text/image selection ghost while dragging
+    const rect = card.getBoundingClientRect();
+    designerDrag = {
+      person,
+      card,
+      roster: card.parentElement,
+      startX: e.clientX,
+      startY: e.clientY,
+      grabX: e.clientX - rect.left, // where inside the card the hand holds it
+      grabY: e.clientY - rect.top,
+      active: false,
+      lastAnchor: undefined,
+      prevOrder: designersOf(person.studio).map((d) => d.id),
+    };
+    window.addEventListener('mousemove', onDesignerDragMove);
+    window.addEventListener('mouseup', onDesignerDragEnd);
+  });
+}
+
+// the held card's transform: from its CURRENT slot to under the pointer
+function followPointer(s, e) {
+  const t = currentTranslate(s.card);
+  const r = s.card.getBoundingClientRect();
+  const slotLeft = r.left - t.x; // rect includes our transform; peel it off
+  const slotTop = r.top - t.y;
+  const tx = (e.clientX - s.grabX) - slotLeft;
+  const ty = (e.clientY - s.grabY) - slotTop;
+  s.card.style.transition = 'none'; // rule one: the hand comes first
+  s.card.style.transform = `translate(${tx}px, ${ty}px) scale(${ROSTER_DRAG_SCALE})`;
+}
+
+function onDesignerDragMove(e) {
+  const s = designerDrag;
+  if (!s) return;
+  if (!s.active) {
+    if (Math.hypot(e.clientX - s.startX, e.clientY - s.startY) < 6) return;
+    s.active = true;
+    s.card.classList.add('is-dragging');
+    document.body.classList.add('is-roster-dragging');
+  }
+
+  // the first sibling whose midpoint the pointer has not passed is where the
+  // card slots in; past them all, it goes to the end (before the + card)
+  const siblings = [...s.roster.querySelectorAll('.designer-card')].filter((c) => c !== s.card);
+  let target = null;
+  for (const c of siblings) {
+    const r = c.getBoundingClientRect();
+    if (e.clientX < r.left + r.width / 2) { target = c; break; }
+  }
+  const anchor = target || s.roster.querySelector('.designer-add-card') || null;
+  if (anchor !== s.lastAnchor) {
+    s.lastAnchor = anchor;
+    // reorder inside a FLIP so the row SLIDES apart instead of jumping;
+    // the held card is excluded — its transform belongs to the pointer
+    flipRosterCards(siblings, () => {
+      if (anchor) s.roster.insertBefore(s.card, anchor);
+      else s.roster.appendChild(s.card);
+    });
+  }
+  followPointer(s, e);
+}
+
+function onDesignerDragEnd() {
+  window.removeEventListener('mousemove', onDesignerDragMove);
+  window.removeEventListener('mouseup', onDesignerDragEnd);
+  const s = designerDrag;
+  designerDrag = null;
+  if (!s || !s.active) return; // never lifted — an ordinary click
+
+  // settle: glide from wherever the hand let go into the slot, scale and
+  // shadow releasing on the same clock (the shadow is the ::after fade,
+  // opacity is in the inline transition below)
+  s.card.classList.remove('is-dragging');
+  document.body.classList.remove('is-roster-dragging');
+  if (rosterMotionOff()) {
+    s.card.style.transition = '';
+    s.card.style.transform = '';
+  } else {
+    s.card.classList.add('is-settling'); // keeps the z-index through the glide
+    s.card.style.transition = `transform ${ROSTER_DRAG_ANIM_MS}ms ${ROSTER_DRAG_EASE}, opacity ${ROSTER_DRAG_ANIM_MS}ms ${ROSTER_DRAG_EASE}`;
+    s.card.style.transform = '';
+    setTimeout(() => {
+      s.card.classList.remove('is-settling');
+      s.card.style.transition = '';
+    }, ROSTER_DRAG_ANIM_MS + 60);
+  }
+
+  const newOrder = [...s.roster.querySelectorAll('.designer-card')].map((c) => c.dataset.designerId);
+  if (newOrder.join('|') === s.prevOrder.join('|')) return;
+  applyRosterOrder(s.person.studio, newOrder);
+  attemptRemoteRosterOrder(s.person.studio, newOrder, s.prevOrder);
+}
+
+/* Puts a studio's row back into `ids` order ON SCREEN, sliding (same FLIP)
+   rather than teleporting — the failure path uses this. Falls back to a full
+   re-render when the roster isn't in the DOM any more. */
+function animateRosterOrderOnScreen(studioKey, ids) {
+  const roster = document.querySelector(`.designers-panel[data-studio="${studioKey}"] .designer-roster`);
+  if (!roster) { renderDesigners(); return; }
+  const cards = [...roster.querySelectorAll('.designer-card')];
+  const byId = new Map(cards.map((c) => [c.dataset.designerId, c]));
+  const anchor = roster.querySelector('.designer-add-card') || null;
+  flipRosterCards(cards, () => {
+    ids.forEach((id) => {
+      const c = byId.get(id);
+      if (c) roster.insertBefore(c, anchor);
+    });
+  });
+}
+
+// reorders one studio's people inside designerRoster; other studios untouched
+// (display filters per studio, so their relative position is irrelevant)
+function applyRosterOrder(studioKey, ids) {
+  const others = designerRoster.filter((d) => d.studio !== studioKey);
+  const mine = ids.map((id) => designerRoster.find((d) => d.id === id)).filter(Boolean);
+  designerRoster = others.concat(mine);
+}
+
+/* Declined code = the order stays, locally (same silent fallback as every
+   other roster edit). A REJECTED or failed save reverts to where things
+   were — a shared order the DB refused should not keep pretending. */
+function attemptRemoteRosterOrder(studioKey, ids, prevOrder) {
+  const fallback = () => persistDesigners();
+  if (!window.LoomData || !LoomData.isConfigured()) return fallback();
+  // someone in the row only exists locally (unsaved 'designer-…' id): the DB
+  // cannot hold this order yet
+  if (ids.some((id) => !id || id.indexOf('designer-') === 0)) return fallback();
+  const code = getWriteCode();
+  if (!code) return fallback();
+  LoomData.submitRosterOrder(studioKey, ids, code).then((res) => {
+    if (res.ok) { clearLocalRosterStore(); return; }
+    if (res.invalidCode) forgetWriteCode();
+    console.warn('[Loom roster] order not saved — reverting:', res.message || res.reason);
+    applyRosterOrder(studioKey, prevOrder);
+    // back the way it came — sliding, not teleporting
+    animateRosterOrderOnScreen(studioKey, prevOrder);
+  });
+}
+
 function attemptRemoteRosterRemove(person) {
   const fallback = () => persistDesigners();
   if (!window.LoomData || !LoomData.isConfigured()) return fallback();
@@ -10675,6 +10906,7 @@ function buildDesignerCard(person, studio) {
   const card = document.createElement('div');
   card.className = 'designer-card' + (selectedAuthor === person.name ? ' is-active' : '') + (editable ? ' is-editing' : '');
   card.dataset.designerId = person.id;
+  if (editable) initDesignerDrag(card, person); // reorder by drag, edit mode only
   card.style.setProperty('--studio-color', studio.color);
   card.style.setProperty('--studio-tint', hexToRgba(studio.color, 0.12));
 
