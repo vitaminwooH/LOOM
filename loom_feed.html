@@ -699,7 +699,12 @@
      anywhere reads as a page rather than a place. It comes back as a footer:
      centred, serif, small, at the very bottom. Signature, not navigation.
      Floor 1 doesn't get one — the cover carries nothing but image and title. */
-  .brand-footer {
+  /* One wordmark voice, one rule: the plain floor footer and the Threads
+     footer mark both render from this, so they cannot drift apart again —
+     the Threads one used to carry its own 13px / 0.42em / uppercase copy
+     and read as a different face entirely. */
+  .brand-footer,
+  .threads-footer-mark {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
     font-size: 15px;
@@ -707,6 +712,8 @@
     text-indent: 0.3em; /* balances the tracking on the last letter */
     color: var(--ink-faint);
     user-select: none;
+  }
+  .brand-footer {
     opacity: 0;
     transform: translateY(6px);
     pointer-events: none;
@@ -1557,6 +1564,38 @@
   /* On a poster the page sits high, clear of the title block over the scrim at
      the foot; on the wide banner and in a detail it can simply centre. */
   .poster-card .card-media.has-image.is-doc { background-position: center 34%; }
+  /* ---------- a document on the HERO ----------
+     A page `contain`ed against flat white across a full viewport reads as a
+     rendering mistake — mostly letterbox, with the scrim text lost on it. On
+     the hero a document gets a stage instead: a deep navy ground tinted with
+     the card's own studio colour (the lobby's nebula tone — --studio-ink is
+     set by applyCardMedia), and the page itself as an object in the upper
+     right, kept at its own ratio and lifted off the ground by a shadow. The
+     title owns the lower left, so the two never meet. Photographs (cover)
+     are untouched, and the poster/detail document treatment above stays
+     exactly as it was. */
+  .hero-slide .card-media.has-image.is-doc {
+    overflow: hidden;
+    background-size: cover; /* the ground below, not the page — see ::after */
+    background-image:
+      radial-gradient(115% 125% at 72% 16%,
+        color-mix(in srgb, var(--studio-ink, #378ADD) 44%, #0a0f26) 0%,
+        color-mix(in srgb, var(--studio-ink, #378ADD) 15%, #0a0f26) 48%,
+        #070b1e 100%);
+  }
+  .hero-slide .card-media.has-image.is-doc::after {
+    content: '';
+    position: absolute;
+    top: clamp(28px, 9vh, 84px);
+    bottom: clamp(120px, 30vh, 300px); /* stays clear of the title block */
+    left: 52%;
+    right: clamp(28px, 6vw, 96px);
+    background-image: var(--card-img);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center top;
+    filter: drop-shadow(0 26px 56px rgba(4, 8, 24, 0.55));
+  }
   .card-media.has-image .card-media-icon { display: none; }
   .card-media:not(.has-image) .card-media-badge { display: none; }
   /* No image: the type mark stops being the subject of the card.
@@ -3602,14 +3641,8 @@
     letter-spacing: 0.015em;
     color: var(--ink-faint);
   }
-  .threads-footer-mark {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.42em;
-    text-transform: uppercase;
-    color: rgba(28, 28, 30, 0.22);
-  }
+  /* .threads-footer-mark's type lives in the shared wordmark rule next to
+     .brand-footer (top of the stylesheet) — one voice, on purpose. */
   /* Width and height are stated outright, and that matters more than it looks.
 
      An <svg> with no width/height attributes takes its intrinsic size from its
@@ -9458,6 +9491,9 @@ function applyCardMedia(mediaEl, imagePath, color, focal, opts) {
   // frame the image first paints.
   mediaEl.style.backgroundPosition = focal ? focalPointCss(focal) : '';
   mediaEl.style.setProperty('--card-bloom', mediaGradient(color));
+  // The studio's colour as a custom property, for CSS that stages the media
+  // in studio tones (the hero's document treatment tints its ground with it).
+  mediaEl.style.setProperty('--studio-ink', color);
   mediaEl.classList.remove('has-image');
   mediaEl.classList.remove('is-doc');
   mediaEl.style.removeProperty('background-color');
@@ -12075,6 +12111,19 @@ function applyHeroTone(slide, data) {
   slide.dataset.toneBottom = openQ ? TONE_LIGHT : TONE_DARK;
   if (openQ || !data.image) return;
 
+  /* A document slide is staged on the deep studio-tinted ground (see the
+     .is-doc hero CSS), so every corner of it is dark BY CONSTRUCTION —
+     measuring the image would sample the white page and hand the chrome
+     exactly the wrong answer. Photographs keep the measured treatment. */
+  if (data.imageFit === 'contain') {
+    slide.dataset.toneTopLeft = TONE_DARK;
+    slide.dataset.toneTopRight = TONE_DARK;
+    slide.dataset.toneMid = TONE_DARK;
+    slide.dataset.toneBottom = TONE_DARK;
+    if (slide.classList.contains('is-active')) updateChrome();
+    return;
+  }
+
   // The cover fills the window, so its shape is the window's.
   measureImageTone(data.image, window.innerWidth / Math.max(1, window.innerHeight), data.imageFocal).then((tone) => {
     slide.dataset.toneTopLeft = tone.topLeft;
@@ -13505,6 +13554,12 @@ function deliverDemoReaction(cardId) {
    ====================================================================== */
 const UPDATE_STRIP_MAX = 8;
 
+/* Below this many cards in the whole pool, the strip is hidden entirely: with
+   a handful of cards it repeats the same few lines on every floor, which is
+   noise rather than the sound of the place being lived in. It comes back on
+   its own as soon as the pool crosses the line — nothing else to flip. */
+const NOW_STRIP_MIN_CARDS = 15;
+
 function updateCards() {
   return ALL_CARDS
     .filter(isUpdate)
@@ -13515,6 +13570,13 @@ function updateCards() {
 function renderNowStrip() {
   const strip = document.getElementById('nowStripRow');
   if (!strip) return;
+
+  // Whole strip (chips + empty line + "your turn") lives inside #nowStrip.
+  const wrap = document.getElementById('nowStrip');
+  const hidden = ALL_CARDS.length < NOW_STRIP_MIN_CARDS;
+  if (wrap) wrap.style.display = hidden ? 'none' : '';
+  if (hidden) return;
+
   const items = updateCards();
 
   strip.innerHTML = '';
@@ -15042,10 +15104,23 @@ function layoutThreads() {
 
   // The room the weave gets: centred, with a margin all round that the fit step
   // below normalises into rather than the simulation having to respect.
+  /* A handful of words needs its own rules, measured off the real seven-node
+     graph rather than guessed: one unlinked word (Character Animation) gets
+     pushed outward by repulsion for the whole run — its equilibrium against
+     the 0.012 centre pull is thousands of px away — while the six words tied
+     by eleven links collapse into one dense blob. The fit step below then
+     stretches that two-pole distribution so the EXTREMES touch the room's
+     corners, which is precisely the isolate-in-one-corner / blob-in-the-other
+     screen this replaces. So under a dozen words: a smaller room, the
+     simulation clamped inside it (the isolate stops at the wall instead of
+     flying), and NO stretch afterwards. Twelve words and up run the exact
+     code they always did. */
+  const SMALL_WEAVE = nodes.length < 12;
+  const fill = SMALL_WEAVE ? Math.max(0.45, Math.sqrt(nodes.length / 12)) : 1;
   const cx = w / 2;
   const cy = h / 2;
-  const rx = w * 0.435;
-  const ry = h * 0.415;
+  const rx = w * 0.435 * fill;
+  const ry = h * 0.415 * fill;
 
   const deg = {};
   nodes.forEach((n) => { deg[n.key] = 0; });
@@ -15109,6 +15184,17 @@ function layoutThreads() {
       const step = Math.min(f, temp);
       n.x += (n.fx / f) * step;
       n.y += (n.fy / f) * step;
+      // Small weave: nobody leaves the room. Repulsion would carry an
+      // unlinked word outward for all 420 iterations otherwise (measured:
+      // its balance point is off the page entirely).
+      if (SMALL_WEAVE) {
+        const ddx = n.x - cx, ddy = n.y - cy;
+        const fEllipse = Math.hypot(ddx / rx, ddy / ry);
+        if (fEllipse > 1) {
+          n.x = cx + ddx / fEllipse;
+          n.y = cy + ddy / fEllipse;
+        }
+      }
     });
     temp *= 0.9885;
   }
@@ -15125,6 +15211,19 @@ function layoutThreads() {
   });
   const spanX = Math.max(1, maxX - minX);
   const spanY = Math.max(1, maxY - minY);
+  /* Small weave: no stretch. The clamp above already kept everything in the
+     (reduced) room, and scaling a two-pole distribution to touch the room's
+     corners is what scattered seven words in the first place. Recentre the
+     group as a whole and stop. */
+  if (SMALL_WEAVE) {
+    const shiftX = cx - (minX + spanX / 2);
+    const shiftY = cy - (minY + spanY / 2);
+    nodes.forEach((n) => {
+      n.x += shiftX;
+      n.y += shiftY;
+      n.homeX = n.x; n.homeY = n.y;
+    });
+  } else {
   let scaleX = (rx * 2) / spanX;
   let scaleY = (ry * 2) / spanY;
   /* 1.7, not 1.35. The simulation settles into a roughly round cloud, and on a
@@ -15142,6 +15241,7 @@ function layoutThreads() {
     n.y = cy + (n.y - (minY + spanY / 2)) * scaleY;
     n.homeX = n.x; n.homeY = n.y;
   });
+  }
 
   /* Now the only thing left is type collision, which the simulation knows
      nothing about — it was placing points, and these are words. Separation is a
@@ -16973,9 +17073,22 @@ function commitSeedCardEdit(id, title, body) {
 // has to rebuild all three or two of them quietly disagree with the third.
 function rebuildAllSurfaces() {
   ALL_CARDS = buildAllCards();
+  /* Notifications resolve against ALL_CARDS (a row whose card is gone renders
+     as nothing), so the badge has to be re-read whenever the card source
+     changes: the boot render happens against the seed fallback, and a count
+     computed there — five demo rows pointing at demo cards — would otherwise
+     sit in the corner all session after the remote list replaced them. Once
+     the remote list is live, a stored row pointing at a card that exists
+     nowhere any more is dead for good, so it leaves storage too. */
+  if (remoteCards) {
+    const before = notifications.length;
+    notifications = notifications.filter((n) => cardById(n.cardId));
+    if (notifications.length !== before) persistNotifications();
+  }
   renderDiscover();
   renderBrowse();
   renderQuestions();
+  renderNotificationIndicator();
 }
 
 /* ---- hand the composed card to the gallery itself — no page, no reload ---- */
