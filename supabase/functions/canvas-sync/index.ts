@@ -29,10 +29,21 @@
    it into the canvas → documented_by (falls back to the bracket person).
 
    Secrets (Dashboard → Edge Functions → Secrets; never in this repo):
-     SLACK_BOT_TOKEN, SLACK_CANVAS_ID, CANVAS_SYNC_SECRET
+     SLACK_BOT_TOKEN, SLACK_CANVAS_ID, CANVAS_SYNC_SECRET, GEMINI_API_KEY
    SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected by the platform and
    used only to call the sync RPC (and to read existing card titles for
    lineage resolution) — the browser-side RLS lockdown is untouched.
+
+   v3 — Gemini enrichment (keywords + ko/de/tr translations):
+   Canvas authors only write; keywords and translations are generated at
+   sync time, one Gemini call per card, processed SEQUENTIALLY so a keyword
+   chosen for an earlier card is already in the vocabulary offered to the
+   next one (Threads exists so both studios end up on the same words).
+   Every Gemini failure is isolated and reported — a dead Gemini can cost
+   keywords and translations, never the sync itself. Dry runs call Gemini
+   too, so quality can be checked before anything is written.
+   { "mode": "sync", "refresh": true } updates existing canvas cards in
+   place (deterministic ids make this safe) — the retro-fill path.
    ============================================================================ */
 
 const SLACK_API = 'https://slack.com/api';
@@ -456,15 +467,152 @@ async function fetchExistingTitles(url: string, serviceKey: string) {
   return await res.json() as { id: string; title: string | null }[];
 }
 
-async function callSyncRpc(url: string, serviceKey: string, cards: unknown[], purge: boolean) {
+async function callSyncRpc(url: string, serviceKey: string, cards: unknown[], purge: boolean, refresh: boolean) {
   const res = await fetch(`${url}/rest/v1/rpc/canvas_sync_upsert`, {
     method: 'POST',
     headers: supabaseHeaders(serviceKey),
-    body: JSON.stringify({ cards, purge }),
+    body: JSON.stringify({ cards, purge, refresh }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(`canvas_sync_upsert failed: ${JSON.stringify(json)}`);
   return json;
+}
+
+async function fetchKeywordVocabulary(url: string, serviceKey: string) {
+  const res = await fetch(`${url}/rest/v1/knowledge_items?select=keywords`, {
+    headers: supabaseHeaders(serviceKey),
+  });
+  if (!res.ok) throw new Error(`reading keyword vocabulary failed: HTTP ${res.status}`);
+  const rows = await res.json() as { keywords: string[] }[];
+  // lowercase → the exact spelling already in use (first seen wins); handing
+  // Gemini — and the normaliser below — one canonical spelling per word is
+  // what keeps Threads' case-folded grouping intact
+  const vocab = new Map<string, string>();
+  for (const row of rows) {
+    for (const kw of row.keywords || []) {
+      const key = kw.toLowerCase();
+      if (!vocab.has(key)) vocab.set(key, kw);
+    }
+  }
+  return vocab;
+}
+
+/* ---- Gemini enrichment (keywords + ko/de/tr) --------------------------------
+   One call per card returns {"keywords": [...], "ko": {...}, "de": {...},
+   "tr": {...}}. The model is asked to prefer the existing vocabulary; the
+   code below enforces it regardless (case-insensitive match → existing
+   spelling, ≤3 keywords, ≤40 chars — the submit_card limits). */
+// gemini-2.5-flash returns 404 for keys issued after its retirement — the
+// error message itself names this successor.
+const GEMINI_MODEL = 'gemini-3.6-flash';
+const GEMINI_TIMEOUT_MS = 30_000;
+const TRANSLATION_LANGS = ['ko', 'de', 'tr'] as const;
+
+function buildGeminiPrompt(enBlock: Record<string, unknown>, vocab: Map<string, string>) {
+  // attachments are file references, not prose — excluded from what Gemini sees
+  const { attachments: _a, ...textBlock } = enBlock as Record<string, unknown>;
+  const vocabList = [...vocab.values()];
+  return [
+    'You enrich one knowledge card of a shared game-studio knowledge base.',
+    'Return ONLY a JSON object: {"keywords": [...], "ko": {...}, "de": {...}, "tr": {...}}',
+    '',
+    'keywords: 1 to 3 short topical keywords for this card, each at most 40 characters.',
+    vocabList.length
+      ? 'Existing vocabulary — reuse one of these (exact spelling) ONLY when it genuinely describes THIS card; ' +
+        'never attach an existing keyword just to reuse it. Invent a new keyword for a genuinely new topic:\n' +
+        vocabList.map((v) => '- ' + v).join('\n')
+      : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse.',
+    '',
+    'ko / de / tr: translate the card block below into Korean, German and Turkish.',
+    'Return the SAME keys as the input block; string values stay strings, arrays of strings stay arrays of the same length.',
+    'Style: concise internal studio documentation, no added politeness or flourish.',
+    'Keep technical terms in English (e.g. Slack pipeline, self-QA, n8n, thread root, fail-open).',
+    'Example of the expected Korean tone: "Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+    '',
+    'Card block (en):',
+    JSON.stringify(textBlock),
+  ].join('\n');
+}
+
+async function callGeminiOnce(apiKey: string, prompt: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
+        }),
+        signal: controller.signal,
+      },
+    );
+    if (!res.ok) throw new Error(`gemini HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const json = await res.json();
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('gemini returned no text part');
+    return JSON.parse(text);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// One retry after a short pause, for exactly the failures seen in practice:
+// 503 (model overloaded) and the timeout abort. Anything else fails fast.
+async function callGemini(apiKey: string, prompt: string) {
+  try {
+    return await callGeminiOnce(apiKey, prompt);
+  } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err);
+    const transient = msg.includes('HTTP 503') || msg.includes('HTTP 429') || msg.toLowerCase().includes('abort');
+    if (!transient) throw err;
+    await new Promise((r) => setTimeout(r, 3000));
+    return await callGeminiOnce(apiKey, prompt);
+  }
+}
+
+// enforce the keyword rules no matter what the model returned, and register
+// accepted keywords in the vocabulary so the NEXT card is offered them
+function normalizeKeywords(raw: unknown, vocab: Map<string, string>): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const t = item.trim();
+    if (!t || t.length > 40) continue;
+    const canonical = vocab.get(t.toLowerCase()) ?? t;
+    if (out.some((k) => k.toLowerCase() === canonical.toLowerCase())) continue;
+    out.push(canonical);
+    if (out.length === 3) break;
+  }
+  for (const k of out) if (!vocab.has(k.toLowerCase())) vocab.set(k.toLowerCase(), k);
+  return out;
+}
+
+/* A translated block is adopted only when it mirrors the en block exactly:
+   same keys, strings for strings, same-length string arrays for arrays.
+   attachments are copied verbatim (file references don't translate). */
+function validateTranslation(en: Record<string, unknown>, cand: unknown): Record<string, unknown> | null {
+  if (!cand || typeof cand !== 'object' || Array.isArray(cand)) return null;
+  const c = cand as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(en)) {
+    if (key === 'attachments') continue;
+    const v = en[key];
+    const t = c[key];
+    if (typeof v === 'string') {
+      if (typeof t !== 'string' || !t.trim()) return null;
+      out[key] = t;
+    } else if (Array.isArray(v)) {
+      if (!Array.isArray(t) || t.length !== v.length || !t.every((s) => typeof s === 'string')) return null;
+      out[key] = t;
+    }
+  }
+  if (en.attachments) out.attachments = en.attachments;
+  return out;
 }
 
 /* ---- handler ----------------------------------------------------------------- */
@@ -495,10 +643,12 @@ Deno.serve(async (req: Request) => {
   // mode comes from the POST body; anything but an explicit sync is a dry run
   let mode = 'dry';
   let purge = false;
+  let refresh = false;
   try {
     const body = await req.json();
     if (body && body.mode === 'sync') mode = 'sync';
     if (body && body.purge === true) purge = true;
+    if (body && body.refresh === true) refresh = true;
   } catch (_) { /* empty body → dry run */ }
 
   try {
@@ -513,24 +663,60 @@ Deno.serve(async (req: Request) => {
     const existing = await fetchExistingTitles(supabaseUrl, serviceKey);
     const lineage = resolveLineage(cards, existing);
 
+    /* Gemini enrichment — sequential on purpose (keyword consistency), and
+       every failure is contained: a card that Gemini fails keeps keywords []
+       and its en block only, and the sync still runs. Dry runs enrich too,
+       so the preview shows exactly what sync would store. */
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const enrichment = {
+      enabled: !!geminiKey,
+      model: GEMINI_MODEL,
+      gemini_failed: [] as { id: string; reason: string }[],
+      translation_failed: [] as { id: string; lang: string }[],
+    };
+    if (geminiKey && cards.length) {
+      const vocab = await fetchKeywordVocabulary(supabaseUrl, serviceKey);
+      for (const c of cards) {
+        const en = (c.body as Record<string, Record<string, unknown>>).en;
+        try {
+          const res = await callGemini(geminiKey, buildGeminiPrompt(en, vocab));
+          c.keywords = normalizeKeywords(res.keywords, vocab);
+          for (const lang of TRANSLATION_LANGS) {
+            const block = validateTranslation(en, res[lang]);
+            if (block) (c.body as Record<string, unknown>)[lang] = block;
+            else enrichment.translation_failed.push({ id: c.id, lang });
+          }
+        } catch (err) {
+          enrichment.gemini_failed.push({
+            id: c.id,
+            reason: String(err instanceof Error ? err.message : err).slice(0, 300),
+          });
+        }
+      }
+    }
+
     const cardSummaries = cards.map((c) => ({
       id: c.id, type: c.type, studio: c.studio, title: c.title,
       created_at: c.created_at,
       shared_by: c.shared_by, documented_by: c.documented_by,
       derived_from: c.derived_from, relation_type: c.relation_type,
       status: c.status,
+      keywords: c.keywords,
+      body: c.body, // en + whatever translations were adopted
     }));
 
     let report = null;
     if (mode === 'sync') {
       const rows = cards.map(({ title: _t, relatedRaw: _rel, relationRaw: _rl, ...row }) => row);
-      report = await callSyncRpc(supabaseUrl, serviceKey, rows, purge);
+      report = await callSyncRpc(supabaseUrl, serviceKey, rows, purge, refresh);
     }
 
     return jsonResponse(200, {
       mode,
       dryRun: mode !== 'sync',
       purgeRequested: purge && mode === 'sync',
+      refreshRequested: refresh && mode === 'sync',
+      enrichment,
       canvas: { id: canvasId, title },
       counts: {
         blocks: parsed.length,
