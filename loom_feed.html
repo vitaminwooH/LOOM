@@ -2923,6 +2923,18 @@
     color: rgba(28, 28, 30, 0.78);
     white-space: pre-wrap;
   }
+  /* Attachment lines under the body sections — same prose voice as the
+     paragraphs above; only a link underline on hover marks the openable ones. */
+  .attachment-line {
+    display: block;
+    margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(28, 28, 30, 0.78);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  a.attachment-line:hover { text-decoration: underline; }
 
   .expanded-footer {
     margin-top: 22px;
@@ -6208,6 +6220,7 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Search knowledge',
       writeCodePrompt: 'Enter the shared write code to save this card to the shared Loom.\nLeave empty to keep it on this device only.',
+      attachmentsLabel: 'Attachments',
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
@@ -6735,6 +6748,7 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: '지식 검색',
       writeCodePrompt: '공유 저장 코드를 입력하면 이 카드가 공동 Loom에 저장됩니다.\n비워두면 이 기기에만 남습니다.',
+      attachmentsLabel: '첨부',
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
@@ -7218,6 +7232,7 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
       writeCodePrompt: 'Gib den gemeinsamen Schreibcode ein, um die Karte im geteilten Loom zu speichern.\nLeer lassen, um sie nur auf diesem Gerät zu behalten.',
+      attachmentsLabel: 'Anhänge',
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
@@ -7701,6 +7716,7 @@ const TRANSLATIONS = {
     ui: {
       searchPlaceholder: 'Bilgi ara',
       writeCodePrompt: 'Kartı ortak Loom’a kaydetmek için paylaşılan yazma kodunu girin.\nBoş bırakılırsa yalnızca bu cihazda kalır.',
+      attachmentsLabel: 'Ekler',
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
@@ -13963,6 +13979,31 @@ function renderBodySections(wrap, data, text) {
     section.appendChild(p);
     wrap.appendChild(section);
   });
+
+  /* Attachments — files that came with the canvas entry (see canvas-sync).
+     Entries with a url open in a new tab (originals load only on click, so
+     the feed never pays their egress); label-only entries render as text. */
+  const files = Array.isArray(data.attachments) ? data.attachments : [];
+  if (files.length) {
+    const section = document.createElement('div');
+    section.className = 'expanded-section';
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = t().attachmentsLabel;
+    section.appendChild(label);
+    files.forEach((f) => {
+      const line = document.createElement(f.url ? 'a' : 'p');
+      line.className = 'attachment-line';
+      line.textContent = '📎 ' + (f.label || f.name || f.url || '');
+      if (f.url) {
+        line.href = f.url;
+        line.target = '_blank';
+        line.rel = 'noopener';
+      }
+      section.appendChild(line);
+    });
+    wrap.appendChild(section);
+  }
 }
 
 function resetDeleteConfirm() {

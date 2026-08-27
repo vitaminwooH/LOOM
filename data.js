@@ -112,6 +112,9 @@ const LoomData = (function () {
       imageFit: (img && img.fit) || undefined,
       imageBg: (img && img.bg) || undefined,
       imageFocal: (img && img.focal) || undefined,
+      // resolved canvas attachments: [{label, url?, bytes?, mime?}] — files
+      // live in the public Storage bucket, label-only entries stay as text
+      attachments: row.attachments || [],
       relatedTo: row.related_to || [],
       derivedFrom: row.derived_from || null,
       derivedRelation: row.relation_type || undefined,

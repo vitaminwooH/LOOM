@@ -46,6 +46,8 @@
    place (deterministic ids make this safe) — the retro-fill path.
    ============================================================================ */
 
+import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+
 const SLACK_API = 'https://slack.com/api';
 
 /* ---- template vocabulary -------------------------------------------------- */
@@ -290,6 +292,14 @@ function resolvePersonRef(name: string, studio: string): PersonRef {
   return alias ? { id: alias } : { name, studio };
 }
 
+interface AttachmentEntry {
+  label: string;      // author's text or the real filename
+  url?: string;       // public Storage URL (absent: label-only line or >20MB)
+  bytes?: number;
+  mime?: string;
+  slackId?: string;
+}
+
 interface CardRow {
   id: string;
   type: string;
@@ -303,6 +313,8 @@ interface CardRow {
   body: Record<string, unknown>;
   source_lang: string;
   conversation: unknown[] | null;
+  image: Record<string, unknown> | null;        // PDF cover, filled by storage pass
+  attachments: AttachmentEntry[] | null;        // resolved files, filled by storage pass
   created_at: string;
   // carried alongside for the report / lineage pass, not inserted as-is
   title: string;
@@ -385,7 +397,9 @@ function buildCards(entries: ParsedEntry[]) {
       documented_by: documentedBy,
       derived_from: null, relation_type: null, // filled by the lineage pass
       body: { en: bodyBlock }, source_lang: 'en',
-      conversation, created_at: created.toISOString(),
+      conversation,
+      image: null, attachments: null,          // filled by the storage pass
+      created_at: created.toISOString(),
       title: e.title,
       relatedRaw: (e.fields.related || '').trim() || null,
       relationRaw: (e.fields.relation || '').trim() || null,
@@ -458,13 +472,19 @@ function supabaseHeaders(serviceKey: string) {
   };
 }
 
-async function fetchExistingTitles(url: string, serviceKey: string) {
+/* id + title for lineage resolution, plus stored keywords and translation
+   blocks so a refresh can REUSE enrichment instead of regenerating it —
+   a Gemini failure must never cost a card the translations it already has. */
+async function fetchExistingCards(url: string, serviceKey: string) {
   const res = await fetch(
-    `${url}/rest/v1/knowledge_items?select=id,title:body->en->>title`,
+    `${url}/rest/v1/knowledge_items?select=id,title:body->en->>title,keywords,ko:body->ko,de:body->de,tr:body->tr`,
     { headers: supabaseHeaders(serviceKey) },
   );
   if (!res.ok) throw new Error(`reading existing cards failed: HTTP ${res.status}`);
-  return await res.json() as { id: string; title: string | null }[];
+  return await res.json() as {
+    id: string; title: string | null; keywords: string[] | null;
+    ko: Record<string, unknown> | null; de: Record<string, unknown> | null; tr: Record<string, unknown> | null;
+  }[];
 }
 
 async function callSyncRpc(url: string, serviceKey: string, cards: unknown[], purge: boolean, refresh: boolean) {
@@ -615,6 +635,75 @@ function validateTranslation(en: Record<string, unknown>, cand: unknown): Record
   return out;
 }
 
+/* ---- attachment storage + PDF covers ----------------------------------------
+   📎 lines carrying a Slack file id (sf:F… / F…) are downloaded with the bot
+   token and re-hosted in the public `attachments` bucket, at a DETERMINISTIC
+   path (<card_id>/<file_id>-<name>) — uploading with x-upsert:false makes a
+   repeat sync a no-op (409 → 'exists'), so refresh runs are idempotent.
+   Slack renders a first-page thumbnail for PDFs (thumb_pdf); the first PDF's
+   thumbnail becomes the card cover, resized to ≤800px JPEG so the feed never
+   pays original-PDF egress. Lines without a file id keep their text (and a
+   bare URL when one is present). One failed file never fails the card. */
+const STORAGE_BUCKET = 'attachments';
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const COVER_MAX_EDGE = 800;
+const SLACK_FILE_ID_RE = /\b(?:sf:)?(F[A-Z0-9]{8,})\b/;
+
+function sanitizeFilename(name: string): string {
+  const safe = (name || '').replace(/[^\w.\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+  return safe || 'file';
+}
+
+function publicStorageUrl(supabaseUrl: string, path: string): string {
+  return `${supabaseUrl}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+}
+
+async function uploadToStorage(
+  supabaseUrl: string, serviceKey: string, path: string,
+  bytes: ArrayBuffer | Uint8Array, contentType: string,
+): Promise<'uploaded'> {
+  /* Multipart with an explicit cacheControl field — the raw-body upload
+     ignored the cache-control header and stored `no-cache`, which put every
+     cover view back on the egress meter. Deterministic, content-fixed paths
+     → a year of caching is safe. x-upsert on purpose: re-uploading the same
+     bytes is how existing objects pick up corrected metadata on a refresh. */
+  const form = new FormData();
+  form.append('cacheControl', '31536000');
+  form.append('', new Blob([bytes as BlobPart], { type: contentType || 'application/octet-stream' }), path.split('/').pop());
+  const res = await fetch(`${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      // apikey AND Authorization, like every other Supabase call here — the
+      // gateway rejects the injected service key without the apikey header
+      // ("Invalid Compact JWS")
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'x-upsert': 'true',
+    },
+    body: form,
+  });
+  if (res.ok) return 'uploaded';
+  const text = await res.text();
+  throw new Error(`storage upload ${path}: HTTP ${res.status} ${text.slice(0, 150)}`);
+}
+
+async function downloadSlackFile(token: string, url: string): Promise<ArrayBuffer> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`slack file download failed: HTTP ${res.status}`);
+  return await res.arrayBuffer();
+}
+
+// Slack's thumb_pdf (PNG of page 1) → ≤800px JPEG for the card cover
+async function makeCoverJpeg(source: ArrayBuffer): Promise<Uint8Array> {
+  const img = await Image.decode(new Uint8Array(source));
+  const long = Math.max(img.width, img.height);
+  if (long > COVER_MAX_EDGE) {
+    const scale = COVER_MAX_EDGE / long;
+    img.resize(Math.round(img.width * scale), Math.round(img.height * scale));
+  }
+  return await img.encodeJPEG(80);
+}
+
 /* ---- Slack notification + slash command ------------------------------------
    Two ways a sync can be asked for besides a manual curl:
      - pg_cron (db/0008): header-secret path with {"mode":"sync","notify":true}
@@ -665,6 +754,8 @@ function summarizeForSlack(payload: Record<string, unknown>): string {
   if (enrichment.gemini_failed.length) parts.push(`⚠️ gemini failed: ${enrichment.gemini_failed.length}`);
   if (enrichment.translation_failed.length) parts.push(`⚠️ translations missing: ${enrichment.translation_failed.length}`);
   if (lineage.unresolved.length) parts.push(`⚠️ unresolved Related: ${lineage.unresolved.length}`);
+  const storage = payload.storage as { failed: unknown[] } | undefined;
+  if (storage && storage.failed.length) parts.push(`⚠️ attachments failed: ${storage.failed.length}`);
   return parts.join('\n');
 }
 
@@ -705,8 +796,9 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
     // are always inserted before their children
     cards.sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-    const existing = await fetchExistingTitles(supabaseUrl, serviceKey);
+    const existing = await fetchExistingCards(supabaseUrl, serviceKey);
     const lineage = resolveLineage(cards, existing);
+    const existingById = new Map(existing.map((row) => [row.id, row]));
 
     /* Gemini enrichment — ONLY for cards this run will actually write:
        everything under purge/refresh, otherwise just the ids the DB does not
@@ -719,20 +811,41 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
        refresh preview needs {"refresh": true} in the dry body too. */
     const geminiKey = Deno.env.get('GEMINI_API_KEY');
     const existingIds = new Set(existing.map((row) => row.id));
-    const enrichTargets = (purge || refresh)
+    // the cards this run will actually write — enrichment AND the storage
+    // pass below both scope to these
+    const writeTargets = (purge || refresh)
       ? cards
       : cards.filter((c) => !existingIds.has(c.id));
+    const enrichTargets = writeTargets;
     const enrichment = {
       enabled: !!geminiKey,
       model: GEMINI_MODEL,
       scope: purge || refresh ? 'all' : 'new-only',
       enriched: 0,
+      reused: 0, // refresh targets that kept their stored keywords/translations
       gemini_failed: [] as { id: string; reason: string }[],
       translation_failed: [] as { id: string; lang: string }[],
     };
     if (geminiKey && enrichTargets.length) {
       const vocab = await fetchKeywordVocabulary(supabaseUrl, serviceKey);
       for (const c of enrichTargets) {
+        /* Already-enriched cards keep what they have — regenerating would
+           reshuffle keyword spellings at best and, on a Gemini failure
+           (quota days exist), overwrite stored translations with nothing.
+           Gemini runs only for cards that have no enrichment yet. */
+        const stored = existingById.get(c.id);
+        if (stored && ((stored.keywords || []).length || stored.ko || stored.de || stored.tr)) {
+          c.keywords = stored.keywords || [];
+          const bodyRef = c.body as Record<string, unknown>;
+          if (stored.ko) bodyRef.ko = stored.ko;
+          if (stored.de) bodyRef.de = stored.de;
+          if (stored.tr) bodyRef.tr = stored.tr;
+          for (const k of c.keywords) {
+            if (!vocab.has(k.toLowerCase())) vocab.set(k.toLowerCase(), k);
+          }
+          enrichment.reused++;
+          continue;
+        }
         const en = (c.body as Record<string, Record<string, unknown>>).en;
         try {
           const res = await callGemini(geminiKey, buildGeminiPrompt(en, vocab));
@@ -753,6 +866,78 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
       }
     }
 
+    /* Storage pass — same write-target scope as enrichment. In dry mode this
+       goes as far as files.info (read-only planning: names, sizes, which PDF
+       becomes the cover) and uploads nothing. */
+    const storage = {
+      mode: mode === 'sync' ? 'executed' : 'planned',
+      files: [] as { card: string; name: string; bytes?: number; mime?: string; action: string; url?: string }[],
+      covers: [] as { card: string; action: string; url?: string }[],
+      failed: [] as { card: string; item: string; reason: string }[],
+    };
+    for (const c of writeTargets) {
+      const raw = ((c.body as Record<string, Record<string, unknown>>).en.attachments as string[] | undefined) || [];
+      if (!raw.length) continue;
+      const resolved: AttachmentEntry[] = [];
+      let coverDone = false;
+      for (const line of raw) {
+        try {
+          const m = line.match(SLACK_FILE_ID_RE);
+          if (!m) {
+            // not a Slack file — keep the author's text (and a bare URL if present)
+            const urlMatch = line.match(/https?:\/\/\S+/);
+            resolved.push(urlMatch ? { label: line, url: urlMatch[0] } : { label: line });
+            continue;
+          }
+          const fileId = m[1];
+          const info = await slackGet(`files.info?file=${encodeURIComponent(fileId)}`, token);
+          const f = info.file;
+          const name = sanitizeFilename(f.name || fileId);
+          if ((f.size || 0) > MAX_ATTACHMENT_BYTES) {
+            storage.files.push({ card: c.id, name, bytes: f.size, mime: f.mimetype, action: 'skipped_too_large' });
+            resolved.push({ label: f.name || line, bytes: f.size, mime: f.mimetype, slackId: fileId });
+            continue;
+          }
+          const path = `${c.id}/${fileId}-${name}`;
+          const url = publicStorageUrl(supabaseUrl, path);
+          if (mode === 'sync') {
+            const data = await downloadSlackFile(token, f.url_private_download || f.url_private);
+            const action = await uploadToStorage(supabaseUrl, serviceKey, path, data, f.mimetype);
+            storage.files.push({ card: c.id, name, bytes: f.size, mime: f.mimetype, action, url });
+          } else {
+            storage.files.push({ card: c.id, name, bytes: f.size, mime: f.mimetype, action: 'planned', url });
+          }
+          resolved.push({ label: f.name || line, url, bytes: f.size, mime: f.mimetype, slackId: fileId });
+
+          // cover: the first PDF with Slack's first-page thumbnail
+          if (!coverDone && !c.image && f.mimetype === 'application/pdf' && f.thumb_pdf) {
+            const coverPath = `${c.id}/cover.jpg`;
+            const coverUrl = publicStorageUrl(supabaseUrl, coverPath);
+            if (mode === 'sync') {
+              const thumb = await downloadSlackFile(token, f.thumb_pdf);
+              const jpeg = await makeCoverJpeg(thumb);
+              const action = await uploadToStorage(supabaseUrl, serviceKey, coverPath, jpeg, 'image/jpeg');
+              storage.covers.push({ card: c.id, action, url: coverUrl });
+            } else {
+              storage.covers.push({ card: c.id, action: 'planned', url: coverUrl });
+            }
+            c.image = { path: coverUrl, fit: 'contain', bg: '#ffffff' };
+            coverDone = true;
+          }
+        } catch (err) {
+          const reason = String(err instanceof Error ? err.message : err).slice(0, 200);
+          console.warn('[canvas-sync] storage failed for ' + c.id + ': ' + reason);
+          storage.failed.push({ card: c.id, item: line.slice(0, 80), reason });
+          // never lose the author's reference — and a cross-workspace file
+          // (access_denied on Slack Connect uploads from the other org) at
+          // least keeps its Slack URL, which channel members can open
+          const urlMatch = line.match(/https?:\/\/\S+/);
+          resolved.push(urlMatch ? { label: line, url: urlMatch[0] } : { label: line });
+        }
+      }
+      c.attachments = resolved;
+    }
+
     const cardSummaries = cards.map((c) => ({
       id: c.id, type: c.type, studio: c.studio, title: c.title,
       created_at: c.created_at,
@@ -760,6 +945,8 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
       derived_from: c.derived_from, relation_type: c.relation_type,
       status: c.status,
       keywords: c.keywords,
+      image: c.image,
+      attachments: c.attachments,
       body: c.body, // en + whatever translations were adopted
     }));
 
@@ -786,6 +973,7 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
       excluded,
       lineage,
       personNotes,
+      storage,
       report, // null on dry run; the RPC's inserted/skipped/purged on sync
       unparsable,
       ...(mode === 'dry' ? { preamble, parsed } : {}),
