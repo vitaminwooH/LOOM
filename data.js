@@ -141,6 +141,20 @@ const LoomData = (function () {
      (offline/failed): the caller keeps whatever roster it has. */
   let rosterCache = null;
 
+  function rowToDesigner(r) {
+    return {
+      id: r.id,
+      studio: r.studio_id,
+      name: r.name,
+      roleKey: r.role_key || '',
+      photo: r.photo_path || null,
+      photoPos: r.photo_pos || null,
+      workingOn: r.working_on || '',
+      canHelp: r.can_help || '',
+      links: r.links || {},
+    };
+  }
+
   async function loadRoster() {
     if (!isConfigured()) return null;
     if (rosterCache) return rosterCache;
@@ -158,21 +172,112 @@ const LoomData = (function () {
       if (!res.ok) return null;
       const rows = await res.json();
       if (!Array.isArray(rows)) return null;
-      rosterCache = rows.map((r) => ({
-        id: r.id,
-        studio: r.studio_id,
-        name: r.name,
-        roleKey: r.role_key || '',
-        photo: r.photo_path || null,
-        photoPos: r.photo_pos || null,
-        workingOn: r.working_on || '',
-        canHelp: r.can_help || '',
-        links: r.links || {},
-      }));
+      rosterCache = rows.map(rowToDesigner);
       return rosterCache;
     } catch (err) {
       console.warn('[Loom data] roster load failed:', err);
       return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* ---- roster writes ---------------------------------------------------------
+     Same contract as submitCard: never rejects, {ok:false, reason,
+     invalidCode?} on failure, caches updated on success so the screen can
+     re-render without refetching. Photos go through the roster-photo Edge
+     Function (anon cannot write Storage); text through the RPC. */
+
+  function rosterCachePut(designer) {
+    if (!rosterCache) return;
+    const i = rosterCache.findIndex((d) => d.id === designer.id);
+    if (i >= 0) rosterCache[i] = designer;
+    else rosterCache.push(designer);
+  }
+
+  async function rosterRpc(payload, code) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_roster_edit', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ payload: payload, code: code }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        const message = (json && json.message) || '';
+        return { ok: false, reason: 'rejected', invalidCode: /invalid code/i.test(message), message: message };
+      }
+      return { ok: true, row: json };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* Saves one designer (the editor's shape). id null/designer-… = create. */
+  async function submitRosterEdit(designer, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const payload = {
+      action: 'upsert',
+      // ids minted locally by the editor ('designer-…') are not persons ids —
+      // sending null lets the RPC create the canonical row
+      id: designer.id && designer.id.indexOf('designer-') !== 0 ? designer.id : null,
+      studio: designer.studio,
+      name: designer.name,
+      role: designer.role || designer.roleKey || '',
+      working_on: designer.workingOn || '',
+      can_help: designer.canHelp || '',
+      links: designer.links || {},
+      photo_pos: designer.photoPos || null,
+    };
+    const res = await rosterRpc(payload, code);
+    if (!res.ok) return res;
+    const saved = rowToDesigner(res.row);
+    rosterCachePut(saved);
+    return { ok: true, person: saved };
+  }
+
+  async function removeRosterPerson(id, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const res = await rosterRpc({ action: 'remove', id: id }, code);
+    if (!res.ok) return res;
+    if (rosterCache) rosterCache = rosterCache.filter(function (d) { return d.id !== id; });
+    return { ok: true };
+  }
+
+  /* Uploads a dataURL photo for an EXISTING person via the roster-photo
+     function; resolves {ok, photo_path} and updates the cache. */
+  async function uploadRosterPhoto(personId, dataUrl, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000); // an image is bigger than a row
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/roster-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, person_id: personId, image: dataUrl }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok || !json || !json.ok) {
+        const message = (json && json.error) || '';
+        return { ok: false, reason: res.status === 401 ? 'rejected' : 'failed', invalidCode: res.status === 401, message: message };
+      }
+      if (rosterCache) {
+        const p = rosterCache.find(function (d) { return d.id === personId; });
+        if (p) p.photo = json.photo_path;
+      }
+      return { ok: true, photo_path: json.photo_path };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
     } finally {
       clearTimeout(timer);
     }
@@ -315,7 +420,10 @@ const LoomData = (function () {
     return remoteLive;
   }
 
-  return { isConfigured, loadCards, loadRoster, hasRemote, submitCard };
+  return {
+    isConfigured, loadCards, hasRemote, submitCard,
+    loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto,
+  };
 })();
 
 // Explicit, because a top-level `const` never becomes a window property —

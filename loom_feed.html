@@ -1751,22 +1751,11 @@
   }
   .expanded-media.has-image .card-media-icon { display: none; }
   .expanded-media:not(.has-image) .card-media-badge { display: none; }
-  /* Document cover on the detail banner: the studio-tinted stage comes from
-     the shared rule up with the hero's (see .hero-slide … .is-doc); here the
-     page simply centres — the banner is short and carries no title. `cover`
-     was stretching an 800px page across the full banner width before this. */
-  .expanded-media.has-image.is-doc::after {
-    content: '';
-    position: absolute;
-    inset: 14px clamp(24px, 18vw, 260px);
-    background-image: var(--card-img);
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    filter: drop-shadow(0 12px 30px rgba(4, 8, 24, 0.45));
-  }
-  /* the type badge stays above the page object */
-  .expanded-media.has-image.is-doc .card-media-badge { z-index: 1; }
+  /* Document cover on the detail banner: the studio-tinted stage only (the
+     shared rule up with the hero's — .hero-slide … .is-doc). No page object
+     here, deliberately: the detail's ATTACHMENTS section already offers the
+     same PDF one scroll below, and the banner repeating it was clutter. On
+     the hero the page stays — there it is the information. */
 
   /* ---------- the two panes ----------
      Written on the left, received on the right — the same split the Question
@@ -8689,25 +8678,93 @@ function loadDesigners() {
 
 let designerRoster = loadDesigners();
 
-/* The shared roster now lives in the persons table (see data.js loadRoster);
+/* The shared roster lives in the persons table (see data.js loadRoster);
    DEFAULT_DESIGNERS above is the offline fallback, same standing as the seed
    cards. Loaded lazily on the first Designers open — the payload is a few KB
-   and nobody pays it who never visits the floor. A locally EDITED roster
-   stays the whole truth on this machine (the rule above), so remote only
-   ever replaces the seed; clearing loom_designers_v1 is how a machine with
-   stale local edits rejoins the shared roster. */
+   and nobody pays it who never visits the floor.
+
+   THE DB IS THE TRUTH: a fetched roster always takes the screen. The local
+   list (loom_designers_v1) is only this machine's holding pen for edits that
+   never reached the DB — declined code, offline — and the next successful
+   DB save clears it outright, so two quietly diverging rosters cannot
+   happen. Editor saves go through submit_roster_edit / roster-photo behind
+   the same shared write code the cards use. */
 let remoteRosterRequested = false;
 
 function initRemoteRoster() {
   if (remoteRosterRequested || !window.LoomData || !LoomData.isConfigured()) return;
   remoteRosterRequested = true;
-  let locallyEdited = false;
-  try { locallyEdited = localStorage.getItem(DESIGNERS_STORAGE_KEY) !== null; } catch (err) { /* blocked → seed */ }
-  if (locallyEdited) return;
   LoomData.loadRoster().then((people) => {
-    if (!people || !people.length) return; // unreachable/empty — keep the seed
+    if (!people || !people.length) return; // unreachable/empty — keep what we have
     designerRoster = people;
     renderDesigners();
+  });
+}
+
+function clearLocalRosterStore() {
+  try { localStorage.removeItem(DESIGNERS_STORAGE_KEY); } catch (err) { /* fine */ }
+}
+
+/* The editor's save, after the in-memory roster has been updated and the
+   screen re-rendered. Success = the DB row (possibly with a freshly minted
+   canonical id) replaces the local entry and the local store is cleared;
+   any failure = persistDesigners(), which is exactly the behaviour this
+   feature replaced — no visible difference. */
+function attemptRemoteRosterSave(person) {
+  const fallback = () => persistDesigners();
+  if (!window.LoomData || !LoomData.isConfigured()) return fallback();
+  const code = getWriteCode();
+  if (!code) return fallback();
+
+  // a data: photo is a local upload the RPC cannot carry — it rides after
+  const photoDataUrl = person.photo && person.photo.indexOf('data:') === 0 ? person.photo : null;
+
+  LoomData.submitRosterEdit(person, code).then((res) => {
+    if (!res.ok) {
+      if (res.invalidCode) forgetWriteCode();
+      console.warn('[Loom roster] edit kept on this device only:', res.message || res.reason);
+      return fallback();
+    }
+    const saved = res.person;
+    const idx = designerRoster.findIndex((d) => d === person || d.id === person.id);
+    if (idx >= 0) {
+      // keep the local photo (and crop) on screen until the upload lands
+      designerRoster[idx] = Object.assign({}, saved,
+        photoDataUrl ? { photo: person.photo, photoPos: person.photoPos } : {});
+    }
+    clearLocalRosterStore();
+    renderDesigners();
+
+    if (photoDataUrl) {
+      LoomData.uploadRosterPhoto(saved.id, photoDataUrl, code).then((pr) => {
+        if (!pr.ok) {
+          if (pr.invalidCode) forgetWriteCode();
+          console.warn('[Loom roster] photo kept on this device only:', pr.message || pr.reason);
+          persistDesigners(); // the dataURL survives locally until a retry
+          return;
+        }
+        const p = designerRoster.find((d) => d.id === saved.id);
+        if (p) { p.photo = pr.photo_path; renderDesigners(); }
+      });
+    }
+  });
+}
+
+function attemptRemoteRosterRemove(person) {
+  const fallback = () => persistDesigners();
+  if (!window.LoomData || !LoomData.isConfigured()) return fallback();
+  // an entry the DB never had (local-only 'designer-…' id): removing it
+  // locally is the whole job
+  if (!person.id || person.id.indexOf('designer-') === 0) return fallback();
+  const code = getWriteCode();
+  if (!code) return fallback();
+  LoomData.removeRosterPerson(person.id, code).then((res) => {
+    if (!res.ok) {
+      if (res.invalidCode) forgetWriteCode();
+      console.warn('[Loom roster] removal kept on this device only:', res.message || res.reason);
+      return fallback();
+    }
+    clearLocalRosterStore();
   });
 }
 
@@ -11111,8 +11168,9 @@ function saveDesignerFromEditor() {
   const studioKey = currentRosterStudio();
   if (!canEditRoster(studioKey)) return;
 
+  let person;
   if (editingDesignerId) {
-    const person = designerRoster.find((d) => d.id === editingDesignerId);
+    person = designerRoster.find((d) => d.id === editingDesignerId);
     if (person) {
       person.name = name;
       // Typed over a seeded designer: the free-text role replaces the
@@ -11127,7 +11185,7 @@ function saveDesignerFromEditor() {
       person.links = readEditorLinks();
     }
   } else {
-    designerRoster.push({
+    person = {
       id: 'designer-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
       studio: studioKey,
       name,
@@ -11137,12 +11195,14 @@ function saveDesignerFromEditor() {
       photo: editorPhotoUrl,
       photoPos: editorPhotoUrl ? Object.assign({}, editorPhotoPos) : null,
       links: readEditorLinks(),
-    });
+    };
+    designerRoster.push(person);
   }
 
-  persistDesigners();
   closeDesignerEditor();
   renderDesigners();
+  // DB first; persistDesigners() happens inside only as the failure fallback
+  if (person) attemptRemoteRosterSave(person);
 }
 
 function deleteDesignerFromEditor() {
@@ -11153,9 +11213,11 @@ function deleteDesignerFromEditor() {
   // are the studio's knowledge, not that person's entry in a directory.
   if (selectedAuthor === person.name) setAuthorFilter(null);
   designerRoster = designerRoster.filter((d) => d.id !== editingDesignerId);
-  persistDesigners();
   closeDesignerEditor();
   renderDesigners();
+  // DB first (on_roster=false — the person row itself stays, cards reference
+  // it); persistDesigners() happens inside only as the failure fallback
+  attemptRemoteRosterRemove(person);
 }
 
 function refreshDesignerEditorText() {
@@ -12083,6 +12145,14 @@ let detailTone = TONE_LIGHT;
 function applyDetailTone(data) {
   detailTone = TONE_LIGHT;
   if (!data || !data.image || isOpenQuestion(data)) { updateChrome(); return; }
+  /* A document card's banner is the studio-tinted stage — dark by
+     construction, same reasoning as the hero: measuring would sample the
+     cover image, not the gradient actually behind the chrome. */
+  if (data.imageFit === 'contain') {
+    detailTone = TONE_DARK;
+    updateChrome();
+    return;
+  }
   const media = document.getElementById('expandedMedia');
   const r = media ? media.getBoundingClientRect() : null;
   const aspect = r && r.height ? r.width / r.height : 7;
@@ -12204,6 +12274,9 @@ function updateChrome() {
   else if (isCardExpanded) tone = { topLeft: detailTone, topRight: detailTone, mid: TONE_LIGHT, bottom: TONE_LIGHT };
   // each top mark takes the colour of its own corner
   setTone(document.getElementById('menuToggleBtn'), tone.topLeft);
+  // the detail's back arrow shares the hamburger's corner — it was never
+  // toned before because every banner used to be light behind it
+  setTone(document.getElementById('expandedClose'), tone.topLeft);
   setTone(document.getElementById('notifyBtn'), tone.topRight);
   setTone(document.getElementById('cornerDock'), tone.bottom);
   setTone(document.getElementById('langBtn'), tone.bottom);
