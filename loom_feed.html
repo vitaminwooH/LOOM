@@ -12927,54 +12927,21 @@ const REACTION_ICONS = {
 // Small, and five of them. More would be a picker, and a picker is a decision.
 const EMOJI_SET = ['\u2764\uFE0F', '\uD83D\uDC4D', '\uD83D\uDC40', '\uD83D\uDD25', '\u2753'];
 
-const REACTIONS_STORAGE_KEY = 'loom_reactions_v2';
+/* v3, not v2: the key is bumped on purpose. v2 holds the seeded reactions
+   this build no longer creates - fictional colleagues discussing seed cards
+   that were deleted at the canvas cutover - and reading it back would keep
+   those sentences alive in every browser that ever opened the old demo. A
+   new key orphans them in one line.
+   TODO(backend): reactions are still per-browser localStorage; they belong
+   in the database next to the cards they are about. */
+const REACTIONS_STORAGE_KEY = 'loom_reactions_v3';
 
-/* Seeded so the app does not open on an empty column — the same job the sample
-   conversations do. Ages are minutes-ago offsets rather than absolute stamps,
-   so a demo opened next week still reads as "yesterday" instead of as a
-   fixed date in the past. */
-const SEED_REACTIONS = [
-  { id: 'rx-1', cardId: 'c1', kind: 'sameProblem', author: 'Bengt Larsson', studio: 'whow', minsAgo: 60 * 26,
-    note: 'We saw the same drop-off before the paywall. Ours was closer to 88% but the shape is identical.',
-    emoji: { '\uD83D\uDC40': ['doubleu'] },
-    replies: [
-      { id: 'rp-1', author: 'Doyoon Kim', studio: 'doubleu', minsAgo: 60 * 25,
-        text: 'Good to know it is not just us. Did the near-miss moment move it for you?', emoji: {} },
-      { id: 'rp-2', author: 'Bengt Larsson', studio: 'whow', minsAgo: 60 * 24,
-        text: 'Trying it this sprint — will report back either way.', emoji: { '\u2764\uFE0F': ['doubleu'] } },
-    ] },
-  { id: 'rx-2', cardId: 'c1', kind: 'tryThis', author: 'Mira Keller', studio: 'whow', minsAgo: 60 * 9,
-    note: '', emoji: {}, replies: [] },
-  { id: 'rx-3', cardId: 'c2', kind: 'question', author: 'Haeun Lee', studio: 'doubleu', minsAgo: 60 * 40,
-    note: 'Did 7x7 hold up for players past week two, or only in the first sessions?',
-    emoji: { '\u2753': ['whow'] }, replies: [] },
-  { id: 'rx-4', cardId: 'c5', kind: 'tryThis', author: 'Jiho Baek', studio: 'doubleu', minsAgo: 60 * 70,
-    note: 'Lifting the three-day teaser wholesale for our autumn event.', emoji: {}, replies: [] },
-];
-
-// Emoji left on a card's body itself, keyed by card id. A separate, lighter
-// layer from the three reactions — for when even "same problem here" is more
-// than you mean.
-const SEED_BODY_EMOJI = {
-  c1: { '\uD83D\uDD25': ['whow'] },
-  c9: { '\uD83D\uDC4D': ['doubleu'], '\uD83D\uDC40': ['whow'] },
-};
-
+/* Nothing is seeded any more. An empty reaction column is the truth until
+   somebody leaves one, and the apparatus below (the three pills, the
+   replies, the emoji) works exactly as it did - it just has no invented
+   material to open with. */
 function seedReactionState() {
-  const now = Date.now();
-  const stamp = (mins) => now - mins * 60 * 1000;
-  return {
-    reactions: SEED_REACTIONS.map((r) => ({
-      id: r.id, cardId: r.cardId, kind: r.kind, author: r.author, studio: r.studio,
-      note: r.note, at: stamp(r.minsAgo),
-      emoji: JSON.parse(JSON.stringify(r.emoji || {})),
-      replies: (r.replies || []).map((p) => ({
-        id: p.id, author: p.author, studio: p.studio, text: p.text, at: stamp(p.minsAgo),
-        emoji: JSON.parse(JSON.stringify(p.emoji || {})),
-      })),
-    })),
-    bodyEmoji: JSON.parse(JSON.stringify(SEED_BODY_EMOJI)),
-  };
+  return { reactions: [], bodyEmoji: {} };
 }
 
 function loadReactionState() {
@@ -13381,7 +13348,7 @@ function renderReactionArea(cardId) {
    deliberately what such an event would carry, so swapping in a feed of them
    touches loadNotifications and nothing else.
    ====================================================================== */
-const NOTIFICATIONS_STORAGE_KEY = 'loom_notifications_v1';
+const NOTIFICATIONS_STORAGE_KEY = 'loom_notifications_v2'; // v2: v1 holds the seeded demo rows
 
 // 'applied'  — a studio took your knowledge and used it
 // 'reaction' — someone left one of the three reactions on your card
@@ -13396,37 +13363,12 @@ const NOTIFICATION_KINDS = ['applied', 'reaction', 'reply', 'asked'];
    Each set therefore names cards that studio actually wrote, and actors from a
    different studio. notificationView enforces the same rule at render time, so
    a wrong row can never reach the panel even if this table drifts. */
-const SEED_NOTIFICATIONS_BY_STUDIO = {
-  doubleu: [
-    { id: 'nt-du-1', kind: 'reaction', cardId: 'c1', actor: 'Bengt Larsson', studio: 'whow',
-      detail: 'sameProblem', minsAgo: 60 * 26, read: false },
-    { id: 'nt-du-2', kind: 'reaction', cardId: 'c13', actor: 'Lena Fischer', studio: 'whow',
-      detail: 'tryThis', minsAgo: 60 * 14, read: false },
-    { id: 'nt-du-3', kind: 'applied', cardId: 'c1', actor: 'Mira Keller', studio: 'whow',
-      detail: '', minsAgo: 60 * 9, read: false },
-    { id: 'nt-du-4', kind: 'asked', cardId: 'c14', actor: 'Tobias Lang', studio: 'whow',
-      detail: '', minsAgo: 60 * 4, read: false },
-    { id: 'nt-du-5', kind: 'reply', cardId: 'c10', actor: 'Jonas Weber', studio: 'whow',
-      detail: '', minsAgo: 60 * 3, read: false },
-  ],
-  whow: [
-    { id: 'nt-wh-1', kind: 'reaction', cardId: 'c5', actor: 'Doyoon Kim', studio: 'doubleu',
-      detail: 'sameProblem', minsAgo: 60 * 22, read: false },
-    { id: 'nt-wh-2', kind: 'reaction', cardId: 'c11', actor: 'Minji Yoon', studio: 'doubleu',
-      detail: 'tryThis', minsAgo: 60 * 13, read: false },
-    { id: 'nt-wh-3', kind: 'applied', cardId: 'c5', actor: 'Jiho Baek', studio: 'doubleu',
-      detail: '', minsAgo: 60 * 8, read: false },
-    { id: 'nt-wh-4', kind: 'asked', cardId: 'c10', actor: 'Soomin Jang', studio: 'doubleu',
-      detail: '', minsAgo: 60 * 5, read: false },
-    { id: 'nt-wh-5', kind: 'reply', cardId: 'c14', actor: 'Haeun Lee', studio: 'doubleu',
-      detail: '', minsAgo: 60 * 2, read: false },
-  ],
-};
-
+/* Nothing is seeded here either. The rows that used to sit in this panel on
+   a first visit were fictional colleagues reacting to seed cards that no
+   longer exist - the same invented material the arrival simulation produced,
+   and removed for the same reason. The panel fills from real events. */
 function seedNotifications() {
-  const now = Date.now();
-  const set = SEED_NOTIFICATIONS_BY_STUDIO[MY_STUDIO_KEY] || [];
-  return set.map((n) => Object.assign({}, n, { at: now - n.minsAgo * 60 * 1000 }));
+  return [];
 }
 
 /* Anything read back out of storage was written by an older build, by a hand
@@ -13929,80 +13871,21 @@ function ownCardStatusHTML(card) {
   return `<span class="card-came-back" title="${escapeHtml(t().cardStatus.label)}">${dots}</span>`;
 }
 
-/* ======================================================================
-   Arrival simulation
-   ----------------------------------------------------------------------
-   TODO(backend): DELETE THIS WHOLE SECTION when there is a server.
+/* The arrival simulation that used to live here is GONE.
 
-   Everything below fakes the other side of the conversation. With one browser
-   and no backend, sharing something produces silence forever, which makes the
-   loop impossible to see or to demo — and the loop is the point of the
-   feature. So a short while after you share, one of the other studios reacts,
-   the way one plausibly would.
+   It faked the other side of the conversation: ~25 seconds after you shared
+   something, a fictional colleague (Bengt Larsson, Mira Keller, Jonas Weber)
+   left a plausible-sounding reaction, and Shift+D triggered one on demand.
+   That made the loop demonstrable when there was no backend and no other
+   reader — but the real Bengt is being invited to sign in, and a record two
+   studios actually read cannot contain sentences nobody said. Deleted for the
+   same reason the demo seed cards were at the canvas cutover.
 
-   In a real service this is a server event: the write path records the
-   reaction, the server emits a notification to the author's session, and the
-   client's job is only to render what arrives. Nothing here should survive
-   that change — the only piece worth keeping is pushNotification, which is
-   already shaped like the event a socket would deliver.
+   Reactions themselves stay exactly as they were: the three pills, the
+   replies, the emoji. They are now only ever what somebody really left.
+   pushNotification also stays — it is already shaped like the event a server
+   would deliver when a real reaction arrives.
    ====================================================================== */
-const DEMO_REPLY_DELAY_MS = 24000; // ~25s: long enough to have moved on, short enough to still be watching
-
-const DEMO_REACTORS = [
-  { author: 'Bengt Larsson', studio: 'whow', kind: 'sameProblem',
-    note: 'We ran into the same thing last quarter — reading this saved us a week of guessing.' },
-  { author: 'Mira Keller', studio: 'whow', kind: 'tryThis',
-    note: 'Taking this into our next sprint. Will tell you how it lands.' },
-  { author: 'Jonas Weber', studio: 'whow', kind: 'question',
-    note: 'How long did you leave it running before you trusted the numbers?' },
-];
-
-let demoReactorIndex = 0;
-const demoTimers = [];
-
-function scheduleDemoReaction(cardId) {
-  demoTimers.push(setTimeout(() => deliverDemoReaction(cardId), DEMO_REPLY_DELAY_MS));
-}
-
-/* The hidden trigger, for demoing without waiting: Shift+D lands the next
-   arrival immediately against the most recent thing you shared. */
-function initDemoTrigger() {
-  document.addEventListener('keydown', (e) => {
-    if (!e.shiftKey || e.key !== 'D') return;
-    if (e.target.matches('input, textarea')) return; // typing a capital D is not a command
-    const target = sharedCards[0] || ALL_CARDS.find(isMyCard);
-    if (!target) return;
-    e.preventDefault();
-    deliverDemoReaction(target.id);
-  });
-}
-
-/* One studio reacting, the way one plausibly would. scheduleDemoReaction is
-   this on a timer; the trigger above is this immediately. */
-function deliverDemoReaction(cardId) {
-  if (!cardById(cardId)) return; // deleted while we waited
-
-  const who = DEMO_REACTORS[demoReactorIndex % DEMO_REACTORS.length];
-  demoReactorIndex += 1;
-
-  const entry = {
-    id: localId('rx'), cardId, kind: who.kind, author: who.author, studio: who.studio,
-    note: who.note, at: Date.now(), emoji: {}, replies: [],
-  };
-  reactionState.reactions.push(entry);
-  if (!persistReactions()) { reactionState.reactions.pop(); return; }
-
-  pushNotification({ kind: 'reaction', cardId, actor: entry.author, studio: entry.studio, detail: entry.kind });
-
-  // If the reader happens to be looking at that very card, show it landing
-  // rather than making them close and reopen.
-  if (isCardExpanded && currentOpenIndex !== null) {
-    const open = ALL_CARDS[currentOpenIndex];
-    if (open && open.id === cardId) renderReactionArea(cardId);
-  }
-  renderDiscover();
-  renderBrowse();
-}
 
 /* ======================================================================
    Now — the Update strip and whose turn it is
@@ -17709,8 +17592,6 @@ function initSubmit() {
     const entry = buildSharedCardEntry();
     saveSharedCard(entry);
     pendingSharedEntries.push(entry);
-    // TODO(backend): delete — see the Arrival simulation section.
-    scheduleDemoReaction(entry.id);
     // Before the weave starts: the code prompt (first share of the session
     // only) is synchronous, and a browser prompt over a running animation
     // would freeze it mid-frame. The network part runs during the weave.
@@ -18518,8 +18399,6 @@ safeInit('static text', initStaticText);
 safeInit('chrome', updateChrome);
 safeInit('now strip', initNowStrip);
 safeInit('for you', initForYou);
-// TODO(backend): delete with the rest of the arrival simulation.
-safeInit('demo trigger', initDemoTrigger);
 safeInit('hero controls', initHeroControls);
 safeInit('browse scroll', initBrowseScroll);
 safeInit('feed wheel snap', initFeedWheelSnap);
