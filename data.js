@@ -115,6 +115,14 @@ const LoomData = (function () {
       // resolved canvas attachments: [{label, url?, bytes?, mime?}] — files
       // live in the public Storage bucket, label-only entries stay as text
       attachments: row.attachments || [],
+      // where this card's body was authored: 'canvas' (edit it in Slack),
+      // 'form' (editable here), 'test'
+      origin: row.origin || 'form',
+      // who last tuned the keywords, and when — keywords are editable across
+      // studios, so the record of who did it matters
+      keywordsEditedBy: row.keywords_edited_by || null,
+      keywordsEditedAt: row.keywords_edited_at || null,
+      editedAt: row.edited_at || null,
       relatedTo: row.related_to || [],
       derivedFrom: row.derived_from || null,
       derivedRelation: row.relation_type || undefined,
@@ -265,6 +273,83 @@ const LoomData = (function () {
       Authorization: 'Bearer ' + (session ? session.access_token : SUPABASE_ANON_KEY),
       'Content-Type': 'application/json',
     };
+  }
+
+  /* ---- card edits ------------------------------------------------------------
+     Two doors, because the two fields are owned by different places (see
+     db/0015): keywords belong to whoever is reading Threads — any studio may
+     tune any card — while a body belongs to wherever it was authored, so the
+     server refuses a canvas card outright. Both keep the caches in step on
+     success so Threads and the feed reflect the change without a refetch. */
+
+  function patchCachedCard(id, patch) {
+    for (const lang of Object.keys(cardCache)) {
+      const card = cardCache[lang].find((c) => c.id === id);
+      if (card) Object.assign(card, patch);
+    }
+  }
+
+  async function submitCardKeywords(cardId, keywords, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_card_keywords', {
+        method: 'POST',
+        headers: await writeHeaders(),
+        body: JSON.stringify({ card_id: cardId, keywords: keywords, code: code || null }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        const message = (json && json.message) || '';
+        return { ok: false, reason: 'rejected', invalidCode: /invalid code/i.test(message), message: message };
+      }
+      patchCachedCard(cardId, {
+        keywords: json.keywords || [],
+        keywordsEditedBy: json.edited_by || null,
+        keywordsEditedAt: json.edited_at || null,
+      });
+      return { ok: true, keywords: json.keywords || [], editedBy: json.edited_by || null };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* Body correction for a Loom-authored card. `text` is the card's text block
+     (title, summary and the type's fields); `lang` is the language it was
+     typed in. A canvas card is refused by the server — its source is Slack. */
+  async function submitCardEdit(cardId, lang, text, code) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_card_edit', {
+        method: 'POST',
+        headers: await writeHeaders(),
+        body: JSON.stringify({ card_id: cardId, lang: lang, text_block: pickText(text), code: code || null }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        const message = (json && json.message) || '';
+        return {
+          ok: false,
+          reason: 'rejected',
+          invalidCode: /invalid code/i.test(message),
+          canvasCard: /canvas card/i.test(message),
+          message: message,
+        };
+      }
+      patchCachedCard(cardId, { text: pickText(text), sourceLang: lang, editedAt: json.edited_at || null });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /* ---- roster (Designers) ---------------------------------------------------
@@ -587,6 +672,7 @@ const LoomData = (function () {
 
   return {
     isConfigured, loadCards, hasRemote, submitCard,
+    submitCardKeywords, submitCardEdit,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };

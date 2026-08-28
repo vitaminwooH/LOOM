@@ -2227,6 +2227,110 @@
   button.keyword-tag { cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
   button.keyword-tag:hover { background: rgba(20, 20, 20, 0.09); border-color: rgba(20, 20, 20, 0.2); color: var(--ink); }
   .question-card .keyword-tags { margin-top: 12px; }
+  /* ---------- tuning keywords in place ----------
+     The chip row becomes the editor: same place, same words, now movable.
+     A machine proposed these; this is the person disagreeing. */
+  .keyword-tune {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px dashed rgba(20, 20, 20, 0.22);
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .keyword-tune:hover { color: var(--ink-dim); border-color: rgba(20, 20, 20, 0.4); }
+
+  .keyword-editor { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .keyword-editor-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .keyword-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: rgba(20, 20, 20, 0.04);
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    color: var(--ink);
+  }
+  .keyword-chip-x {
+    border: none;
+    background: none;
+    padding: 0 2px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--ink-faint);
+    cursor: pointer;
+  }
+  .keyword-chip-x:hover { color: var(--ink); }
+  .keyword-editor-none {
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+  }
+  /* the vocabulary already in use, offered before the empty input: the point
+     of Threads is that both studios reach for the same word */
+  .keyword-offers { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .keyword-offers-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-right: 2px;
+  }
+  .keyword-offer {
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .keyword-offer:hover { background: rgba(20, 20, 20, 0.05); border-color: var(--border-strong); }
+
+  .keyword-editor-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .keyword-editor-input {
+    flex: 1 1 180px;
+    min-width: 140px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink);
+    outline: none;
+  }
+  .keyword-editor-input:focus { border-color: var(--ink-dim); }
+  .keyword-editor-save,
+  .keyword-editor-cancel {
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .keyword-editor-save {
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: #fff;
+  }
+  .keyword-editor-save:disabled { opacity: 0.55; cursor: default; }
+  .keyword-editor-cancel {
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--ink-dim);
+  }
+  .keyword-editor-cancel:hover { color: var(--ink); }
 
   /* ---------- same thread ---------- */
   .expanded-section-thread .keyword-tags { margin-bottom: 12px; }
@@ -6344,6 +6448,13 @@ const TRANSLATIONS = {
   en: {
     ui: {
       searchPlaceholder: 'Search knowledge',
+      keywordEdit: {
+        tune: 'Tune', add: '+ Keyword', remove: 'Remove',
+        none: 'No keywords yet.', full: 'Three is the limit.',
+        inUse: 'In use', placeholder: 'A new keyword, then Enter',
+        save: 'Save', saving: 'Saving…', cancel: 'Cancel',
+        failed: 'Could not save the keywords.',
+      },
       feedEmpty: {
         unreachable: 'Could not reach the Loom. The knowledge is safe — this browser just cannot see it right now.',
         empty: 'Nothing has been shared yet.',
@@ -6812,6 +6923,13 @@ const TRANSLATIONS = {
   ko: {
     ui: {
       searchPlaceholder: '지식 검색',
+      keywordEdit: {
+        tune: '다듬기', add: '+ 키워드', remove: '제거',
+        none: '아직 키워드가 없습니다.', full: '최대 3개입니다.',
+        inUse: '쓰이는 말', placeholder: '새 키워드 입력 후 Enter',
+        save: '저장', saving: '저장 중…', cancel: '취소',
+        failed: '키워드를 저장하지 못했습니다.',
+      },
       feedEmpty: {
         unreachable: 'Loom에 연결할 수 없습니다. 기록은 안전하며, 지금 이 브라우저에서만 보이지 않는 상태입니다.',
         empty: '아직 공유된 것이 없습니다.',
@@ -7237,6 +7355,13 @@ const TRANSLATIONS = {
   de: {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
+      keywordEdit: {
+        tune: 'Anpassen', add: '+ Schlagwort', remove: 'Entfernen',
+        none: 'Noch keine Schlagwörter.', full: 'Drei sind das Maximum.',
+        inUse: 'In Gebrauch', placeholder: 'Neues Schlagwort, dann Enter',
+        save: 'Speichern', saving: 'Speichere…', cancel: 'Abbrechen',
+        failed: 'Schlagwörter konnten nicht gespeichert werden.',
+      },
       feedEmpty: {
         unreachable: 'Loom ist nicht erreichbar. Das Wissen ist sicher — dieser Browser sieht es gerade nur nicht.',
         empty: 'Noch nichts geteilt.',
@@ -7662,6 +7787,13 @@ const TRANSLATIONS = {
   tr: {
     ui: {
       searchPlaceholder: 'Bilgi ara',
+      keywordEdit: {
+        tune: 'Ayarla', add: '+ Anahtar kelime', remove: 'Kaldır',
+        none: 'Henüz anahtar kelime yok.', full: 'En fazla üç.',
+        inUse: 'Kullanımda', placeholder: 'Yeni anahtar kelime, sonra Enter',
+        save: 'Kaydet', saving: 'Kaydediliyor…', cancel: 'İptal',
+        failed: 'Anahtar kelimeler kaydedilemedi.',
+      },
       feedEmpty: {
         unreachable: 'Loom’a ulaşılamadı. Bilgi güvende — şu anda yalnızca bu tarayıcı göremiyor.',
         empty: 'Henüz bir şey paylaşılmadı.',
@@ -9167,6 +9299,7 @@ function isGuestSession() {
    before any gate is chosen. Resolves to the profile, or null for a guest,
    a signed-out visitor, or no auth layer at all. */
 let authProfilePromise = null;
+let authProfile = null;    // synchronous mirror, for gating what renders
 let authPersonName = null; // filled once we know; drives myDisplayName()
 
 function authReady() {
@@ -9176,12 +9309,16 @@ function authReady() {
     return authProfilePromise;
   }
   authProfilePromise = LoomData.auth.loadProfile().then((profile) => {
-    if (profile && profile.personName) {
-      authPersonName = profile.personName;
-      // anything already on screen was drawn with the fallback name
+    if (profile && profile.studio) authProfile = profile;
+    if (profile && profile.personName) authPersonName = profile.personName;
+    if (authProfile) {
+      // anything already on screen was drawn as if nobody were signed in
       if (typeof renderDesigners === 'function') renderDesigners();
+      if (isCardExpanded && currentOpenIndex !== null && ALL_CARDS[currentOpenIndex]) {
+        populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
+      }
     }
-    return profile && profile.studio ? profile : null;
+    return authProfile;
   }).catch(() => null);
   return authProfilePromise;
 }
@@ -9208,11 +9345,43 @@ function writeCredential() {
   });
 }
 
-function canEditCard(data) {
+/* Who may change what, and why the two answers differ.
+
+   A BODY belongs to wherever it was written: a canvas card's words live in
+   Slack, where the other studio reads and edits them, so Loom does not offer
+   to overwrite them (the server refuses too — see db/0015). A card written in
+   Loom is Loom's to correct, by its own studio.
+
+   KEYWORDS belong to everybody. Nobody writes them in the Canvas — there is
+   no such field, on purpose — so a keyword is a machine's proposal that
+   people refine, and a wrong one spoils the other studio's Threads as much
+   as its own. Any signed-in member may tune any card's keywords; the DB
+   records who did (keywords_edited_by).
+
+   Not signed in but holding the shared code (the parallel period): the old
+   rule applies, own studio only, because there is no identity to record. */
+function isCanvasCard(data) {
+  return !!data && (data.origin === 'canvas' || String(data.id || '').indexOf('cv-') === 0);
+}
+
+function canEditCardBody(data) {
   if (!data) return false;
   if (isGuestSession()) return false; // guests read; the UI never offers more
+  if (isCanvasCard(data)) return false;
   if (data.isShared) return true;
   return data.studio === MY_STUDIO_KEY;
+}
+
+function canEditKeywords(data) {
+  if (!data) return false;
+  if (isGuestSession()) return false;
+  if (authProfile) return true;                 // signed in: any card, either studio
+  return data.studio === MY_STUDIO_KEY;         // code path: own studio, as before
+}
+
+// kept as the old name for the delete/edit row, which is about the body
+function canEditCard(data) {
+  return canEditCardBody(data);
 }
 
 // A seed card's edit is a patch, not a replacement: only the keys the author
@@ -9224,6 +9393,15 @@ function applySeedEdit(card) {
   return Object.assign({}, card, patch, {
     text: Object.assign({}, card.text, patch.text || {}),
   });
+}
+
+/* Drops a local patch once the DB has the same correction — otherwise the
+   overlay keeps shadowing what everybody else can now see. */
+function clearSeedEdit(id) {
+  const map = seedEditsMap();
+  if (!(id in map)) return;
+  delete map[id];
+  safeSetItem(SEED_EDITS_STORAGE_KEY, JSON.stringify(map));
 }
 
 function saveSeedEdit(id, patch) {
@@ -12565,6 +12743,179 @@ function populateExpanded(data, index) {
    they are one block on screen and share the same "is there anything here at
    all?" question — a keyword nobody else has used is still worth showing (it is
    what this work is about), but it earns no list under it. */
+/* ---- tuning a card's keywords ----------------------------------------------
+   Gemini proposes them at sync time and is usually right; this is where a
+   person disagrees. Built in place of the chip row rather than in a dialog:
+   the chips ARE the thing being edited, and a modal over a detail would be
+   the third layer of surface on one screen.
+
+   The suggestions matter more than the input. Threads exists so both studios
+   end up on the same words, so the vocabulary already in use is offered
+   first and typing something new is the secondary move. */
+let keywordEditorCard = null;
+
+function openKeywordEditor(data) {
+  keywordEditorCard = data;
+  const draft = keywordsOf(data).slice();
+  renderKeywordEditor(draft);
+}
+
+function closeKeywordEditor() {
+  const card = keywordEditorCard;
+  keywordEditorCard = null;
+  if (card) renderSameThreadSection(card);
+}
+
+function renderKeywordEditor(draft) {
+  const wrap = document.getElementById('detailKeywords');
+  const data = keywordEditorCard;
+  if (!wrap || !data) return;
+  const strings = t().keywordEdit;
+  wrap.innerHTML = '';
+
+  const box = document.createElement('div');
+  box.className = 'keyword-editor';
+
+  // the draft, each with a way off the card
+  const chips = document.createElement('div');
+  chips.className = 'keyword-editor-chips';
+  draft.forEach((word, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'keyword-chip';
+    chip.textContent = word;
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'keyword-chip-x';
+    x.setAttribute('aria-label', strings.remove);
+    x.textContent = '×';
+    x.addEventListener('click', () => {
+      draft.splice(i, 1);
+      renderKeywordEditor(draft);
+    });
+    chip.appendChild(x);
+    chips.appendChild(chip);
+  });
+  if (!draft.length) {
+    const none = document.createElement('span');
+    none.className = 'keyword-editor-none';
+    none.textContent = strings.none;
+    chips.appendChild(none);
+  }
+  box.appendChild(chips);
+
+  // the vocabulary in use, minus what is already on the card
+  const room = MAX_KEYWORDS_PER_CARD - draft.length;
+  if (room > 0) {
+    const offers = allKeywords()
+      .filter((k) => !draft.some((d) => keywordKey(d) === k.key))
+      .slice(0, 12);
+    if (offers.length) {
+      const offerRow = document.createElement('div');
+      offerRow.className = 'keyword-offers';
+      const label = document.createElement('span');
+      label.className = 'keyword-offers-label';
+      label.textContent = strings.inUse;
+      offerRow.appendChild(label);
+      offers.forEach((k) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'keyword-offer';
+        btn.textContent = k.label;
+        btn.addEventListener('click', () => {
+          draft.push(k.label);
+          renderKeywordEditor(draft);
+        });
+        offerRow.appendChild(btn);
+      });
+      box.appendChild(offerRow);
+    }
+  }
+
+  // a new word, when none of the existing ones fit
+  const row = document.createElement('div');
+  row.className = 'keyword-editor-row';
+  if (room > 0) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'keyword-editor-input';
+    input.maxLength = 40; // the cap the RPC enforces too
+    input.placeholder = strings.placeholder;
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const word = canonicalKeyword(input.value.trim());
+      if (!word) return;
+      if (!draft.some((d) => keywordKey(d) === keywordKey(word))) draft.push(word);
+      renderKeywordEditor(draft);
+    });
+    row.appendChild(input);
+  } else {
+    const full = document.createElement('span');
+    full.className = 'keyword-editor-none';
+    full.textContent = strings.full;
+    row.appendChild(full);
+  }
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'keyword-editor-save';
+  save.textContent = strings.save;
+  save.addEventListener('click', () => {
+    save.disabled = true;
+    save.textContent = strings.saving;
+    saveKeywords(data, draft);
+  });
+  row.appendChild(save);
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'keyword-editor-cancel';
+  cancel.textContent = strings.cancel;
+  cancel.addEventListener('click', closeKeywordEditor);
+  row.appendChild(cancel);
+
+  box.appendChild(row);
+  wrap.appendChild(box);
+  const first = box.querySelector('.keyword-editor-input');
+  if (first) first.focus();
+}
+
+/* Saves, then puts the change everywhere it shows: the card in memory, the
+   floors, and — if it is on screen — the weave, whose whole shape is these
+   words. A failure leaves the card as it was and says so. */
+function saveKeywords(data, draft) {
+  const finish = (ok, message) => {
+    if (!ok) {
+      showToast(t().keywordEdit.failed);
+      console.warn('[Loom keywords] not saved:', message || '');
+    }
+    keywordEditorCard = null;
+    renderSameThreadSection(cardById(data.id) || data);
+  };
+  if (!window.LoomData || !LoomData.isConfigured()) return finish(false, 'no data layer');
+  writeCredential().then(({ authed, code }) => {
+    if (!authed && !code) return finish(false, 'no credential');
+    LoomData.submitCardKeywords(data.id, draft, code).then((res) => {
+      if (!res.ok) {
+        if (res.invalidCode && !authed) forgetWriteCode();
+        return finish(false, res.message || res.reason);
+      }
+      // the server may have snapped spellings to the vocabulary — take its word
+      const applied = res.keywords;
+      [remoteCards, sharedCards].forEach((list) => {
+        const card = (list || []).find((c) => c.id === data.id);
+        if (card) {
+          card.keywords = applied.slice();
+          card.keywordsEditedBy = res.editedBy || card.keywordsEditedBy;
+        }
+      });
+      rebuildAllSurfaces();
+      if (currentFloor === FLOOR_THREADS) renderThreads();
+      finish(true);
+    });
+  });
+}
+
 function renderSameThreadSection(data) {
   const section = document.getElementById('sameThreadSection');
   const tagWrap = document.getElementById('detailKeywords');
@@ -12572,7 +12923,11 @@ function renderSameThreadSection(data) {
   if (!section) return;
 
   const words = keywordsOf(data);
-  if (!words.length) { section.style.display = 'none'; return; }
+  const editable = canEditKeywords(data);
+  // A card with no keywords still shows this section when it can be given
+  // some — otherwise the one card that most needs a thread has no way to get
+  // one. Nothing to show and nothing to add: stay hidden.
+  if (!words.length && !editable) { section.style.display = 'none'; return; }
   section.style.display = '';
 
   document.getElementById('labelSameThread').textContent = t().sameThread.label;
@@ -12589,6 +12944,22 @@ function renderSameThreadSection(data) {
     btn.addEventListener('click', () => openKeywordFilter(word));
     tagWrap.appendChild(btn);
   });
+
+  /* Tuning them is a second, quieter control in the same row: the keywords
+     were proposed by a machine, and this is where a person disagrees. */
+  if (editable) {
+    const tune = document.createElement('button');
+    tune.type = 'button';
+    tune.className = 'keyword-tune';
+    tune.textContent = words.length ? t().keywordEdit.tune : t().keywordEdit.add;
+    if (data.keywordsEditedBy) {
+      // language-neutral provenance: a name and a date, no sentence to translate
+      const when = data.keywordsEditedAt ? new Date(data.keywordsEditedAt).toISOString().slice(0, 10) : '';
+      tune.title = data.keywordsEditedBy + (when ? ' · ' + when : '');
+    }
+    tune.addEventListener('click', () => openKeywordEditor(data));
+    tagWrap.appendChild(tune);
+  }
 
   const others = sameThreadCards(data, 4);
   list.innerHTML = '';
@@ -17116,9 +17487,43 @@ function commitCardEdit() {
   rebuildAllSurfaces();
 }
 
-// Same edit, stored as a patch over the seed instead of in place — see the
-// note above SEED_EDITS_STORAGE_KEY.
+/* A correction to a card that lives in the DB rather than in this browser.
+   Canvas cards never arrive here — the Edit control is not rendered for them
+   (canEditCardBody) and the RPC refuses them anyway. For a Loom-authored
+   card the DB is the destination; the local patch store is only the fallback
+   when there is no credential or no network, exactly like every other write
+   on this page. */
 function commitSeedCardEdit(id, title, body) {
+  const original = ALL_CARDS.find((c) => c.id === id);
+  if (!original) return;
+
+  const text = Object.assign({ title, summary: composeSummary(title, body) }, body);
+  const lang = currentLang;
+  if (original.isRemote && window.LoomData && LoomData.isConfigured()) {
+    writeCredential().then(({ authed, code }) => {
+      if (!authed && !code) return commitSeedCardEditLocally(id, title, body);
+      LoomData.submitCardEdit(id, lang, text, code).then((res) => {
+        if (!res.ok) {
+          if (res.invalidCode && !authed) forgetWriteCode();
+          console.warn('[Loom card] edit kept on this device only:', res.message || res.reason);
+          return commitSeedCardEditLocally(id, title, body);
+        }
+        // the DB has it: the local overlay would only shadow the truth
+        clearSeedEdit(id);
+        const card = (remoteCards || []).find((c) => c.id === id);
+        if (card) { card.text = text; card.sourceLang = lang; card.editedAt = Date.now(); }
+        showToast(t().editSaved);
+        rebuildAllSurfaces();
+      });
+    });
+    return;
+  }
+  commitSeedCardEditLocally(id, title, body);
+}
+
+// Same edit, stored as a patch over the card instead of in the DB — see the
+// note above SEED_EDITS_STORAGE_KEY.
+function commitSeedCardEditLocally(id, title, body) {
   const original = ALL_CARDS.find((c) => c.id === id);
   if (!original) return;
 
