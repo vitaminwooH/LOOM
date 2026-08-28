@@ -25,7 +25,7 @@ const PERSON_ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
+  'Access-Control-Allow-Headers': 'content-type, authorization',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -59,22 +59,49 @@ Deno.serve(async (req: Request) => {
     return json(400, { error: 'invalid person_id' });
   }
 
-  // the gate, before anything else is looked at
-  if (typeof code !== 'string' || !code) return json(401, { error: 'invalid code' });
-  const gateRes = await fetch(
-    `${supabaseUrl}/rest/v1/write_codes?select=code&code=eq.${encodeURIComponent(code)}&active=is.true&limit=1`,
-    { headers: sHeaders },
-  );
-  const gateRows = gateRes.ok ? await gateRes.json() : [];
-  if (!Array.isArray(gateRows) || gateRows.length !== 1) return json(401, { error: 'invalid code' });
+  /* The gate, before anything else is looked at. Two doors, same as the
+     RPCs' write_gate (stage 3, parallel period):
+       - a signed-in member's JWT in the Authorization header — the person's
+         studio must own the person whose photo this is;
+       - the shared code in the body — the previous behaviour, until 0014. */
+  let callerStudio: string | null = null;
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (bearer) {
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${bearer}` },
+    });
+    if (userRes.ok) {
+      const user = await userRes.json();
+      const profRes = await fetch(
+        `${supabaseUrl}/rest/v1/profiles?select=studio_id&id=eq.${user.id}&limit=1`,
+        { headers: sHeaders },
+      );
+      const profRows = profRes.ok ? await profRes.json() : [];
+      if (Array.isArray(profRows) && profRows.length === 1) callerStudio = profRows[0].studio_id;
+    }
+  }
+  if (!callerStudio) {
+    if (typeof code !== 'string' || !code) return json(401, { error: 'invalid code' });
+    const gateRes = await fetch(
+      `${supabaseUrl}/rest/v1/write_codes?select=code&code=eq.${encodeURIComponent(code)}&active=is.true&limit=1`,
+      { headers: sHeaders },
+    );
+    const gateRows = gateRes.ok ? await gateRes.json() : [];
+    if (!Array.isArray(gateRows) || gateRows.length !== 1) return json(401, { error: 'invalid code' });
+  }
 
-  // the person must exist — a photo for nobody is a stray file
+  // the person must exist — a photo for nobody is a stray file — and on the
+  // auth door, must belong to the caller's own studio
   const personRes = await fetch(
-    `${supabaseUrl}/rest/v1/persons?select=id&id=eq.${encodeURIComponent(person_id)}&limit=1`,
+    `${supabaseUrl}/rest/v1/persons?select=id,studio_id&id=eq.${encodeURIComponent(person_id)}&limit=1`,
     { headers: sHeaders },
   );
   const personRows = personRes.ok ? await personRes.json() : [];
   if (!Array.isArray(personRows) || personRows.length !== 1) return json(404, { error: 'unknown person' });
+  if (callerStudio && personRows[0].studio_id !== callerStudio) {
+    return json(403, { error: 'wrong studio' });
+  }
 
   try {
     const m = image.match(/^data:(image\/[a-z+]+);base64,(.+)$/s);

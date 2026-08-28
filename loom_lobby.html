@@ -1000,13 +1000,14 @@ function loginStatus(text, isError) {
 }
 
 /* Link sent: the form steps aside and the instruction takes its place.
-   "THIS browser" is load-bearing — the sign-in is PKCE, so a link opened in
-   a different browser (or the mail app's built-in one) cannot finish it. */
+   The flow is implicit (the session arrives in the link itself), so the link
+   works from any device or browser — the copy says what to do, and claims no
+   restriction that isn't real. */
 function showLinkSentState() {
   document.getElementById('loginForm').hidden = true;
   const el = document.getElementById('loginStatus');
   el.classList.remove('is-error');
-  el.innerHTML = 'Link sent — open it <strong>in this browser</strong> to finish signing in.';
+  el.innerHTML = 'Link sent — open it from <strong>your inbox</strong> to finish signing in.';
   document.getElementById('loginResend').hidden = false;
 }
 

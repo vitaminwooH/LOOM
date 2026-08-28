@@ -8764,15 +8764,16 @@ function clearLocalRosterStore() {
 function attemptRemoteRosterSave(person) {
   const fallback = () => persistDesigners();
   if (!window.LoomData || !LoomData.isConfigured()) return fallback();
-  const code = getWriteCode();
-  if (!code) return fallback();
 
   // a data: photo is a local upload the RPC cannot carry — it rides after
   const photoDataUrl = person.photo && person.photo.indexOf('data:') === 0 ? person.photo : null;
 
+  writeCredential().then(({ authed, code }) => {
+  if (!authed && !code) return fallback();
+
   LoomData.submitRosterEdit(person, code).then((res) => {
     if (!res.ok) {
-      if (res.invalidCode) forgetWriteCode();
+      if (res.invalidCode && !authed) forgetWriteCode();
       console.warn('[Loom roster] edit kept on this device only:', res.message || res.reason);
       return fallback();
     }
@@ -8789,7 +8790,7 @@ function attemptRemoteRosterSave(person) {
     if (photoDataUrl) {
       LoomData.uploadRosterPhoto(saved.id, photoDataUrl, code).then((pr) => {
         if (!pr.ok) {
-          if (pr.invalidCode) forgetWriteCode();
+          if (pr.invalidCode && !authed) forgetWriteCode();
           console.warn('[Loom roster] photo kept on this device only:', pr.message || pr.reason);
           persistDesigners(); // the dataURL survives locally until a retry
           return;
@@ -8798,6 +8799,7 @@ function attemptRemoteRosterSave(person) {
         if (p) { p.photo = pr.photo_path; renderDesigners(); }
       });
     }
+  });
   });
 }
 
@@ -8994,15 +8996,16 @@ function attemptRemoteRosterOrder(studioKey, ids, prevOrder) {
   // someone in the row only exists locally (unsaved 'designer-…' id): the DB
   // cannot hold this order yet
   if (ids.some((id) => !id || id.indexOf('designer-') === 0)) return fallback();
-  const code = getWriteCode();
-  if (!code) return fallback();
-  LoomData.submitRosterOrder(studioKey, ids, code).then((res) => {
-    if (res.ok) { clearLocalRosterStore(); return; }
-    if (res.invalidCode) forgetWriteCode();
-    console.warn('[Loom roster] order not saved — reverting:', res.message || res.reason);
-    applyRosterOrder(studioKey, prevOrder);
-    // back the way it came — sliding, not teleporting
-    animateRosterOrderOnScreen(studioKey, prevOrder);
+  writeCredential().then(({ authed, code }) => {
+    if (!authed && !code) return fallback();
+    LoomData.submitRosterOrder(studioKey, ids, code).then((res) => {
+      if (res.ok) { clearLocalRosterStore(); return; }
+      if (res.invalidCode && !authed) forgetWriteCode();
+      console.warn('[Loom roster] order not saved — reverting:', res.message || res.reason);
+      applyRosterOrder(studioKey, prevOrder);
+      // back the way it came — sliding, not teleporting
+      animateRosterOrderOnScreen(studioKey, prevOrder);
+    });
   });
 }
 
@@ -9012,15 +9015,16 @@ function attemptRemoteRosterRemove(person) {
   // an entry the DB never had (local-only 'designer-…' id): removing it
   // locally is the whole job
   if (!person.id || person.id.indexOf('designer-') === 0) return fallback();
-  const code = getWriteCode();
-  if (!code) return fallback();
-  LoomData.removeRosterPerson(person.id, code).then((res) => {
-    if (!res.ok) {
-      if (res.invalidCode) forgetWriteCode();
-      console.warn('[Loom roster] removal kept on this device only:', res.message || res.reason);
-      return fallback();
-    }
-    clearLocalRosterStore();
+  writeCredential().then(({ authed, code }) => {
+    if (!authed && !code) return fallback();
+    LoomData.removeRosterPerson(person.id, code).then((res) => {
+      if (!res.ok) {
+        if (res.invalidCode && !authed) forgetWriteCode();
+        console.warn('[Loom roster] removal kept on this device only:', res.message || res.reason);
+        return fallback();
+      }
+      clearLocalRosterStore();
+    });
   });
 }
 
@@ -9457,18 +9461,53 @@ function isGuestSession() {
    reads MY_STUDIO_KEY synchronously at boot — so the rare mismatch is fixed
    by correcting storage and rebooting the page, not by chasing every
    consumer at runtime. */
+/* Who is signed in, as ONE promise the whole page shares.
+   A boolean set when a fetch happened to finish was a race: the first save
+   after a page load asked before the answer existed, decided "not signed in"
+   and prompted for the code — and only the second save was quiet. Every
+   write path now waits on this, so the question is asked once and answered
+   before any gate is chosen. Resolves to the profile, or null for a guest,
+   a signed-out visitor, or no auth layer at all. */
+let authProfilePromise = null;
+let authPersonName = null; // filled once we know; drives myDisplayName()
+
+function authReady() {
+  if (authProfilePromise) return authProfilePromise;
+  if (isGuestSession() || !window.LoomData || !LoomData.isConfigured() || !LoomData.auth) {
+    authProfilePromise = Promise.resolve(null);
+    return authProfilePromise;
+  }
+  authProfilePromise = LoomData.auth.loadProfile().then((profile) => {
+    if (profile && profile.personName) {
+      authPersonName = profile.personName;
+      // anything already on screen was drawn with the fallback name
+      if (typeof renderDesigners === 'function') renderDesigners();
+    }
+    return profile && profile.studio ? profile : null;
+  }).catch(() => null);
+  return authProfilePromise;
+}
+
 function initAuthSession() {
-  if (isGuestSession()) return; // an explicit guest stays a guest
-  if (!window.LoomData || !LoomData.isConfigured() || !LoomData.auth) return;
-  LoomData.auth.loadProfile().then((profile) => {
-    if (!profile || !profile.studio) return; // signed out — legacy behaviour
+  authReady().then((profile) => {
+    if (!profile) return; // signed out / guest — legacy behaviour
     if (profile.studio === MY_STUDIO_KEY || !isStudioEnabled(profile.studio)) return;
     try {
       localStorage.setItem('loom_current_studio', profile.studio);
       localStorage.setItem('loom_session_mode', 'member');
       location.reload();
     } catch (err) { /* storage blocked — stay as booted */ }
-  }).catch(() => {});
+  });
+}
+
+/* The credential for one write: a signed-in member needs none (data.js sends
+   their JWT), everyone else is asked for the shared code exactly as before.
+   Resolves to { authed, code } — code null when authed, '' when declined. */
+function writeCredential() {
+  return authReady().then((profile) => {
+    if (profile) return { authed: true, code: null };
+    return { authed: false, code: getWriteCode() };
+  });
 }
 
 function canEditCard(data) {
@@ -9563,15 +9602,16 @@ function forgetWriteCode() {
 function attemptRemoteSubmit(entry) {
   if (!window.LoomData || !LoomData.isConfigured()) return;
   if (entry.image || (entry.attachments && entry.attachments.length)) return;
-  const code = getWriteCode();
-  if (!code) return; // declined — same behaviour as before this existed
-  LoomData.submitCard(entry, code).then((res) => {
-    if (!res.ok) {
-      if (res.invalidCode) forgetWriteCode();
-      console.warn('[Loom write] card kept on this device only:', res.message || res.reason);
-      return;
-    }
-    adoptRemoteCard(entry.id);
+  writeCredential().then(({ authed, code }) => {
+    if (!authed && !code) return; // declined — same behaviour as before this existed
+    LoomData.submitCard(entry, code).then((res) => {
+      if (!res.ok) {
+        if (res.invalidCode && !authed) forgetWriteCode();
+        console.warn('[Loom write] card kept on this device only:', res.message || res.reason);
+        return;
+      }
+      adoptRemoteCard(entry.id);
+    });
   });
 }
 
@@ -13062,7 +13102,16 @@ function displayNameOr(name) {
   return clean || t().reactions.someone;
 }
 
+/* What this browser signs its own contributions with.
+
+   Two studios read the same record, so a card cannot say "You" to one person
+   and a name to everyone else — the author is a fact about the card, not
+   about who is looking. Signed in, that fact is exact: the Person the
+   profile points at. Without a session it is still a guess from the roster
+   (the pre-auth behaviour), and 'You' is the last resort when there is
+   nobody to name at all. */
 function myDisplayName() {
+  if (authPersonName) return authPersonName;
   const mine = designerRoster.find((d) => d.studio === MY_STUDIO_KEY);
   return (mine && mine.name) || 'You';
 }
@@ -14488,7 +14537,7 @@ function conversationMessageEl(msg) {
   const studio = STUDIOS[msg.studio];
   const color = studio ? studio.color : 'var(--ink)';
   const timeText = msg.justNow ? t().justNow : formatRelativeTime(currentLang, msg.timeValue, msg.timeUnit);
-  const isMe = msg.author === 'You';
+  const isMe = msg.author === myDisplayName();
   const el = document.createElement('div');
   el.className = 'conversation-message' + (isMe ? ' is-me' : '');
   el.style.setProperty('--speaker-color', color);
@@ -14702,7 +14751,7 @@ function initQuestionDetail() {
     if (!value) return;
     input.value = '';
 
-    const msg = { author: 'You', studio: MY_STUDIO_KEY, justNow: true, text: value };
+    const msg = { author: myDisplayName(), studio: MY_STUDIO_KEY, justNow: true, text: value };
     // Kept only in memory for this open session (see sessionExtraMessages) —
     // a real backend would persist it; here it just needs to feel alive now.
     const id = currentQuestionData.id;
@@ -14902,7 +14951,7 @@ function buildQuickUpdateEntry(line, parentId, relation, note) {
     id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
     type: 'update',
-    author: 'You',
+    author: myDisplayName(),
     justNow: true,
     appliedBy: [],
     relatedTo: [],
@@ -17543,7 +17592,9 @@ function buildSharedCardEntry() {
     id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
     type: selectedType,
-    author: 'You',
+    // the same name the DB will show once this card is saved (documented_by),
+    // so the local copy and the shared record never disagree
+    author: myDisplayName(),
     justNow: true,
     appliedBy: [],
     // A freshly shared card starts with no known lineage — connections form
@@ -17559,7 +17610,7 @@ function buildSharedCardEntry() {
     // front of floor 3 — see sortQuestionsForMe.
     askedTo: isOpenQ ? selectedAskedTo : undefined,
     conversation: isOpenQ
-      ? [{ author: 'You', studio: MY_STUDIO_KEY, justNow: true, text: (body.blocked || title) }]
+      ? [{ author: myDisplayName(), studio: MY_STUDIO_KEY, justNow: true, text: (body.blocked || title) }]
       : undefined,
     // Not a real translation — see LANG_PENDING note near renderCardLangBadge.
     sourceLang: currentLang,

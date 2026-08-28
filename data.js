@@ -201,7 +201,10 @@ const LoomData = (function () {
     if (profileCache) return profileCache;
     try {
       const res = await fetch(
-        SUPABASE_URL + '/rest/v1/profiles?id=eq.' + session.user.id + '&select=studio_id,person_id,email',
+        // persons(name) is embedded over the person_id FK: who you are, by
+        // name, is what the screens actually show
+        SUPABASE_URL + '/rest/v1/profiles?id=eq.' + session.user.id +
+          '&select=studio_id,person_id,email,persons(name)',
         {
           headers: {
             apikey: SUPABASE_ANON_KEY,
@@ -214,7 +217,12 @@ const LoomData = (function () {
       if (!res.ok) return null;
       const rows = await res.json();
       if (!Array.isArray(rows) || rows.length !== 1) return null;
-      profileCache = { studio: rows[0].studio_id, personId: rows[0].person_id, email: rows[0].email };
+      profileCache = {
+        studio: rows[0].studio_id,
+        personId: rows[0].person_id,
+        personName: (rows[0].persons && rows[0].persons.name) || null,
+        email: rows[0].email,
+      };
       return profileCache;
     } catch (err) {
       return null;
@@ -246,6 +254,18 @@ const LoomData = (function () {
   }
 
   const auth = { getSession, signInWithEmail, signOut, loadProfile, allowedDomains, onAuthChange };
+
+  /* Write-call headers: a signed-in member's own JWT (which is what makes
+     auth.uid() answer inside the RPC gates), the anon key otherwise. The
+     shared code riding in the body stays the fallback door until 0014. */
+  async function writeHeaders() {
+    const session = await getSession();
+    return {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: 'Bearer ' + (session ? session.access_token : SUPABASE_ANON_KEY),
+      'Content-Type': 'application/json',
+    };
+  }
 
   /* ---- roster (Designers) ---------------------------------------------------
      persons is publicly readable (RLS read_all from 0001), so this is a plain
@@ -316,12 +336,8 @@ const LoomData = (function () {
     try {
       const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_roster_edit', {
         method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ payload: payload, code: code }),
+        headers: await writeHeaders(),
+        body: JSON.stringify({ payload: payload, code: code || null }),
         signal: controller.signal,
       });
       const json = await res.json().catch(function () { return null; });
@@ -377,12 +393,8 @@ const LoomData = (function () {
     try {
       const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_roster_order', {
         method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ studio: studio, ids: ids, code: code }),
+        headers: await writeHeaders(),
+        body: JSON.stringify({ studio: studio, ids: ids, code: code || null }),
         signal: controller.signal,
       });
       const json = await res.json().catch(function () { return null; });
@@ -412,10 +424,15 @@ const LoomData = (function () {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30000); // an image is bigger than a row
     try {
+      const session = await getSession();
       const res = await fetch(SUPABASE_URL + '/functions/v1/roster-photo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code, person_id: personId, image: dataUrl }),
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          // a member's JWT is the gate; the code stays the fallback door
+          session ? { Authorization: 'Bearer ' + session.access_token } : {}
+        ),
+        body: JSON.stringify({ code: code || null, person_id: personId, image: dataUrl }),
         signal: controller.signal,
       });
       const json = await res.json().catch(function () { return null; });
@@ -515,12 +532,8 @@ const LoomData = (function () {
     try {
       const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_card', {
         method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ payload: payload, code: code }),
+        headers: await writeHeaders(),
+        body: JSON.stringify({ payload: payload, code: code || null }),
         signal: controller.signal,
       });
       if (!res.ok) {
