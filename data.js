@@ -134,6 +134,119 @@ const LoomData = (function () {
     };
   }
 
+  /* ---- auth (Supabase Auth, magic link) --------------------------------------
+     The ONLY consumer of the supabase-js CDN bundle, and only for auth:
+     session persistence and refresh-token rotation are the parts not worth
+     hand-rolling. Reads keep going through the plain anon fetches above, so
+     a CDN outage can cost the login button, never the feed. Every function
+     here is null-safe when the bundle is absent. */
+  let authClient = null;
+  let profileCache = null;
+
+  function authApi() {
+    if (authClient) return authClient;
+    if (!window.supabase || !window.supabase.createClient || !isConfigured()) return null;
+    authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+    return authClient;
+  }
+
+  async function getSession() {
+    const c = authApi();
+    if (!c) return null;
+    try {
+      const { data } = await c.auth.getSession();
+      return (data && data.session) || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /* Sends the magic link. shouldCreateUser:false = invite-only: an address
+     that was never provisioned gets an error, not an account. */
+  async function signInWithEmail(email, redirectTo) {
+    const c = authApi();
+    if (!c) return { ok: false, reason: 'unavailable' };
+    try {
+      const { error } = await c.auth.signInWithOtp({
+        email: email,
+        options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
+      });
+      if (error) {
+        return {
+          ok: false,
+          reason: 'rejected',
+          notInvited: /signups not allowed|not authorized/i.test(error.message || ''),
+          message: error.message || '',
+        };
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    }
+  }
+
+  async function signOut() {
+    const c = authApi();
+    profileCache = null;
+    if (c) { try { await c.auth.signOut(); } catch (err) { /* local session is cleared regardless */ } }
+  }
+
+  /* The signed-in user's profile row: { studio, personId, email } — which is
+     also the answer to "which studio am I". null when signed out. */
+  async function loadProfile() {
+    const session = await getSession();
+    if (!session) { profileCache = null; return null; }
+    if (profileCache) return profileCache;
+    try {
+      const res = await fetch(
+        SUPABASE_URL + '/rest/v1/profiles?id=eq.' + session.user.id + '&select=studio_id,person_id,email',
+        {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            // the user's own token, not the anon key: the read_own policy
+            // answers only to the signed-in user
+            Authorization: 'Bearer ' + session.access_token,
+          },
+        }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length !== 1) return null;
+      profileCache = { studio: rows[0].studio_id, personId: rows[0].person_id, email: rows[0].email };
+      return profileCache;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // the lobby's prefilter: which email domains can even ask for a link
+  async function allowedDomains() {
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/studio_domains?select=domain,studio_id', {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      return Array.isArray(rows) ? rows : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /* Auth events, for the one moment polling cannot catch reliably: the magic
+     link's token exchange finishing. Subscribing also creates the client, so
+     URL tokens start being processed the moment the caller wires this up. */
+  function onAuthChange(cb) {
+    const c = authApi();
+    if (!c) return false;
+    c.auth.onAuthStateChange((event, session) => cb(event, session));
+    return true;
+  }
+
+  const auth = { getSession, signInWithEmail, signOut, loadProfile, allowedDomains, onAuthChange };
+
   /* ---- roster (Designers) ---------------------------------------------------
      persons is publicly readable (RLS read_all from 0001), so this is a plain
      table select — a handful of rows, no RPC needed. Mapped straight into the
@@ -462,6 +575,7 @@ const LoomData = (function () {
   return {
     isConfigured, loadCards, hasRemote, submitCard,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
+    auth,
   };
 })();
 

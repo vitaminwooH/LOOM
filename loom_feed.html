@@ -261,6 +261,28 @@
      In flow it cannot overlap however many lines it takes. The row is reserved
      from the start rather than appearing on hover, so nothing shifts when the
      pointer arrives — only the opacity changes. */
+  /* Sign out: an action row after the doors — set small on purpose, in the
+     doors' own serif but at footnote scale, so leaving is findable without
+     competing with anywhere to go. */
+  .menu-signout {
+    display: block;
+    margin: clamp(18px, 3.5vh, 34px) auto 0;
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(15px, 1.6vw, 19px);
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.42);
+    cursor: pointer;
+    /* rides the same stagger as the doors (see MENU_STAGGER_SELECTOR) */
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.2s ease, transform 0.2s ease, color 0.25s ease;
+  }
+  .menu-signout.is-visible { opacity: 1; transform: translateY(0); }
+  .menu-signout:hover { color: rgba(255, 255, 255, 0.85); }
+
   .menu-item {
     /* Block, not grid. Grid put the label and Tools' "coming soon" note into two
        auto-placed columns and the 46ch width threw them to opposite ends of the
@@ -6184,7 +6206,10 @@
 
 <!-- Data access layer — every Supabase call lives in data.js, nothing here
      talks to the network directly (rule: one file to rewrite when the
-     backend moves in-house). -->
+     backend moves in-house). supabase-js is auth-only (sessions, magic
+     links), wrapped inside data.js; if its CDN fails, reads and Guest mode
+     are untouched. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="data.js"></script>
 <script>
 'use strict';
@@ -6279,7 +6304,7 @@ const TRANSLATIONS = {
       filterAll: 'All',
       types: { update: 'Update', project: 'Project', experiment: 'Experiment', question: 'Question' },
       typeFilterLabel: 'Type',
-      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', threads: 'Threads', designers: 'Designers', tools: 'Tools', projects: 'Projects', experiments: 'Experiments' },
+      menu: { newest: 'Now', browse: 'Knowledge', question: 'Open questions', threads: 'Threads', designers: 'Designers', tools: 'Tools', projects: 'Projects', experiments: 'Experiments', signOut: 'Sign out' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -6806,7 +6831,7 @@ const TRANSLATIONS = {
       filterAll: '전체',
       types: { update: '업데이트', project: '프로젝트', experiment: '실험', question: '질문' },
       typeFilterLabel: '종류',
-      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', threads: '실', designers: '디자이너', tools: '툴', projects: '프로젝트', experiments: '실험' },
+      menu: { newest: '지금', browse: '알아낸 것', question: '아직 모르는 것', threads: '실', designers: '디자이너', tools: '툴', projects: '프로젝트', experiments: '실험', signOut: '로그아웃' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -7289,7 +7314,7 @@ const TRANSLATIONS = {
       filterAll: 'Alle',
       types: { update: 'Update', project: 'Projekt', experiment: 'Experiment', question: 'Frage' },
       typeFilterLabel: 'Typ',
-      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', threads: 'Fäden', designers: 'Designer', tools: 'Werkzeuge', projects: 'Projekte', experiments: 'Experimente' },
+      menu: { newest: 'Jetzt', browse: 'Wissen', question: 'Offene Fragen', threads: 'Fäden', designers: 'Designer', tools: 'Werkzeuge', projects: 'Projekte', experiments: 'Experimente', signOut: 'Abmelden' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -7772,7 +7797,7 @@ const TRANSLATIONS = {
       filterAll: 'Tümü',
       types: { update: 'Güncelleme', project: 'Proje', experiment: 'Deney', question: 'Soru' },
       typeFilterLabel: 'Tür',
-      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', threads: 'İplikler', designers: 'Tasarımcılar', tools: 'Araçlar', projects: 'Projeler', experiments: 'Deneyler' },
+      menu: { newest: 'Şimdi', browse: 'Bilgi', question: 'Açık sorular', threads: 'İplikler', designers: 'Tasarımcılar', tools: 'Araçlar', projects: 'Projeler', experiments: 'Deneyler', signOut: 'Çıkış yap' },
       /* The lookout, not a workbench. No search, no filters, no sort — the whole
          value of the screen is that it shows everything at once and asks
          nothing of you. */
@@ -9037,6 +9062,7 @@ function persistDesigners() {
 // TODO(auth): server-side authorisation on the signed-in account. A
 // client-side comparison decides what to *show*, never what's allowed.
 function canEditRoster(studioKey) {
+  if (isGuestSession()) return false; // no Edit control renders for a guest
   return studioKey === MY_STUDIO_KEY;
 }
 
@@ -9414,8 +9440,40 @@ function seedEditsMap() { return seedEdits; }
    Shared cards: yes, they wrote them this session.
    Seed cards: only their own studio's — "남의 것엔 안 보임" reads as other
    studios', and a studio's own back catalogue is theirs to correct. */
+/* ---- session mode -----------------------------------------------------------
+   'guest'  — chose "enter as a guest" in the lobby: every write ENTRY POINT
+              is absent from the DOM (not disabled: absent), on top of the
+              server refusing writes anyway.
+   'member' — signed in (or pre-auth legacy flow); write UI renders and the
+              gates (shared code today, auth in stage 3) decide server-side.
+   missing  — a bookmark from before modes existed: treated as member so the
+              existing demo behaviour is unchanged. */
+function isGuestSession() {
+  try { return localStorage.getItem('loom_session_mode') === 'guest'; } catch (err) { return false; }
+}
+
+/* Signed-in truth wins over the lobby pick: a deep link / stale bookmark can
+   carry the wrong studio in localStorage, and every studio-owned surface
+   reads MY_STUDIO_KEY synchronously at boot — so the rare mismatch is fixed
+   by correcting storage and rebooting the page, not by chasing every
+   consumer at runtime. */
+function initAuthSession() {
+  if (isGuestSession()) return; // an explicit guest stays a guest
+  if (!window.LoomData || !LoomData.isConfigured() || !LoomData.auth) return;
+  LoomData.auth.loadProfile().then((profile) => {
+    if (!profile || !profile.studio) return; // signed out — legacy behaviour
+    if (profile.studio === MY_STUDIO_KEY || !isStudioEnabled(profile.studio)) return;
+    try {
+      localStorage.setItem('loom_current_studio', profile.studio);
+      localStorage.setItem('loom_session_mode', 'member');
+      location.reload();
+    } catch (err) { /* storage blocked — stay as booted */ }
+  }).catch(() => {});
+}
+
 function canEditCard(data) {
   if (!data) return false;
+  if (isGuestSession()) return false; // guests read; the UI never offers more
   if (data.isShared) return true;
   return data.studio === MY_STUDIO_KEY;
 }
@@ -9876,7 +9934,7 @@ let isDesignersMode = false;
 /* Doors and sub-items alike. Both animate the same two properties from the same
    resting state, so one query in document order staggers the column top to
    bottom without caring which kind of row each one is. */
-const MENU_STAGGER_SELECTOR = '.menu-item, .menu-subitem';
+const MENU_STAGGER_SELECTOR = '.menu-item, .menu-subitem, .menu-signout';
 
 const MENU_OPEN_STAGGER_MS = 50;
 const MENU_OPEN_DUR_MS = 440;
@@ -9988,6 +10046,26 @@ function renderMenuOverlay() {
     }
   });
 
+  /* Sign out: an action, not a floor, so it is not a MENU_ITEMS entry — a
+     quiet row after the doors. Hidden until openMenuOverlay confirms there
+     is a session to end. Signing out hands the browser to guest mode and
+     returns it to the lobby. */
+  const signOut = document.createElement('button');
+  signOut.type = 'button';
+  signOut.className = 'menu-signout';
+  signOut.id = 'menuSignOut';
+  signOut.style.display = 'none';
+  signOut.addEventListener('click', () => {
+    closeMenuOverlay();
+    const leave = () => {
+      try { localStorage.setItem('loom_session_mode', 'guest'); } catch (err) { /* fine */ }
+      window.location.href = 'loom_lobby.html';
+    };
+    if (window.LoomData && LoomData.auth) LoomData.auth.signOut().then(leave, leave);
+    else leave();
+  });
+  list.appendChild(signOut);
+
   refreshMenuLabels();
 
   document.getElementById('menuToggleBtn').addEventListener('click', openMenuOverlay);
@@ -10014,6 +10092,8 @@ function refreshMenuLabels() {
   document.querySelectorAll('.menu-subitem').forEach((btn) => {
     btn.textContent = t().menu[btn.dataset.value] || '';
   });
+  const signOut = document.getElementById('menuSignOut');
+  if (signOut) signOut.textContent = t().menu.signOut || 'Sign out';
   refreshMenuSubItems();
 }
 
@@ -10037,6 +10117,14 @@ function openMenuOverlay() {
   const overlay = document.getElementById('menuOverlay');
   if (overlay.classList.contains('is-open')) return;
   pauseAutoScroll();
+  // Sign out exists only for someone signed in — checked at open, because
+  // sessions come and go without the menu being rebuilt.
+  const signOut = document.getElementById('menuSignOut');
+  if (signOut && window.LoomData && LoomData.isConfigured() && LoomData.auth) {
+    LoomData.auth.getSession().then((session) => {
+      signOut.style.display = session ? '' : 'none';
+    });
+  }
   /* Read the mark here rather than writing it whenever the filter changes.
      setBrowseTypeFilter runs *before* goToFloor — deliberately, so the floor is
      already filtered the first time it is seen — which means currentFloor is
@@ -12233,6 +12321,7 @@ function refreshCornerDockText() {
   document.getElementById('backToLobbyLabel').textContent = strings.backToNetwork;
 
   const shareBtn = document.getElementById('cornerShareBtn');
+  if (!shareBtn) return; // a guest session removed it at boot
   shareBtn.setAttribute('aria-label', strings.shareButton);
   shareBtn.title = strings.shareButton;
   document.getElementById('cornerShareLabel').textContent = strings.shareButton;
@@ -15040,7 +15129,7 @@ function hasMyLineageLink(card) {
 
 function syncApplyButton(card) {
   const btn = document.getElementById('applyBtn');
-  if (!btn) return;
+  if (!btn) return; // a guest session removed it at boot
   const applied = hasMyLineageLink(card);
   btn.classList.toggle('is-applied', applied);
   btn.textContent = applied ? t().applyButtonDone : t().applyButton;
@@ -18404,9 +18493,22 @@ safeInit('canvas field', initCanvasField);
 safeInit('share another', initShareAnother);
 safeInit('share mode', initShareMode);
 safeInit('page transitions', initPageTransitions);
+// Guest mode strips the write ENTRY POINTS out of the DOM before anything
+// can show them: the share pencil and the Apply button (edit/delete links
+// and the roster Edit toggle never render — canEditCard/canEditRoster say
+// no). The server refusing writes is a separate, unconditional layer.
+safeInit('guest mode', () => {
+  if (!isGuestSession()) return;
+  const pencil = document.getElementById('cornerShareBtn');
+  if (pencil) pencil.remove();
+  const apply = document.getElementById('applyBtn');
+  if (apply) apply.remove();
+});
 // Last on purpose: the seed render above is already complete, so the remote
 // swap (if the DB has rows) is a quiet rebuild, not a race with first paint.
 safeInit('remote cards', initRemoteCards);
+// signed-in truth may override the lobby pick (rare: deep links) — async
+safeInit('auth session', initAuthSession);
 </script>
 </body>
 </html>

@@ -149,6 +149,101 @@
   .studio-dock:has(.studio-button:hover) .studio-dock-hint,
   .studio-dock:has(.studio-button:focus-visible) .studio-dock-hint { opacity: 0; }
 
+  /* ---------- signing in ----------
+     The email step lives where the hint was: same width, same voice. It only
+     appears after a studio is chosen and there is no session — a returning
+     signed-in visitor never sees it. */
+  .login-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .login-panel[hidden] { display: none; }
+  .login-title {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .login-form { display: flex; gap: 8px; }
+  .login-form input {
+    width: 240px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 13px;
+    outline: none;
+  }
+  .login-form input::placeholder { color: rgba(255, 255, 255, 0.35); }
+  .login-form input:focus { border-color: rgba(255, 255, 255, 0.35); }
+  .login-form button {
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.92);
+    color: #0a0f26;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .login-form button:disabled { opacity: 0.5; cursor: default; }
+  .login-status {
+    min-height: 16px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .login-status.is-error { color: rgba(255, 160, 140, 0.9); }
+
+  /* Guest entry: the third door, directly under the two logos — same tier
+     (a real pill you can aim at), but words instead of a mark, so it cannot
+     be mistaken for a studio. */
+  .guest-entry { margin-top: 2px; }
+  .guest-entry button {
+    padding: 9px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    font-size: 12.5px;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+  .guest-entry button:hover {
+    color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* after the link is sent, the form gives way to the instruction; the one
+     control left is trying a different address */
+  .login-status strong { color: rgba(255, 255, 255, 0.85); font-weight: 600; }
+  .login-resend {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.42);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: color 0.25s ease;
+  }
+  .login-resend:hover { color: rgba(255, 255, 255, 0.75); }
+
+  /* your own door, when a live session already knows which one it is */
+  .studio-button.is-home {
+    border-color: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 0 22px var(--studio-glow);
+  }
+
   .studio-tooltip {
     position: absolute;
     bottom: calc(100% + 14px);
@@ -198,6 +293,20 @@
 <div class="studio-dock" id="studio-dock">
   <div class="studio-dock-hint">Choose your studio to enter</div>
   <div class="studio-dock-row" id="studio-dock-row"></div>
+  <!-- the third door: same tier as the studio doors, but words, not a logo —
+       browsing asks for nothing, so its entrance carries no identity -->
+  <div class="guest-entry">
+    <button type="button" id="guestEnterBtn">Enter as a guest →</button>
+  </div>
+  <div class="login-panel" id="loginPanel" hidden>
+    <div class="login-title" id="loginTitle">Sign in with your studio email</div>
+    <form class="login-form" id="loginForm">
+      <input type="email" id="loginEmail" placeholder="you@doubleugames.com" required autocomplete="email">
+      <button type="submit" id="loginSend">Send link</button>
+    </form>
+    <div class="login-status" id="loginStatus"></div>
+    <button type="button" class="login-resend" id="loginResend" hidden>Send to a different address</button>
+  </div>
 </div>
 
 <div class="page-veil" id="pageVeil"></div>
@@ -214,6 +323,13 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<!-- Auth: supabase-js (pinned major v2) is used ONLY for sessions/magic
+     links, wrapped in data.js — the rule stands: screens talk to LoomData,
+     never to the network. If either script fails to load, the login door
+     closes but Guest entry and the feed's reads are untouched. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="data.js"></script>
 
 <script>
 /* ======================================================================
@@ -808,8 +924,20 @@ function updateFocusTween(now) {
 // 합니다. localStorage는 사용자가 직접 고칠 수 있으므로 권한 근거가 될 수 없고,
 // 여기서는 로그인이 아직 없는 프로토타입이라 그 자리를 대신 채워둔 것뿐입니다.
 const CURRENT_STUDIO_STORAGE_KEY = 'loom_current_studio';
+const SESSION_MODE_STORAGE_KEY = 'loom_session_mode'; // 'member' | 'guest'
 
-function enterStudioAndProceed(studio) {
+function setSessionMode(mode) {
+  try { localStorage.setItem(SESSION_MODE_STORAGE_KEY, mode); } catch (err) { /* feed treats missing as legacy */ }
+}
+
+/* Captured before supabase-js consumes the URL: did we arrive HERE from the
+   magic link? That arrival auto-continues into the feed — the person already
+   did their part in the inbox; a returning visitor with a stored session
+   still gets the lobby and enters with a click. */
+const arrivedFromAuthLink = /access_token=|type=magiclink|[?&]code=/.test(location.hash + location.search);
+
+// the actual departure: studio remembered, camera turn, veil, hand-off
+function proceedToFeed(studio) {
   try {
     localStorage.setItem(CURRENT_STUDIO_STORAGE_KEY, studio.id);
   } catch (err) {
@@ -824,6 +952,149 @@ function enterStudioAndProceed(studio) {
   setTimeout(() => {
     window.location.href = 'loom_feed.html';
   }, CONFIG.FOCUS_ANIM_MS + 400); // 회전이 눈에 다 들어올 시간을 살짝 더 줌
+}
+
+function studioById(id) {
+  return STUDIOS.find((s) => s.id === id) || null;
+}
+
+/* A studio door: signed in → straight through (to YOUR studio, wherever you
+   clicked — the profile decides, not the door); signed out → the email step. */
+function enterStudioAndProceed(studio) {
+  if (!window.LoomData || !LoomData.isConfigured()) {
+    // no auth layer available (CDN down / not configured): the old behaviour
+    setSessionMode('member');
+    proceedToFeed(studio);
+    return;
+  }
+  LoomData.auth.loadProfile().then((profile) => {
+    if (profile && profile.studio) {
+      setSessionMode('member');
+      proceedToFeed(studioById(profile.studio) || studio);
+      return;
+    }
+    openLoginPanel(studio);
+  }).catch(() => openLoginPanel(studio));
+}
+
+/* ---- the email step ---- */
+let allowedDomainList = null; // fetched once; null = unknown (fetch failed)
+
+function openLoginPanel(studio) {
+  const panel = document.getElementById('loginPanel');
+  panel.hidden = false;
+  document.getElementById('loginTitle').textContent = 'Sign in with your studio email';
+  document.getElementById('loginStatus').textContent = '';
+  document.getElementById('loginStatus').classList.remove('is-error');
+  document.getElementById('loginEmail').focus();
+  if (allowedDomainList === null && window.LoomData) {
+    LoomData.auth.allowedDomains().then((rows) => { allowedDomainList = rows; });
+  }
+  void studio; // the door chosen is a hint only — the profile decides the studio
+}
+
+function loginStatus(text, isError) {
+  const el = document.getElementById('loginStatus');
+  el.textContent = text;
+  el.classList.toggle('is-error', !!isError);
+}
+
+/* Link sent: the form steps aside and the instruction takes its place.
+   "THIS browser" is load-bearing — the sign-in is PKCE, so a link opened in
+   a different browser (or the mail app's built-in one) cannot finish it. */
+function showLinkSentState() {
+  document.getElementById('loginForm').hidden = true;
+  const el = document.getElementById('loginStatus');
+  el.classList.remove('is-error');
+  el.innerHTML = 'Link sent — open it <strong>in this browser</strong> to finish signing in.';
+  document.getElementById('loginResend').hidden = false;
+}
+
+document.getElementById('loginResend').addEventListener('click', () => {
+  document.getElementById('loginForm').hidden = false;
+  document.getElementById('loginResend').hidden = true;
+  loginStatus('', false);
+  document.getElementById('loginEmail').focus();
+  document.getElementById('loginEmail').select();
+});
+
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  if (!email) return;
+  const domain = email.split('@')[1] || '';
+  // prefilter only — the server refuses unknown domains and uninvited
+  // addresses regardless of what this check lets through
+  if (Array.isArray(allowedDomainList) && !allowedDomainList.some((d) => d.domain === domain)) {
+    loginStatus('That email domain is not part of Loom.', true);
+    return;
+  }
+  const sendBtn = document.getElementById('loginSend');
+  sendBtn.disabled = true;
+  loginStatus('Sending…', false);
+  LoomData.auth.signInWithEmail(email, window.location.href.split('#')[0].split('?')[0]).then((res) => {
+    sendBtn.disabled = false;
+    if (res.ok) {
+      showLinkSentState();
+      return;
+    }
+    if (res.notInvited) {
+      loginStatus('This address has not been invited yet.', true);
+    } else if (/security purposes|rate limit|after \d+ seconds/i.test(res.message || '')) {
+      // Supabase's resend cooldown (60s) — a wait, not a failure
+      loginStatus('Just sent — you can try again in a moment.', false);
+    } else {
+      loginStatus('Could not send the link. Try again in a moment.', true);
+    }
+    console.warn('[Loom lobby] magic link failed:', res.message || res.reason);
+  });
+});
+
+/* ---- guest entry: browsing asks for nothing ---- */
+document.getElementById('guestEnterBtn').addEventListener('click', () => {
+  setSessionMode('guest');
+  const fallback = activeStudios[0];
+  proceedToFeed(studioById(localStorage.getItem(CURRENT_STUDIO_STORAGE_KEY)) || fallback);
+});
+
+/* ---- session-aware lobby --------------------------------------------------
+   Arriving FROM the magic link finishes the journey the inbox started: the
+   moment the token exchange lands (an event, not a timer — guessing at the
+   exchange's timing is what made this flaky), the feed opens on your studio.
+   A plain revisit with a live session keeps the lobby a place — the feed's
+   "back to network" button must not boomerang — but your studio lights up
+   and the hint knows you: one click and you're in. */
+function markSignedInLobby(profile) {
+  const studio = studioById(profile.studio);
+  if (!studio) return;
+  const hint = document.querySelector('.studio-dock-hint');
+  if (hint) hint.textContent = `Signed in — enter ${studio.name}`;
+  const buttons = document.querySelectorAll('.studio-button');
+  activeStudios.forEach((s, i) => {
+    if (s.id === studio.id && buttons[i]) buttons[i].classList.add('is-home');
+  });
+}
+
+if (window.LoomData && LoomData.isConfigured()) {
+  let proceeded = false;
+  const continueSignedIn = () => {
+    LoomData.auth.loadProfile().then((profile) => {
+      if (!profile || !profile.studio || proceeded) return;
+      if (arrivedFromAuthLink) {
+        proceeded = true;
+        setSessionMode('member');
+        proceedToFeed(studioById(profile.studio) || activeStudios[0]);
+      } else {
+        markSignedInLobby(profile);
+      }
+    });
+  };
+  // subscribe FIRST (this also starts the URL token exchange), then ask once
+  // for the case where the session was already local
+  LoomData.auth.onAuthChange((event) => {
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') continueSignedIn();
+  });
+  continueSignedIn();
 }
 
 // Reveal the scene shortly after first paint — matches the same veil
