@@ -15,6 +15,68 @@
     --surface: #ffffff;
     --border: rgba(20, 20, 20, 0.08);
     --border-strong: rgba(20, 20, 20, 0.14);
+
+    /* ---------- studio colour on the floors ----------
+       Every number the new colour treatment uses, in one place, because the
+       whole thing is a judgement call about how much colour a room of
+       knowledge should have. Raise the tints for more, lower them for less;
+       nothing else needs touching.
+
+       The rule they all serve: colour identifies, type is read. A card's
+       studio should be recognisable across the room and never at the cost
+       of the words on it — so the tints are deep and desaturated (the
+       lobby's nebula, not the logo swatch), and the scrim over them is
+       untouched. */
+    --card-tint-strong: 0.32;   /* the bloom nearest the top-left corner */
+    --card-tint-mid: 0.18;      /* the second bloom, opposite corner */
+    --card-tint-wash: 0.21;     /* the linear wash under both */
+    --card-tint-ink: 0.13;      /* how far the tint is pulled toward ink */
+    --card-image-veil: 0.18;    /* studio colour laid over a cover image */
+
+    /* The ground a document cover stands on. Pale on purpose: the page IS
+       the card, and a strong stage behind it turns a cover into wallpaper.
+       --doc-stage-tint is how much studio colour reaches the paper. */
+    --doc-stage-base: #eeece7;
+    --doc-stage-tint: 26%;
+    --doc-stage-edge: 8%;
+
+    /* The scrim under a card's title. It used to sit over a deep tint that
+       did half the work; now that the card is nearly paper, the scrim has to
+       carry the contrast on its own. Two dials: how dark it gets at the foot
+       and how far up it reaches. */
+    --card-scrim-ink: 0.78;
+    --card-scrim-height: 62%;
+    --poster-scrim-ink: 0.9;
+    --poster-scrim-height: 70%;
+
+    /* ---------- the nebula behind the floors ----------
+       A colour wash alone was invisible, which is the honest verdict on
+       painting mood with nothing in it. So the lobby's motif comes inside:
+       points of light with threads between them, drawn once and parallaxed
+       as the floors move. Everything about how loud it is lives here.
+
+       --nebula-opacity is the master dial; the two colours and the parallax
+       factor are the rest. 0.35 means the field travels a third as far as
+       the floors do, which is what reads as depth rather than as a second
+       layer sliding. */
+    /* ---------- the paper each floor is printed on ----------
+       Not one surface any more. The cover fills its own floor; Browse and
+       Threads want the warmth of actual paper under them; Open questions is
+       left as it was. The bands live in their own layer (see .floor-paper)
+       which travels with the stage, so each colour stays with its floor.
+
+       Which floors carry the nebula is the other half of the same decision,
+       and it lives beside these on purpose — see FLOOR_BACKDROP. */
+    --paper-cover: #fafaf8;
+    --paper-browse: #f7f3ec;
+    --paper-questions: #fafaf8;
+    --paper-threads: #f7f3ec;
+
+    --nebula-opacity: 0.5;
+    --nebula-dot: rgba(40, 64, 110, 0.5);
+    --nebula-thread: rgba(40, 64, 110, 0.24);
+    --nebula-glow-blue: rgba(55, 138, 221, 0.07);
+    --nebula-glow-orange: rgba(216, 90, 48, 0.055);
     --ink: #1c1c1e;
     --ink-dim: rgba(28, 28, 30, 0.58);
     --ink-faint: rgba(28, 28, 30, 0.36);
@@ -798,6 +860,57 @@
     flex-direction: column;
   }
 
+  /* ---------- the nebula behind every floor ----------
+     One field for the whole stage rather than a background per floor: the
+     floors slide over it, and a per-floor treatment would announce each
+     seam. Sits inside .feed-main (already overflow:hidden) so it is clipped
+     to the window, under the stage.
+
+     Floor 1 needs no exception: its cover fills the window opaquely, so the
+     field is simply never visible there.
+
+     The transform is written straight onto this element by setStageOffset —
+     one style write on one element per frame, on a property the compositor
+     handles, rather than a custom property on :root that would restyle the
+     whole document while the stage tweens. */
+  /* The per-floor colour bands. Translated by exactly what the stage is
+     translated by (no parallax): a band has to stay with its floor. Behind
+     the nebula, so a floor that keeps the field shows it over its own
+     paper, and a floor that drops it (Threads) is simply flat. */
+  .floor-paper {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+  }
+  .floor-paper-band { height: var(--floor-h); }
+
+  .nebula-layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 240vh;
+    z-index: 1;
+    pointer-events: none;
+    /* set per floor by applyFloorBackdrop — the master dial is
+       --nebula-opacity, multiplied by that floor's factor */
+    opacity: var(--nebula-opacity);
+    transition: opacity 0.5s ease;
+    will-change: transform;
+    background:
+      radial-gradient(58vw 58vw at 10% 8%, var(--nebula-glow-blue), transparent 70%),
+      radial-gradient(52vw 52vw at 92% 62%, var(--nebula-glow-orange), transparent 70%);
+  }
+  .nebula-layer svg { display: block; width: 100%; height: 100%; }
+  .feed-stage { position: relative; z-index: 2; }
+  @media (prefers-reduced-motion: reduce) {
+    .nebula-layer { transition: none; }
+  }
+
   /* a region inside a floor that takes the leftover height and scrolls on its
      own; `contain` stops its scroll from chaining out into the page once it
      hits an edge — the wheel handler decides what happens next instead. */
@@ -1461,6 +1574,20 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
     justify-content: center;
     gap: 22px;
+    /* A floor holding one question was mostly floor. The card cannot simply
+       grow — three of them have to fit the same row — so the ROOM narrows
+       instead: with one or two questions the grid is capped near the middle
+       of the screen, which reads as a considered placement rather than as a
+       page with something missing. Three or more, and the cap is off. */
+    max-width: min(1180px, 92vw);
+    margin-inline: auto;
+    width: 100%;
+  }
+  /* one or two: a narrower room, and cards allowed to be a little larger —
+     the same two numbers do both, since the tracks are capped, not fluid */
+  .questions-grid.is-sparse {
+    max-width: min(820px, 86vw);
+    grid-template-columns: repeat(auto-fit, minmax(300px, 390px));
     /* margin-block: auto, not justify-content: center — auto margins collapse
        to zero the moment the content is taller than the scroller, so three
        questions sit in the middle of the floor and thirty still scroll from
@@ -1604,6 +1731,31 @@
     background-size: cover;
     background-position: center;
   }
+  /* The studio's colour over a cover, so a card with a picture still belongs
+     to somebody at a glance. Multiply, and only in the upper half: the scrim
+     already owns the bottom, and doubling up there would grey the picture
+     out rather than colour it. --card-image-veil is the dial.
+
+     Poster cards only, deliberately. The hero measures its own photograph to
+     decide whether the chrome over it should be light or dark
+     (measureImageTone), and that measurement reads the file, not the
+     rendered result — a veil there would quietly make the page darker than
+     the thing that chose the chrome for it. */
+  .poster-card .card-media.has-image::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 38% 0;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--studio-ink, #378ADD) 100%, transparent) 0%,
+      transparent 100%);
+    opacity: var(--card-image-veil);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  /* a document cover is a page of type — a colour wash over it would just
+     dirty the paper */
+  .poster-card .card-media.has-image.is-doc::before { display: none; }
   /* ---------- a document, not a photograph ----------
      A cover extracted from a deck is a 16:9 page of type, and `cover` on a
      poster card two-thirds as wide as it is tall scales it up by ~1.7 and crops
@@ -1621,8 +1773,32 @@
     background-position: center;
   }
   /* On a poster the page sits high, clear of the title block over the scrim at
-     the foot; on the wide banner and in a detail it can simply centre. */
-  .poster-card .card-media.has-image.is-doc { background-position: center 34%; }
+     the foot; on the wide banner and in a detail it can simply centre.
+     92% wide rather than `contain` into the whole card: a document cover is
+     the most informative thing on the card and it was being fitted into a
+     box two thirds of which is scrim. Wider, higher, and the type below it
+     starts where the page ends. */
+  /* A document cover on a poster gets the studio's stage, the same idea the
+     hero uses: the page is an object standing on the studio's colour rather
+     than a white rectangle letterboxed against more white. This is what
+     makes the Browse row read blue, orange, blue while it scrolls — most of
+     these cards ARE documents, so tinting only the coverless ones would have
+     coloured almost nothing.
+
+     Two layers on one element: the page, then the ground. The inline
+     background-color applyCardMedia sets for the letterbox stays where it
+     is and is simply covered by the opaque ground. */
+  .poster-card .card-media.has-image.is-doc {
+    background-image:
+      var(--card-img),
+      radial-gradient(118% 120% at 72% 10%,
+        color-mix(in srgb, var(--studio-ink, #378ADD) var(--doc-stage-tint), var(--doc-stage-base)) 0%,
+        color-mix(in srgb, var(--studio-ink, #378ADD) var(--doc-stage-edge), var(--doc-stage-base)) 60%,
+        var(--doc-stage-base) 100%);
+    background-size: 92% auto, cover;
+    background-position: center 26%, center;
+    background-repeat: no-repeat, no-repeat;
+  }
   /* ---------- a document on the HERO ----------
      A page `contain`ed against flat white across a full viewport reads as a
      rendering mistake — mostly letterbox, with the scrim text lost on it. On
@@ -1707,9 +1883,21 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: 62%;
-    background: linear-gradient(to top, rgba(8, 8, 8, 0.78), rgba(8, 8, 8, 0) 100%);
+    height: var(--card-scrim-height);
+    background: linear-gradient(to top,
+      rgba(8, 8, 8, var(--card-scrim-ink)), rgba(8, 8, 8, 0) 100%);
     pointer-events: none;
+  }
+  /* A poster's title is the largest type on the floor and it sits on a card
+     that is now almost paper — so its scrim reaches higher and lands darker
+     than the shared one. Photographs get the same treatment; a stronger
+     scrim under a photo costs nothing but a little of its foot. */
+  .poster-card .card-scrim {
+    height: var(--poster-scrim-height);
+    background: linear-gradient(to top,
+      rgba(8, 8, 8, var(--poster-scrim-ink)),
+      rgba(8, 8, 8, calc(var(--poster-scrim-ink) * 0.45)) 42%,
+      rgba(8, 8, 8, 0) 100%);
   }
 
   .card-content {
@@ -5692,6 +5880,11 @@
 
 <div class="app is-transitioning" id="app">
   <main class="feed-main" id="feedMain">
+   <!-- One band per floor; colours and nebula visibility come from
+        FLOOR_BACKDROP. Both layers are moved by setStageOffset. -->
+   <div class="floor-paper" id="floorPaper" aria-hidden="true"></div>
+   <!-- Drawn once at boot (see buildNebula) and parallaxed by setStageOffset. -->
+   <div class="nebula-layer" id="nebulaLayer" aria-hidden="true"></div>
    <!-- The three floors stacked in one transform-driven stage — see the
         .feed-stage CSS and goToFloor() for why this isn't a scroll container. -->
    <div class="feed-stage" id="feedStage">
@@ -9965,11 +10158,42 @@ function hexToRgbArray(hex) {
 // (which only accepts <image> values, so a plain color there would make the
 // whole declaration invalid), and inline via the full `background` shorthand
 // for the card's flip-back face, where callers append their own ", #fff".
+/* The studio's colour, deepened toward ink before it is used. A logo blue at
+   50% over white is a pastel; the same blue pulled 16% toward #1c1c1e is the
+   colour the lobby's nebula is made of, and white type sits on it without a
+   fight. --card-tint-ink is how far that pull goes. */
+function studioInk(color, amount) {
+  const mix = amount === undefined ? cssNumber('--card-tint-ink', 0.16) : amount;
+  const rgb = hexToRgbArray(color);
+  const ink = [28, 28, 30];
+  return rgb.map((c, i) => Math.round(c + (ink[i] - c) * mix));
+}
+
+function rgbaFrom(rgb, alpha) {
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
+// one place to read a tuning number out of :root, with a fallback
+function cssNumber(name, fallback) {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const n = parseFloat(raw);
+  return isFinite(n) ? n : fallback;
+}
+
+/* A card with no cover: the studio's colour IS the picture. Two deep blooms
+   from opposite corners over a wash of the same colour, so a row of cards
+   reads blue, orange, blue as you scroll — which is the point of the floor.
+   The white bloom that used to sit in the middle is gone; it was what made
+   these look washed out. */
 function mediaGradient(color) {
-  return `radial-gradient(circle at 22% 16%, ${hexToRgba(color, 0.42)}, transparent 50%), ` +
-         `radial-gradient(circle at 86% 30%, ${hexToRgba(color, 0.18)}, transparent 55%), ` +
-         `radial-gradient(circle at 65% 96%, rgba(255, 255, 255, 0.6), transparent 52%), ` +
-         `linear-gradient(165deg, ${hexToRgba(color, 0.22)}, transparent 85%)`;
+  const deep = studioInk(color);
+  const strong = cssNumber('--card-tint-strong', 0.52);
+  const mid = cssNumber('--card-tint-mid', 0.30);
+  const wash = cssNumber('--card-tint-wash', 0.34);
+  return `radial-gradient(circle at 20% 12%, ${rgbaFrom(deep, strong)}, transparent 58%), ` +
+         `radial-gradient(circle at 88% 34%, ${rgbaFrom(deep, mid)}, transparent 62%), ` +
+         `radial-gradient(circle at 60% 104%, ${rgbaFrom(deep, mid * 0.7)}, transparent 55%), ` +
+         `linear-gradient(168deg, ${rgbaFrom(deep, wash)}, ${rgbaFrom(deep, wash * 0.28)} 90%)`;
 }
 
 // Applies either a real image (fills the card, small corner badge for the
@@ -10970,6 +11194,12 @@ function renderQuestions() {
 
   const indices = questionIndices();
   indices.forEach((index) => grid.appendChild(buildQuestionCard(ALL_CARDS[index], index)));
+
+  /* One or two questions is not a half-empty page, it is a short list — and
+     it should look composed rather than unfinished. The class narrows the
+     room the grid stands in (see .questions-grid.is-sparse); at three the
+     floor is full enough to use its whole width. */
+  grid.classList.toggle('is-sparse', indices.length > 0 && indices.length < 3);
 
   const waitingCount = indices.filter((i) => ALL_CARDS[i].status !== 'resolved').length;
   renderQuestionsDockLine(waitingCount);
@@ -12110,10 +12340,152 @@ function floorHeight() {
   return (feedMain && feedMain.clientHeight) || Math.max(1, window.innerHeight);
 }
 
+/* ---- the nebula behind the floors -------------------------------------------
+   The lobby's motif, brought inside and quietened: points of light with
+   threads between the near ones. Drawn ONCE into an SVG at boot — no canvas,
+   no animation loop, nothing running while you read — and moved only when
+   the stage moves, at a fraction of its speed, which is what makes the
+   floors feel like they are in front of something.
+
+   Deterministic: positions come from a hash of the index, so the field is
+   the same on every load. A layout that reshuffled itself each visit would
+   be decoration; this is meant to read as a place.
+
+   How loud any of it is lives in :root (--nebula-*); how much of it there is
+   lives here. */
+/* What is behind each floor, in one table.
+
+   `paper` is that floor's ground colour; `nebula` is how much of the shared
+   field it keeps (0 turns it off entirely). Threads is the reason this table
+   exists: its own weave of words and threads is the floor's subject, and a
+   second constellation behind it read as noise in front of the map. So that
+   floor takes flat paper and nothing else. The cover has no use for either —
+   its banner fills the window. */
+const FLOOR_BACKDROP = [
+  { paper: 'var(--paper-cover)',     nebula: 0 },   // 0 — the banner
+  { paper: 'var(--paper-browse)',    nebula: 1 },   // 1 — Knowledge
+  { paper: 'var(--paper-questions)', nebula: 1 },   // 2 — Open questions
+  { paper: 'var(--paper-threads)',   nebula: 0 },   // 3 — the weave
+];
+
+const NEBULA_DOTS = 46;         // across 240vh of field — sparse on purpose
+const NEBULA_LINK_DIST = 15;    // % of the field's width; beyond this, no thread
+const NEBULA_LINK_MAX = 3;      // threads per point, so it never becomes a mesh
+const NEBULA_PARALLAX = 0.35;   // fraction of the stage's travel
+
+function nebulaRandom(i, salt) {
+  return threadHash('nebula-' + i + '-' + salt);
+}
+
+function buildNebula() {
+  const layer = document.getElementById('nebulaLayer');
+  if (!layer) return;
+
+  /* The field is drawn in the layer's OWN pixel proportions, not in an
+     arbitrary box stretched to fit: a viewBox of the wrong aspect with
+     preserveAspectRatio="none" turns every point into an oval and every
+     thread into a lie about its length. Recomputed on resize below. */
+  const w = layer.clientWidth || window.innerWidth;
+  const h = layer.clientHeight || Math.round(window.innerHeight * 2.4);
+  const vbW = 100;
+  const vbH = (h / w) * vbW;
+
+  /* A jittered grid, not a scatter. Pure randomness clumps — the first pass
+     put a diagonal streak through an otherwise empty field — and an even
+     grid reads as a pattern. Cells keep the spacing honest; the jitter
+     inside each one keeps it from looking ruled. */
+  const cols = Math.max(3, Math.round(Math.sqrt(NEBULA_DOTS * (vbW / vbH))));
+  const rows = Math.max(3, Math.round(NEBULA_DOTS / cols));
+  const cellW = vbW / cols;
+  const cellH = vbH / rows;
+
+  const pts = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c;
+      // a few cells stay empty, or the field becomes wallpaper
+      if (nebulaRandom(i, 'skip') < 0.18) continue;
+      pts.push({
+        x: (c + 0.15 + nebulaRandom(i, 'x') * 0.7) * cellW,
+        y: (r + 0.15 + nebulaRandom(i, 'y') * 0.7) * cellH,
+        r: 0.16 + nebulaRandom(i, 'r') * 0.3,
+        o: 0.35 + nebulaRandom(i, 'o') * 0.65,
+      });
+    }
+  }
+
+  // threads only between near neighbours, capped, so it stays a constellation
+  const linkDist = Math.max(cellW, cellH) * 1.35;
+  const threads = [];
+  pts.forEach((a, i) => {
+    pts.slice(i + 1)
+      .map((b) => ({ b, d: Math.hypot(a.x - b.x, a.y - b.y) }))
+      .filter((n) => n.d < linkDist)
+      .sort((n, m) => n.d - m.d)
+      .slice(0, NEBULA_LINK_MAX)
+      .forEach((n) => threads.push({ a, b: n.b, o: 1 - n.d / linkDist }));
+  });
+
+  const parts = [`<svg viewBox="0 0 ${vbW} ${vbH.toFixed(1)}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">`];
+  threads.forEach((t) => {
+    parts.push(`<line x1="${t.a.x.toFixed(2)}" y1="${t.a.y.toFixed(2)}" ` +
+      `x2="${t.b.x.toFixed(2)}" y2="${t.b.y.toFixed(2)}" ` +
+      `stroke="var(--nebula-thread)" stroke-width="0.07" opacity="${(t.o * 0.85).toFixed(2)}"/>`);
+  });
+  pts.forEach((p) => {
+    parts.push(`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" ` +
+      `r="${p.r.toFixed(2)}" fill="var(--nebula-dot)" opacity="${p.o.toFixed(2)}"/>`);
+  });
+  parts.push('</svg>');
+  layer.innerHTML = parts.join('');
+  moveNebula(feedStageOffset);
+}
+
+/* Redrawn on resize, because the proportions above are baked in at build
+   time. Debounced: a window drag would otherwise rebuild it sixty times a
+   second for something nobody is looking at directly. */
+let nebulaResizeTimer = null;
+function initNebulaResize() {
+  window.addEventListener('resize', () => {
+    clearTimeout(nebulaResizeTimer);
+    nebulaResizeTimer = setTimeout(buildNebula, 220);
+  });
+}
+
+function moveNebula(px) {
+  const layer = document.getElementById('nebulaLayer');
+  if (layer) layer.style.transform = 'translate3d(0, ' + (-px * NEBULA_PARALLAX) + 'px, 0)';
+  // the colour bands travel with the floors, not behind them
+  const paper = document.getElementById('floorPaper');
+  if (paper) paper.style.transform = 'translate3d(0, ' + (-px) + 'px, 0)';
+}
+
+// one band per floor, in floor order
+function buildFloorPaper() {
+  const paper = document.getElementById('floorPaper');
+  if (!paper) return;
+  paper.innerHTML = FLOOR_BACKDROP
+    .map((f) => `<div class="floor-paper-band" style="background:${f.paper}"></div>`)
+    .join('');
+  applyFloorBackdrop();
+}
+
+/* The field is only on the floors that want it. Called whenever the floor
+   changes; the fade is CSS, so arriving at Threads dims it out rather than
+   snapping it off mid-slide. */
+function applyFloorBackdrop() {
+  const layer = document.getElementById('nebulaLayer');
+  if (!layer) return;
+  const conf = FLOOR_BACKDROP[currentFloor] || FLOOR_BACKDROP[0];
+  layer.style.opacity = String(cssNumber('--nebula-opacity', 0.5) * conf.nebula);
+}
+
 function setStageOffset(px) {
   feedStageOffset = px;
   const stage = document.getElementById('feedStage');
   if (stage) stage.style.transform = 'translate3d(0, ' + (-px) + 'px, 0)';
+  // the field trails the floors — see NEBULA_PARALLAX
+  moveNebula(px);
 }
 
 /* ---- the "scene change" arrival reveal ----
@@ -12229,6 +12601,7 @@ function goToFloor(floor, options) {
     else if (wasThreads) leaveThreadsFloor();
     setStageOffset(endPx);
     updateChrome();
+    applyFloorBackdrop();
     syncUrlState({ replace: true });
     return;
   }
@@ -12241,6 +12614,7 @@ function goToFloor(floor, options) {
   if (arriving) enterThreadsFloor();
   else if (wasThreads) leaveThreadsFloor();
   updateChrome();
+  applyFloorBackdrop();
   syncUrlState({ replace: true });
   const startPx = feedStageOffset;
   const distance = endPx - startPx;
@@ -18735,6 +19109,10 @@ function initPageTransitions() {
 /* ======================================================================
    11. Init — each piece is wrapped so one failure doesn't break the rest
    ====================================================================== */
+// the field behind the floors, drawn once
+safeInit('floor paper', buildFloorPaper);
+safeInit('nebula', buildNebula);
+safeInit('nebula resize', initNebulaResize);
 safeInit('menu overlay', renderMenuOverlay);
 safeInit('studio chips', renderStudioChips);
 safeInit('language switcher', renderLanguageSwitcher);
