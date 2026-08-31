@@ -645,6 +645,15 @@ const LoomData = (function () {
 
   /* Loads the knowledge cards for `lang`. Resolves to an array of cards in
      the feed's own shape — possibly EMPTY, which is the truth, not a failure
+
+     TODO(scale): one request returns every card's whole language block. At a
+     few dozen cards that is the cheapest thing to do — one round trip, and
+     the detail needs no second fetch. Past a few hundred it stops being: the
+     right shape then is get_knowledge_list(lang) returning only what the
+     floors render (id, type, studio, author, keywords, title, summary, image
+     path, dates, lineage ids) with the body fetched per card on open. The
+     prefetch below already stands down at PREFETCH_MAX_CARDS, which buys the
+     time to do that properly.
      (the DB is the source of record; the canvas sync replaces its content
      atomically, so a legitimate empty only happens if the canvas is empty).
      Resolves to null ONLY when the answer is unknown: not configured, offline,
@@ -670,8 +679,42 @@ const LoomData = (function () {
     return remoteLive;
   }
 
+  /* The cache, read synchronously — a language already fetched can be shown
+     in the same frame the switcher is clicked, with no promise in between. */
+  function cachedCards(lang) {
+    return cardCache[lang] || null;
+  }
+
+  /* Above this many cards, the other languages are not fetched up front:
+     three extra copies of a large feed is exactly the egress the read path
+     was designed to avoid. Switching still works — it just pays for the
+     language it lands on, once. (The real answer at that size is a list/
+     detail split; see the note in loadCards.) */
+  const PREFETCH_MAX_CARDS = 150;
+  const ALL_LANGS = ['en', 'ko', 'de', 'tr'];
+  let prefetchStarted = false;
+
+  /* Warms the other languages AFTER the first one is on screen. Sequential
+     on purpose: three parallel requests would compete with whatever the page
+     is still loading, and nobody is waiting for these. Idempotent — a
+     language already in the cache is never asked for twice. */
+  function prefetchLanguages(current) {
+    if (prefetchStarted || !isConfigured()) return;
+    prefetchStarted = true;
+    const first = cardCache[current];
+    if (!first || first.length > PREFETCH_MAX_CARDS) return;
+    const rest = ALL_LANGS.filter((l) => l !== current && !cardCache[l]);
+    const runNext = () => {
+      const lang = rest.shift();
+      if (!lang) return;
+      loadCards(lang).then(() => setTimeout(runNext, 250), () => setTimeout(runNext, 250));
+    };
+    // a beat after first paint, so the visible language never waits behind these
+    setTimeout(runNext, 1200);
+  }
+
   return {
-    isConfigured, loadCards, hasRemote, submitCard,
+    isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
     submitCardKeywords, submitCardEdit,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,

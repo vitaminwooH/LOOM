@@ -8229,6 +8229,13 @@ const LANGUAGE_STORAGE_KEY = 'loom_language';
 const LEGACY_LANGUAGE_STORAGE_KEY = 'loom_lang';
 
 function readStoredLanguage() {
+  /* The address wins over the preference: a link that says ko is somebody
+     handing this page to somebody else in Korean, which is a more specific
+     statement than what this browser last chose for itself. Read here rather
+     than corrected later, so the first render is already right. */
+  const fromUrl = new URLSearchParams((location.hash || '').replace(/^#/, '')).get('lang');
+  if (fromUrl && TRANSLATIONS[fromUrl]) return fromUrl;
+
   let stored = null;
   try {
     stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -8244,6 +8251,157 @@ function readStoredLanguage() {
   // Validated, not trusted: a hand-edited or retired code must not leave t()
   // reading properties off undefined.
   return stored && TRANSLATIONS[stored] ? stored : 'en';
+}
+
+/* ======================================================================
+   Where you are, in the address bar
+   ----------------------------------------------------------------------
+   The feed is one page with four floors and two surfaces over it, so
+   without this a refresh threw the reader back to the lobby and a card
+   could not be sent to anyone. The state lives in the hash — GitHub Pages
+   serves static files and cannot rewrite paths — as plain pairs:
+
+     #f=2                 floor (0 cover, 1 knowledge, 2 questions, 3 threads)
+     #s=designers         a surface holding the screen
+     #card=cv-2026…       an open card detail — this is the shareable link
+     #lang=ko&studio=whow the reading language, and whose feed it is
+
+   Two rules keep the history sane:
+     - moving between floors and switching language REPLACE the entry.
+       Scrolling is not navigation, and nobody wants twenty back presses
+       to leave a page.
+     - opening a card or the roster PUSHES one, so Back closes it. That is
+       the only "back" anyone means here.
+   Guests and signed-in readers behave identically; the studio in the URL
+   is only honoured for someone whose studio is not already decided by a
+   profile.
+   ====================================================================== */
+const URL_FLOOR_MAX = 3;
+let applyingUrlState = false;   // guard: applying state must not re-write it
+let pendingUrlCard = null;      // a card id from the URL, waiting for the cards
+
+function readUrlState() {
+  const raw = (location.hash || '').replace(/^#/, '');
+  const params = new URLSearchParams(raw);
+  const floor = parseInt(params.get('f'), 10);
+  return {
+    floor: isFinite(floor) ? Math.max(0, Math.min(URL_FLOOR_MAX, floor)) : null,
+    surface: params.get('s'),
+    card: params.get('card'),
+    lang: TRANSLATIONS[params.get('lang')] ? params.get('lang') : null,
+    studio: isStudioEnabled(params.get('studio')) ? params.get('studio') : null,
+  };
+}
+
+// The address for the state the app is in right now.
+function currentUrlState() {
+  const params = new URLSearchParams();
+  if (isCardExpanded && currentOpenIndex !== null && ALL_CARDS[currentOpenIndex]) {
+    params.set('card', ALL_CARDS[currentOpenIndex].id);
+  } else if (isDesignersMode) {
+    params.set('s', 'designers');
+  } else if (isShareMode) {
+    params.set('s', 'share');
+  } else {
+    params.set('f', String(currentFloor));
+  }
+  params.set('lang', currentLang);
+  params.set('studio', MY_STUDIO_KEY);
+  return '#' + params.toString();
+}
+
+/* Writes the address. `replace` for anything that is not a navigation —
+   see the two rules above. Never fires while URL state is being applied. */
+function syncUrlState(options) {
+  if (applyingUrlState) return;
+  const next = currentUrlState();
+  if (next === location.hash) return;
+  try {
+    if (options && options.push) history.pushState(null, '', next);
+    else history.replaceState(null, '', next);
+  } catch (err) { /* a file:// page has no history to write — harmless */ }
+}
+
+/* Puts the app into the state an address describes. Used on load and on
+   Back/Forward, so the two can never drift apart. */
+function applyUrlState(state, opts) {
+  const boot = !!(opts && opts.boot);
+
+  /* A link naming a different studio, followed while the page is already
+     open: MY_STUDIO_KEY is read once at startup and every surface asks it
+     who we are, so the honest way to change it is to start again. Skipped
+     for a signed-in reader — their profile decides, not a link — and it
+     cannot loop, because after the reload the two agree. */
+  if (!boot && state.studio && state.studio !== MY_STUDIO_KEY && !authProfile) {
+    try {
+      localStorage.setItem(CURRENT_STUDIO_STORAGE_KEY, state.studio);
+      location.reload();
+      return;
+    } catch (err) { /* storage blocked — carry on with the studio we have */ }
+  }
+
+  applyingUrlState = true;
+  try {
+    if (state.lang && state.lang !== currentLang) {
+      if (boot) currentLang = state.lang; // before the first render: no fade
+      else setLanguage(state.lang);
+    }
+    // a card wins over a floor: it is the thing the link was for
+    if (state.card) {
+      if (isDesignersMode) exitDesignersMode();
+      const known = ALL_CARDS.some((c) => c.id === state.card);
+      if (known) {
+        if (!isCardExpanded || (ALL_CARDS[currentOpenIndex] || {}).id !== state.card) {
+          openCardById(state.card);
+        }
+      } else {
+        // the cards may not have arrived yet — try again when they do
+        pendingUrlCard = state.card;
+      }
+      return;
+    }
+    if (isCardExpanded) closeCard();
+    if (state.surface === 'designers') {
+      if (!isDesignersMode) enterDesignersMode();
+      return;
+    }
+    if (isDesignersMode) exitDesignersMode();
+    if (state.floor !== null && state.floor !== currentFloor) {
+      goToFloor(state.floor, { instant: boot });
+    }
+  } finally {
+    // the guard lifts after the surfaces have finished their own callbacks
+    setTimeout(() => { applyingUrlState = false; }, 0);
+  }
+}
+
+// A card named in the URL that did not exist yet at boot (the list arrives
+// asynchronously). Called once the remote cards land.
+function applyPendingUrlCard() {
+  if (!pendingUrlCard) return;
+  const id = pendingUrlCard;
+  pendingUrlCard = null;
+  if (ALL_CARDS.some((c) => c.id === id)) {
+    applyingUrlState = true;
+    openCardById(id);
+    setTimeout(() => { applyingUrlState = false; }, 0);
+  }
+}
+
+function initUrlState() {
+  window.addEventListener('popstate', () => applyUrlState(readUrlState()));
+  // the hash can also be edited by hand or arrive from an external link
+  window.addEventListener('hashchange', () => {
+    if (applyingUrlState) return;
+    if (location.hash !== currentUrlState()) applyUrlState(readUrlState());
+  });
+  const state = readUrlState();
+  if (state.floor === null && !state.surface && !state.card) {
+    syncUrlState({ replace: true }); // first visit: stamp where we are
+    return;
+  }
+  applyUrlState(state, { boot: true });
+  syncUrlState({ replace: true });
 }
 
 let currentLang = readStoredLanguage();
@@ -8434,6 +8592,13 @@ function safeSetItem(key, value) {
 const CURRENT_STUDIO_STORAGE_KEY = 'loom_current_studio';
 
 function readCurrentStudioKey() {
+  /* A link carries the studio it was sent from, which is what makes a card
+     link work for someone who has never been here. It cannot grant anything:
+     a signed-in reader's studio comes from their profile and overrides this
+     (see initAuthSession), and the server never trusts either one. */
+  const fromUrl = new URLSearchParams((location.hash || '').replace(/^#/, '')).get('studio');
+  if (fromUrl && isStudioEnabled(fromUrl)) return fromUrl;
+
   let stored = null;
   try {
     stored = localStorage.getItem(CURRENT_STUDIO_STORAGE_KEY);
@@ -9441,6 +9606,9 @@ function initRemoteCards() {
     remoteCards = cards;
     rebuildAllSurfaces();
     renderNowStrip();
+    applyPendingUrlCard();
+    // the other three languages, quietly, once this one is on screen
+    if (LoomData.prefetchLanguages) LoomData.prefetchLanguages(currentLang);
   });
 }
 
@@ -10272,15 +10440,24 @@ function setLanguage(lang) {
     // is a preference lost on reload, not corrupt state, and it must never
     // stop the switch itself from happening.
     try { localStorage.setItem(LANGUAGE_STORAGE_KEY, lang); } catch (err) { /* preference only */ }
-    refreshAllText();
-    fadeEls.forEach((el) => { if (el) el.style.opacity = '1'; });
 
     /* Remote cards carry text in one resolved language (see cardText), so a
-       language switch needs their list re-fetched — cached per language in
-       data.js, so switching back is free. Until the fetch lands the reader
-       sees the previous language for a beat; the seed fallback path never
-       enters here. */
-    if (remoteCards && window.LoomData) {
+       switch needs their list in the new one. Nearly always it is already
+       here — the other languages are prefetched after first paint — and then
+       it is swapped in BEFORE the text refresh below, so the whole screen
+       changes language in a single repaint instead of twice. */
+    const cached = (remoteCards && window.LoomData && LoomData.cachedCards)
+      ? LoomData.cachedCards(lang) : null;
+    if (cached) remoteCards = cached;
+
+    refreshAllText();
+    if (cached) { rebuildAllSurfaces(); renderNowStrip(); }
+    fadeEls.forEach((el) => { if (el) el.style.opacity = '1'; });
+    syncUrlState({ replace: true });
+
+    // Not cached (a slow prefetch, or a feed too large to prefetch): fetch it
+    // now, and let the cards catch up a beat after the chrome.
+    if (!cached && remoteCards && window.LoomData) {
       LoomData.loadCards(lang).then((cards) => {
         if (!cards || lang !== currentLang) return; // stale response — a newer switch won
         remoteCards = cards;
@@ -10290,6 +10467,8 @@ function setLanguage(lang) {
           populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
         }
       });
+    } else if (cached && isCardExpanded && currentOpenIndex !== null) {
+      populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
     }
   }, CONFIG.LANG_FADE_MS);
 }
@@ -10333,13 +10512,23 @@ function refreshAllText() {
 
   const closeBtn = document.getElementById('expandedClose');
   closeBtn.setAttribute('aria-label', strings.closeAria);
+  /* Guest mode removes the write controls from the DOM outright, so every
+     lookup down here has to allow for their absence — before this, a guest
+     switching language threw on the first missing button and the rest of the
+     screen kept the old language. */
   const applyBtn = document.getElementById('applyBtn');
-  applyBtn.textContent = applyBtn.classList.contains('is-applied') ? strings.applyButtonDone : strings.applyButton;
-  document.getElementById('deleteCardLabel').textContent = strings.deleteLink;
-  document.getElementById('editCardLabel').textContent = strings.editLink;
-  document.getElementById('deleteConfirmText').textContent = strings.deleteConfirmText;
-  document.getElementById('deleteCancelBtn').textContent = strings.deleteCancel;
-  document.getElementById('deleteConfirmBtn').textContent = strings.deleteConfirmButton;
+  if (applyBtn) {
+    applyBtn.textContent = applyBtn.classList.contains('is-applied') ? strings.applyButtonDone : strings.applyButton;
+  }
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value; // absent in guest mode
+  };
+  setText('deleteCardLabel', strings.deleteLink);
+  setText('editCardLabel', strings.editLink);
+  setText('deleteConfirmText', strings.deleteConfirmText);
+  setText('deleteCancelBtn', strings.deleteCancel);
+  setText('deleteConfirmBtn', strings.deleteConfirmButton);
 
   if (isCardExpanded && currentOpenIndex !== null) {
     populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
@@ -12040,6 +12229,7 @@ function goToFloor(floor, options) {
     else if (wasThreads) leaveThreadsFloor();
     setStageOffset(endPx);
     updateChrome();
+    syncUrlState({ replace: true });
     return;
   }
   if (feedSnapAnimating) return;
@@ -12051,6 +12241,7 @@ function goToFloor(floor, options) {
   if (arriving) enterThreadsFloor();
   else if (wasThreads) leaveThreadsFloor();
   updateChrome();
+  syncUrlState({ replace: true });
   const startPx = feedStageOffset;
   const distance = endPx - startPx;
 
@@ -12909,8 +13100,7 @@ function saveKeywords(data, draft) {
           card.keywordsEditedBy = res.editedBy || card.keywordsEditedBy;
         }
       });
-      rebuildAllSurfaces();
-      if (currentFloor === FLOOR_THREADS) renderThreads();
+      rebuildAllSurfaces(); // redraws the weave too when it is the floor showing
       finish(true);
     });
   });
@@ -14812,6 +15002,8 @@ function openCard(cardEl) {
   currentOpenIndex = index;
   isCardExpanded = true;
   pauseAutoScroll();
+  // a card is a place you can be sent to, and Back is how you leave it
+  syncUrlState({ push: true });
 
   populateExpanded(data, index);
   setRevealVisible(false);
@@ -14840,6 +15032,9 @@ function closeCard() {
   if (!isCardExpanded) return;
 
   const expandedCard = document.getElementById('expandedCard');
+  isCardExpanded = false;      // so the address describes what is underneath
+  syncUrlState({ replace: true });
+  isCardExpanded = true;       // the teardown below still needs the flag
   const returning = detailReturnSurface || document.getElementById('feedMain');
 
   setRevealVisible(false);
@@ -17566,6 +17761,20 @@ function rebuildAllSurfaces() {
   renderDiscover();
   renderBrowse();
   renderQuestions();
+
+  /* The three floors above redraw from ALL_CARDS every time. Threads and
+     Designers do not: they are built when they are ENTERED, which was fine
+     while entering was the only way to reach them. A URL can now open the
+     app standing on one — and the cards arrive a moment later, underneath
+     something already drawn. So whichever of the two is on screen when the
+     cards change gets rebuilt here, with the same call its arrival makes.
+
+     (Threads on a fresh load was the visible version of this: the weave was
+     built from an empty list and said "no threads yet" until you left the
+     floor and came back.) */
+  if (currentFloor === FLOOR_THREADS) renderThreads();
+  if (isDesignersMode) renderDesigners();
+
   renderNotificationIndicator();
 }
 
@@ -18343,6 +18552,8 @@ function enterDesignersMode() {
 
   isDesignersMode = true;
   pauseAutoScroll();
+  // a surface you can be linked to, and Back is how you leave it
+  syncUrlState({ push: true });
 
   const gallery = document.getElementById('feedMain');
   const designers = document.getElementById('designersViewport');
@@ -18374,6 +18585,7 @@ function exitDesignersMode(onShown) {
   if (!isDesignersMode) return;
   isDesignersMode = false;
   updateChrome(); // and back it comes with the floor it belongs to
+  syncUrlState({ replace: true });
 
   const gallery = document.getElementById('feedMain');
   const designers = document.getElementById('designersViewport');
@@ -18582,6 +18794,8 @@ safeInit('guest mode', () => {
 // swap (if the DB has rows) is a quiet rebuild, not a race with first paint.
 safeInit('feed empty retry', initFeedEmptyRetry);
 safeInit('remote cards', initRemoteCards);
+// after the surfaces exist, so a link can put the app straight into one
+safeInit('url state', initUrlState);
 // the roster is fetched at boot now: no seeded stand-in remains, so the
 // Designers floor must not open on a false "nobody here yet"
 safeInit('remote roster', initRemoteRoster);
