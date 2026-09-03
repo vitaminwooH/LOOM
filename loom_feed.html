@@ -4030,6 +4030,17 @@
      it is the one thing drawn at full strength. */
   .threads-link.is-crossing { stroke-width: 2.7; opacity: 0.92; }
 
+  /* the one line that says the words are doors — shown until the reader has
+     opened one, then never again (see markThreadsHintSeen) */
+  .threads-hint {
+    margin: 10px 0 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+
   /* ---------- one keyword ----------
      The word IS the node. No plate, no ring, no chip — a circle with a label
      hanging off it was the single thing that made this read as a chart. What
@@ -4040,9 +4051,11 @@
   /* transparent fill still receives events; `visible` would not be enough on a
      shape with no paint */
   .threads-hit { pointer-events: all; }
-  /* grab/grabbing on the word itself, and no text selection mid-drag — dragging
-     across a page of type otherwise highlights half of it */
-  .threads-node { cursor: grab; }
+  /* pointer, not grab: a word is first of all a door to its thread, and the
+     pointer is the one cursor everybody reads as "this opens". Dragging still
+     works — the cursor switches to grabbing the moment a word is actually
+     held (see .is-dragging below). No text selection mid-drag either way. */
+  .threads-node { cursor: pointer; }
   .threads-svg.is-dragging { cursor: grabbing; user-select: none; }
   .threads-svg.is-dragging .threads-node { cursor: grabbing; }
   /* the held word loses the arrival/focus easing so it tracks the pointer
@@ -4076,6 +4089,9 @@
   .threads-glow-shape { transition: opacity 0.42s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
   .threads-node:hover .threads-glow-shape,
   .threads-node.is-open .threads-glow-shape { opacity: 1; transform: scale(1.09); }
+  /* and the word itself steps forward — enough to say "press me", small
+     enough that the map does not wobble as the pointer crosses it */
+  .threads-node:hover .threads-recede { transform: scale(1.05); }
 
   /* ---------- one piece of writing ----------
      A mark per card, ringed around the word in its studio's colour, each with
@@ -4314,6 +4330,266 @@
      the studio arrows go out to the edges of the viewport where there is room
      to make them obvious.
      ====================================================================== */
+  /* ================= Thread view =================
+     A column, not a grid. The point of the screen is that one subject reads
+     as one conversation, and a grid of cards is the opposite of that — it
+     asks the eye to compare rather than to follow. So: one measure, items
+     separated by rule and rhythm, type carrying the difference between an
+     update and a project instead of a container doing it.
+
+     Tuning lives here: --thread-measure is the reading width, and the rest
+     follows from it. */
+  .thread-view {
+    --thread-measure: 620px;
+    /* how far the weave steps back while the panel is up */
+    --thread-dim: rgba(250, 248, 244, 0.55);
+    --thread-blur: 5px;
+    position: fixed;
+    inset: 0;
+    /* under the expanded card (100): opening a piece from the panel puts the
+       card on top, and closing it lands back on the panel */
+    z-index: 90;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 4vh, 40px) 16px;
+  }
+  .thread-backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--thread-dim);
+    -webkit-backdrop-filter: blur(var(--thread-blur));
+    backdrop-filter: blur(var(--thread-blur));
+    opacity: 0;
+    transition: opacity 0.24s ease;
+  }
+  .thread-view.is-open .thread-backdrop { opacity: 1; }
+  /* The panel. It GROWS OUT OF the word that was clicked — transform-origin
+     is set to the node's screen position by openThreadView — so the thread
+     visibly comes from its place on the map rather than arriving from
+     nowhere. */
+  .thread-panel {
+    position: relative;
+    width: min(760px, 94vw);
+    height: min(84vh, 900px);
+    border-radius: 22px;
+    background: var(--paper-browse);
+    border: 0.5px solid var(--border);
+    box-shadow: 0 48px 110px -32px rgba(20, 20, 20, 0.4);
+    overflow: hidden;
+    transform: scale(0.55);
+    opacity: 0;
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  }
+  .thread-view.is-open .thread-panel { transform: scale(1); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .thread-panel { transition: opacity 0.2s ease; transform: none; }
+    .thread-backdrop { transition: none; }
+  }
+  .thread-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
+  }
+  .thread-view-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: clamp(44px, 6vh, 64px) 28px 72px;
+  }
+  .thread-head,
+  .thread-composer,
+  .thread-flow,
+  .thread-people {
+    width: min(var(--thread-measure), 100%);
+    margin-inline: auto;
+  }
+
+  .thread-title {
+    margin: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(34px, 4.4vw, 56px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  /* one line, and only what is actually known — see threadMetaLine */
+  .thread-meta {
+    margin: 12px 0 0;
+    font-size: 13px;
+    letter-spacing: 0.01em;
+    color: var(--ink-dim);
+  }
+
+  .thread-composer { margin-top: clamp(26px, 4vh, 42px); }
+  .thread-composer input {
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 14px;
+    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.72);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .thread-composer input::placeholder { color: var(--ink-faint); }
+  .thread-composer input:disabled { cursor: default; }
+
+  .thread-flow { margin-top: clamp(28px, 4.5vh, 46px); }
+  /* an item is a block of text with a label, not a card */
+  .thread-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border);
+    padding: 22px 0 24px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .thread-item:hover { background: rgba(255, 255, 255, 0.5); }
+  .thread-item-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  /* the format, as a word in front of the line rather than a section it
+     lives in */
+  .thread-kind {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--item-studio, var(--ink-dim));
+  }
+  .thread-who {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  .thread-when {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-left: auto;
+  }
+  .thread-item-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(19px, 2vw, 24px);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .thread-item-body {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.62;
+    color: rgba(28, 28, 30, 0.74);
+  }
+  /* a project brings its cover, small: enough to recognise the deck, not
+     enough to become the item */
+  .thread-item-with-cover { display: flex; gap: 18px; align-items: flex-start; }
+  .thread-cover {
+    flex: 0 0 auto;
+    width: 132px;
+    height: 84px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background-color: #fff;
+    background-size: cover;
+    background-position: center;
+  }
+  .thread-cover.is-doc { background-size: contain; background-repeat: no-repeat; }
+  .thread-item-text { min-width: 0; }
+
+  /* where this came from, under the item it belongs to — not a section of
+     its own, because lineage is a property of a piece of work */
+  .thread-rel {
+    display: block;
+    margin-top: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  /* a question's walk-through: asked / learned / decided. The labels are
+     small and step aside; the content is the row. */
+  .thread-qa { margin-top: 10px; display: grid; gap: 9px; }
+  .thread-qa-row { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: baseline; }
+  .thread-qa-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+    padding-top: 2px;
+  }
+  .thread-qa-value {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: rgba(28, 28, 30, 0.74);
+  }
+
+  /* answers hang off their question */
+  .thread-answers {
+    margin: 12px 0 0 18px;
+    padding-left: 16px;
+    border-left: 2px solid var(--border-strong);
+  }
+  .thread-answer {
+    padding: 8px 0;
+    font-size: 13.5px;
+    line-height: 1.58;
+    color: rgba(28, 28, 30, 0.7);
+  }
+  .thread-answer-who {
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-right: 7px;
+  }
+
+  /* only rendered when two or more people are actually in this thread */
+  .thread-people {
+    margin-top: clamp(34px, 5vh, 56px);
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .thread-people[hidden] { display: none; }
+  .thread-people-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-right: 4px;
+  }
+  .thread-person {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px 5px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.6);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .thread-person-dot { width: 7px; height: 7px; border-radius: 50%; margin-left: 5px; }
+
   .designers-viewport {
     position: relative;
     height: var(--floor-h);
@@ -5968,6 +6244,8 @@
            places, which is what happened first, just reads as a stutter. -->
       <div class="threads-head">
         <h1 id="threadsHeading"></h1>
+        <!-- shown until the first thread is opened, then retired for good -->
+        <p class="threads-hint" id="threadsHint"></p>
       </div>
 
       <div class="threads-stage" id="threadsStage">
@@ -6014,6 +6292,44 @@
        A sibling surface of the feed rather than a fourth floor — it isn't
        knowledge, it's the people behind it, and it shouldn't sit in the same
        vertical sequence as the three knowledge tiers. ---------- -->
+  <!-- ================= Thread view (a topic, not a format) =================
+       A probe, not a feature: one screen to find out whether gathering
+       everything under a subject shows the exchange better than sorting it
+       by Question / Update / Project. Built to be deleted if the answer is
+       no — nothing else depends on it, and the only way in is a click on a
+       keyword in the weave (see THREAD_SCREEN_ON_NODE_CLICK).
+
+       Everything in it is real: the cards that already carry the keyword,
+       in the order they happened. No section shows unless there is
+       something to put in it. -->
+  <section class="thread-view" id="threadView" style="display:none;">
+    <!-- the weave stays where it is, dimmed behind this; clicking it is
+         the same gesture as closing -->
+    <div class="thread-backdrop" id="threadBackdrop"></div>
+    <div class="thread-panel" id="threadPanel" role="dialog" aria-modal="true">
+    <button type="button" class="icon-ghost thread-close" id="threadViewClose" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+
+    <div class="thread-view-scroll" id="threadViewScroll">
+      <header class="thread-head">
+        <h1 class="thread-title" id="threadTitle"></h1>
+        <p class="thread-meta" id="threadMeta"></p>
+      </header>
+
+      <!-- UI only in this pass: what happens when it is used is the next
+           question, and answering it now would prejudge this one. -->
+      <div class="thread-composer">
+        <input type="text" id="threadComposer" disabled>
+      </div>
+
+      <div class="thread-flow" id="threadFlow"></div>
+
+      <div class="thread-people" id="threadPeople" hidden></div>
+    </div>
+    </div>
+  </section>
+
   <section class="designers-viewport" id="designersViewport" style="display:none;">
     <button type="button" class="icon-ghost back-btn" id="designersCloseBtn" aria-label="Back">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
@@ -6641,6 +6957,16 @@ const TRANSLATIONS = {
   en: {
     ui: {
       searchPlaceholder: 'Search knowledge',
+      threadView: {
+        composer: 'Ask or share something…',
+        qaAsked: 'Asked',
+        qaLearned: 'Learned',
+        qaNext: 'Next',
+        people: 'People',
+        startedBy: (who) => `Started by ${who}`,
+        peopleCount: (n) => `${n} people`,
+        pieceCount: (n) => `${n} pieces`,
+      },
       keywordEdit: {
         tune: 'Tune', add: '+ Keyword', remove: 'Remove',
         none: 'No keywords yet.', full: 'Three is the limit.',
@@ -6666,6 +6992,7 @@ const TRANSLATIONS = {
         heading: 'Threads',
         intro: 'The threads weaving our studios together.',
         storyLead: 'Read in order, oldest first.',
+        clickHint: 'Click a word to open its thread',
         emptyTitle: 'No threads yet.',
         emptyBody: 'Put a keyword on something you share and it starts weaving here.',
         /* "pieces", never "most" or a rank. A big node is busy, not better. */
@@ -7116,6 +7443,16 @@ const TRANSLATIONS = {
   ko: {
     ui: {
       searchPlaceholder: '지식 검색',
+      threadView: {
+        composer: '묻거나 공유하기…',
+        qaAsked: '물었다',
+        qaLearned: '알게 됐다',
+        qaNext: '하기로 했다',
+        people: '참여',
+        startedBy: (who) => `${who}가 시작`,
+        peopleCount: (n) => `${n}명`,
+        pieceCount: (n) => `${n}개의 기록`,
+      },
       keywordEdit: {
         tune: '다듬기', add: '+ 키워드', remove: '제거',
         none: '아직 키워드가 없습니다.', full: '최대 3개입니다.',
@@ -7141,6 +7478,7 @@ const TRANSLATIONS = {
         heading: '실',
         intro: '두 스튜디오를 엮고 있는 실들.',
         storyLead: '오래된 것부터, 순서대로.',
+        clickHint: '단어를 누르면 스레드가 열립니다',
         emptyTitle: '아직 실이 없어요.',
         emptyBody: '글에 키워드를 붙이면 여기서 이어져요.',
         /* "pieces", never "most" or a rank. A big node is busy, not better. */
@@ -7548,6 +7886,16 @@ const TRANSLATIONS = {
   de: {
     ui: {
       searchPlaceholder: 'Wissen durchsuchen',
+      threadView: {
+        composer: 'Fragen oder teilen…',
+        qaAsked: 'Gefragt',
+        qaLearned: 'Gelernt',
+        qaNext: 'Beschlossen',
+        people: 'Beteiligt',
+        startedBy: (who) => `Begonnen von ${who}`,
+        peopleCount: (n) => `${n} Personen`,
+        pieceCount: (n) => `${n} Beiträge`,
+      },
       keywordEdit: {
         tune: 'Anpassen', add: '+ Schlagwort', remove: 'Entfernen',
         none: 'Noch keine Schlagwörter.', full: 'Drei sind das Maximum.',
@@ -7573,6 +7921,7 @@ const TRANSLATIONS = {
         heading: 'Fäden',
         intro: 'Die Fäden, die unsere Studios verweben.',
         storyLead: 'In der Reihenfolge gelesen, das Älteste zuerst.',
+        clickHint: 'Ein Wort anklicken, um seinen Faden zu öffnen',
         emptyTitle: 'Noch keine Fäden.',
         emptyBody: 'Setz ein Schlagwort auf etwas Geteiltes, dann beginnt es hier zu weben.',
         /* "pieces", never "most" or a rank. A big node is busy, not better. */
@@ -7980,6 +8329,16 @@ const TRANSLATIONS = {
   tr: {
     ui: {
       searchPlaceholder: 'Bilgi ara',
+      threadView: {
+        composer: 'Sor ya da paylaş…',
+        qaAsked: 'Soruldu',
+        qaLearned: 'Öğrenildi',
+        qaNext: 'Karar',
+        people: 'Katılanlar',
+        startedBy: (who) => `${who} başlattı`,
+        peopleCount: (n) => `${n} kişi`,
+        pieceCount: (n) => `${n} kayıt`,
+      },
       keywordEdit: {
         tune: 'Ayarla', add: '+ Anahtar kelime', remove: 'Kaldır',
         none: 'Henüz anahtar kelime yok.', full: 'En fazla üç.',
@@ -8005,6 +8364,7 @@ const TRANSLATIONS = {
         heading: 'İplikler',
         intro: 'Stüdyolarımızı birbirine dokuyan iplikler.',
         storyLead: 'En eskiden başlayarak, sırayla.',
+        clickHint: 'Bir kelimeye tıklayın — konusu açılır',
         emptyTitle: 'Henüz iplik yok.',
         emptyBody: 'Paylaştığın bir şeye anahtar kelime koy, burada dokunmaya başlar.',
         /* "pieces", never "most" or a rank. A big node is busy, not better. */
@@ -8472,6 +8832,7 @@ function readStoredLanguage() {
 const URL_FLOOR_MAX = 3;
 let applyingUrlState = false;   // guard: applying state must not re-write it
 let pendingUrlCard = null;      // a card id from the URL, waiting for the cards
+let pendingUrlThread = null;    // likewise a thread keyword
 
 function readUrlState() {
   const raw = (location.hash || '').replace(/^#/, '');
@@ -8481,6 +8842,7 @@ function readUrlState() {
     floor: isFinite(floor) ? Math.max(0, Math.min(URL_FLOOR_MAX, floor)) : null,
     surface: params.get('s'),
     card: params.get('card'),
+    thread: params.get('thread'),
     lang: TRANSLATIONS[params.get('lang')] ? params.get('lang') : null,
     studio: isStudioEnabled(params.get('studio')) ? params.get('studio') : null,
   };
@@ -8491,6 +8853,8 @@ function currentUrlState() {
   const params = new URLSearchParams();
   if (isCardExpanded && currentOpenIndex !== null && ALL_CARDS[currentOpenIndex]) {
     params.set('card', ALL_CARDS[currentOpenIndex].id);
+  } else if (isThreadViewMode && threadViewKey) {
+    params.set('thread', threadViewKey);
   } else if (isDesignersMode) {
     params.set('s', 'designers');
   } else if (isShareMode) {
@@ -8554,6 +8918,17 @@ function applyUrlState(state, opts) {
       return;
     }
     if (isCardExpanded) closeCard();
+    if (state.thread) {
+      // the cards may not have arrived yet; the weave is where this is
+      // normally reached from, so a cold link simply waits for them
+      if (ALL_CARDS.length) {
+        if (!isThreadViewMode || threadViewKey !== state.thread) openThreadView(state.thread);
+      } else {
+        pendingUrlThread = state.thread;
+      }
+      return;
+    }
+    if (isThreadViewMode) closeThreadView();
     if (state.surface === 'designers') {
       if (!isDesignersMode) enterDesignersMode();
       return;
@@ -8571,13 +8946,23 @@ function applyUrlState(state, opts) {
 // A card named in the URL that did not exist yet at boot (the list arrives
 // asynchronously). Called once the remote cards land.
 function applyPendingUrlCard() {
+  /* The boot stamp ran while these were still pending, so the address says
+     #f=0 right now — once the surface is actually open, write the truth
+     back (replace, not push: the reader never left). */
+  if (pendingUrlThread) {
+    const word = pendingUrlThread;
+    pendingUrlThread = null;
+    applyingUrlState = true;
+    openThreadView(word);
+    setTimeout(() => { applyingUrlState = false; syncUrlState({ replace: true }); }, 0);
+  }
   if (!pendingUrlCard) return;
   const id = pendingUrlCard;
   pendingUrlCard = null;
   if (ALL_CARDS.some((c) => c.id === id)) {
     applyingUrlState = true;
     openCardById(id);
-    setTimeout(() => { applyingUrlState = false; }, 0);
+    setTimeout(() => { applyingUrlState = false; syncUrlState({ replace: true }); }, 0);
   }
 }
 
@@ -8589,7 +8974,9 @@ function initUrlState() {
     if (location.hash !== currentUrlState()) applyUrlState(readUrlState());
   });
   const state = readUrlState();
-  if (state.floor === null && !state.surface && !state.card) {
+  // "nothing in the address" has to mean NOTHING — this list must name every
+  // kind of state a link can carry, or that kind silently dies on a cold load
+  if (state.floor === null && !state.surface && !state.card && !state.thread) {
     syncUrlState({ replace: true }); // first visit: stamp where we are
     return;
   }
@@ -13081,7 +13468,7 @@ function setTone(el, tone) {
 }
 
 function updateChrome() {
-  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded;
+  const onFeed = !isShareMode && !isDesignersMode && !isCardExpanded && !isThreadViewMode;
   const onCover = onFeed && currentFloor === 0;
 
   // ---- per-floor: the tools that belong to one floor ----
@@ -14414,9 +14801,12 @@ function openCardById(cardId) {
   if (index < 0) { showToast(t().forYou.gone); return; }
 
   const go = () => {
-    // Any element carrying this card will do — openCard reads the index off it
-    // and every surface tags its cards with both.
-    const el = document.querySelector(`[data-card-id="${cardId}"]`);
+    /* Any element carrying this card will do — openCard reads the index off
+       it and every card surface tags its cards with both. BOTH attributes,
+       though: the weave's orbit marks carry a card-id with no index (they are
+       marks, not cards), and matching one of those handed openCard a NaN and
+       nothing happened. */
+    const el = document.querySelector(`[data-card-id="${cardId}"][data-index]`);
     if (el) { openCard(el); return; }
     // Not currently rendered (filtered out, or on a floor that has not been
     // built) — hand openCard a detached stand-in carrying the same index.
@@ -16319,6 +16709,7 @@ function renderThreads() {
   defs.innerHTML = '';
   svg.classList.remove('is-focusing');
 
+  refreshThreadsHint();
   threadsGraph = buildThreadsGraph();
   const hasAny = threadsGraph.nodes.length > 0;
   empty.style.display = hasAny ? 'none' : '';
@@ -16464,7 +16855,8 @@ function renderThreads() {
     const count = el('text');
     count.setAttribute('class', 'threads-node-count');
     count.setAttribute('y', (top + n.labelLines.length * lead + 4).toFixed(1));
-    count.textContent = t().threads.nodeCount(n.cards.length);
+    // the count is also the invitation — the arrow says it opens
+    count.textContent = t().threads.nodeCount(n.cards.length) + ' \u2192';
     recede.appendChild(count);
 
     rise.appendChild(recede);
@@ -16707,7 +17099,13 @@ function initThreadsInteraction() {
     n.el.addEventListener('click', (e) => {
       e.stopPropagation();
       if (threadsDragMoved) { threadsDragMoved = false; return; } // that was a drag
-      openThreadStory(n.key);
+      /* The probe, or the panel it is meant to replace — see
+         THREAD_SCREEN_ON_NODE_CLICK. Both read the same cards; the screen
+         reads them as a conversation and the panel as a list. */
+      if (THREAD_SCREEN_ON_NODE_CLICK) {
+        const r = n.el.getBoundingClientRect();
+        openThreadView(n.label, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      } else openThreadStory(n.key);
     });
   });
 
@@ -16864,6 +17262,7 @@ function refreshThreadsText() {
   const s = t().threads;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('threadsHeading', s.heading);
+  refreshThreadsHint();
   set('threadsEmptyTitle', s.emptyTitle);
   set('threadsEmptyBody', s.emptyBody);
   set('threadsStoryLead', s.storyLead);
@@ -18148,6 +18547,7 @@ function rebuildAllSurfaces() {
      floor and came back.) */
   if (currentFloor === FLOOR_THREADS) renderThreads();
   if (isDesignersMode) renderDesigners();
+  if (isThreadViewMode) renderThreadView();   // the panel reads ALL_CARDS too
 
   renderNotificationIndicator();
 }
@@ -18892,9 +19292,350 @@ function activeSurfaceEl() {
    Designers branch called enterDesignersMode, whose guard refuses to run while
    Threads is up, so pressing Designers from the map did nothing at all. One
    function that knows the set is the only way that stays fixed. */
+/* ======================================================================
+   Thread view — one subject, everything under it, in the order it happened
+   ----------------------------------------------------------------------
+   A PROBE. The question it exists to answer: does gathering a topic show
+   the exchange between two studios better than sorting the same material
+   into Questions / Updates / Projects? Everything here is real — the cards
+   that already carry the keyword — because a screen that only works with
+   invented material has answered nothing.
+
+   Deliberately unfinished in two places: the composer does not save
+   anything yet (what happens when somebody writes here is the next
+   question, and answering it now would prejudge this one), and the weave's
+   old side panel is still in the file. One constant decides which of the
+   two a click opens, so the probe is one line from being reverted.
+   ====================================================================== */
+const THREAD_SCREEN_ON_NODE_CLICK = true;
+const THREAD_PEOPLE_MIN = 2;   // below this, the People row is not shown
+
+let isThreadViewMode = false;
+let threadViewKey = null;      // the keyword's canonical label
+
+function threadViewCards(label) {
+  // newest first — this reads as a conversation, and the last thing said
+  // belongs at the top
+  return cardsWithKeyword(label).slice().sort((a, b) => daysAgoOf(a) - daysAgoOf(b));
+}
+
+/* The header's one line, assembled only from what is actually known. No
+   zeroes, no "1 person", no empty brackets: a thread with two items should
+   say two true things and stop. */
+function threadMetaLine(cards) {
+  const strings = t().threadView;
+  const bits = [];
+
+  const studios = [...new Set(cards.map((c) => c.studio))].filter(isStudioEnabled);
+  if (studios.length > 1) bits.push(studios.map((s) => STUDIOS[s].name).join(' + '));
+  else if (studios.length === 1) {
+    /* One studio so far: say which, and who opened it — but never dress it
+       up as an exchange. "DoubleU + Whow" is a claim about two studios and
+       must not appear until both are actually here. */
+    bits.push(STUDIOS[studios[0]].name);
+    const first = cards[cards.length - 1];
+    if (first && first.author) bits.push(strings.startedBy(first.author));
+  }
+
+  const people = threadViewPeople(cards);
+  if (people.length >= THREAD_PEOPLE_MIN) bits.push(strings.peopleCount(people.length));
+  if (cards.length > 1) bits.push(strings.pieceCount(cards.length));
+  return bits.join(' · ');
+}
+
+// everyone who put something into this thread, in first-seen order
+function threadViewPeople(cards) {
+  const seen = new Map();
+  cards.slice().reverse().forEach((c) => {
+    const name = (c.author || '').trim();
+    if (name && !seen.has(name)) seen.set(name, c.studio);
+  });
+  return [...seen].map(([name, studio]) => ({ name, studio }));
+}
+
+/* The one line that tells a first-time reader the words are doors. Shown
+   until they have opened one — after that it is knowledge, not signage. */
+const THREADS_HINT_SEEN_KEY = 'loom_thread_hint_seen_v1';
+
+function threadsHintSeen() {
+  try { return localStorage.getItem(THREADS_HINT_SEEN_KEY) === '1'; } catch (err) { return false; }
+}
+
+function markThreadsHintSeen() {
+  try { localStorage.setItem(THREADS_HINT_SEEN_KEY, '1'); } catch (err) { /* shown again next time — harmless */ }
+  const hint = document.getElementById('threadsHint');
+  if (hint) hint.style.display = 'none';
+}
+
+function refreshThreadsHint() {
+  const hint = document.getElementById('threadsHint');
+  if (!hint) return;
+  hint.textContent = t().threads.clickHint;
+  hint.style.display = threadsHintSeen() ? 'none' : '';
+}
+
+let threadCloseTimer = null;
+
+/* `origin` is the clicked node's screen position, when there is one: the
+   panel scales up FROM that point, so the thread visibly comes out of its
+   place on the map. A cold link has no point to come from and grows from
+   its own centre instead. */
+function openThreadView(label, origin) {
+  const word = canonicalKeyword(label) || label;
+  const cards = threadViewCards(word);
+  // a thread with nothing in it is not a place — the weave should not have
+  // offered it, and if it somehow does, nothing opens
+  if (!cards.length) return;
+
+  /* The weave is the panel's backdrop now, not a surface being replaced —
+     so the feed STAYS. Designers (if that is where we were) steps aside,
+     and a link followed from another floor is walked to the weave first,
+     instantly, so closing the panel lands somewhere that makes sense. */
+  const leaving = teardownActiveSurface();
+  if (leaving) {
+    leaving.style.display = 'none';
+    document.getElementById('feedMain').style.display = 'block';
+  }
+  if (currentFloor !== FLOOR_THREADS) goToFloor(FLOOR_THREADS, { instant: true });
+
+  threadViewKey = word;
+  isThreadViewMode = true;
+  pauseAutoScroll();
+  markThreadsHintSeen();
+
+  clearTimeout(threadCloseTimer);
+  const view = document.getElementById('threadView');
+  const panel = document.getElementById('threadPanel');
+  view.style.display = 'flex';
+  document.getElementById('threadViewScroll').scrollTop = 0;
+  renderThreadView();
+
+  const rect = panel.getBoundingClientRect();
+  panel.style.transformOrigin = origin
+    ? (origin.x - rect.left).toFixed(0) + 'px ' + (origin.y - rect.top).toFixed(0) + 'px'
+    : '50% 50%';
+  // start closed on the frame that paints, then release the transition
+  view.classList.remove('is-open');
+  void view.offsetWidth;
+  view.classList.add('is-open');
+
+  updateChrome();
+  syncUrlState({ push: true });
+}
+
+function closeThreadView() {
+  if (!isThreadViewMode) return;
+  isThreadViewMode = false;
+  threadViewKey = null;
+  const view = document.getElementById('threadView');
+  // the same transitions, run backwards; display goes once they are done
+  view.classList.remove('is-open');
+  clearTimeout(threadCloseTimer);
+  threadCloseTimer = setTimeout(() => {
+    if (!isThreadViewMode) view.style.display = 'none';
+  }, 260);
+  updateChrome();
+  syncUrlState({ replace: true });
+}
+
+function renderThreadView() {
+  if (!threadViewKey) return;
+  const strings = t().threadView;
+  const cards = threadViewCards(threadViewKey);
+  if (!cards.length) { closeThreadView(); return; }
+
+  document.getElementById('threadTitle').textContent = threadViewKey;
+  document.getElementById('threadMeta').textContent = threadMetaLine(cards);
+  document.getElementById('threadComposer').placeholder = strings.composer;
+  document.getElementById('threadViewClose').setAttribute('aria-label', t().closeAria);
+
+  const flow = document.getElementById('threadFlow');
+  flow.innerHTML = '';
+  cards.forEach((card) => flow.appendChild(threadItemEl(card)));
+
+  const people = threadViewPeople(cards);
+  const peopleWrap = document.getElementById('threadPeople');
+  peopleWrap.hidden = people.length < THREAD_PEOPLE_MIN;
+  peopleWrap.innerHTML = '';
+  if (!peopleWrap.hidden) {
+    const label = document.createElement('span');
+    label.className = 'thread-people-label';
+    label.textContent = strings.people;
+    peopleWrap.appendChild(label);
+    people.forEach((p) => {
+      const chip = document.createElement('span');
+      chip.className = 'thread-person';
+      const dot = document.createElement('span');
+      dot.className = 'thread-person-dot';
+      dot.style.background = (STUDIOS[p.studio] || {}).color || 'var(--ink)';
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(p.name));
+      peopleWrap.appendChild(chip);
+    });
+  }
+}
+
+/* One item. The format is a word at the front of the line, not a container:
+   an update is one line, a project brings a small cover and a couple of
+   sentences, a question carries whatever came back underneath it. */
+function threadItemEl(card) {
+  const text = cardText(card);
+  const studio = STUDIOS[card.studio];
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'thread-item';
+  el.style.setProperty('--item-studio', studio ? studio.color : 'var(--ink)');
+
+  const top = document.createElement('div');
+  top.className = 'thread-item-top';
+  const kind = document.createElement('span');
+  kind.className = 'thread-kind';
+  kind.textContent = t().types[card.type] || card.type;
+  const who = document.createElement('span');
+  who.className = 'thread-who';
+  who.textContent = [studio ? studio.name : '', card.author].filter(Boolean).join(' · ');
+  const when = document.createElement('span');
+  when.className = 'thread-when';
+  when.textContent = card.justNow ? t().justNow
+    : formatRelativeTime(currentLang, card.timeValue, card.timeUnit);
+  top.appendChild(kind);
+  top.appendChild(who);
+  top.appendChild(when);
+  el.appendChild(top);
+
+  const textWrap = document.createElement('div');
+  textWrap.className = 'thread-item-text';
+  const title = document.createElement('div');
+  title.className = 'thread-item-title';
+  title.textContent = text.title || '';
+  textWrap.appendChild(title);
+
+  /* A question is not summarised — it is walked through: what was asked,
+     what came back, what was decided. Three small labels, each row only if
+     the card actually says that thing; a question with no outcome yet shows
+     one row and no empty promises. Everything else keeps its one line. */
+  if (card.type === 'question') {
+    const qs = t().threadView;
+    const rows = [
+      { label: qs.qaAsked, value: bodyValue(text, 'question', 'blocked') || text.summary || '' },
+      { label: qs.qaLearned, value: text.learned || text.result || bodyValue(text, 'question', 'triedSoFar') },
+      { label: qs.qaNext, value: bodyValue(text, 'question', 'next') },
+    ].filter((r) => r.value);
+    if (rows.length) {
+      const qa = document.createElement('div');
+      qa.className = 'thread-qa';
+      rows.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'thread-qa-row';
+        const label = document.createElement('span');
+        label.className = 'thread-qa-label';
+        label.textContent = r.label;
+        const val = document.createElement('p');
+        val.className = 'thread-qa-value';
+        val.textContent = truncateForSummary(r.value, 220);
+        row.appendChild(label);
+        row.appendChild(val);
+        qa.appendChild(row);
+      });
+      textWrap.appendChild(qa);
+    }
+  } else {
+    // an update says its one thing; anything longer shows its opening
+    const line = isUpdate(card)
+      ? (text.note || text.summary || '')
+      : (text.summary || '');
+    if (line) {
+      const p = document.createElement('p');
+      p.className = 'thread-item-body';
+      p.textContent = truncateForSummary(line, isUpdate(card) ? 200 : 150);
+      textWrap.appendChild(p);
+    }
+  }
+
+  if (card.image) {
+    const row = document.createElement('div');
+    row.className = 'thread-item-with-cover';
+    const cover = document.createElement('div');
+    cover.className = 'thread-cover' + (card.imageFit === 'contain' ? ' is-doc' : '');
+    cover.style.backgroundImage = `url("${card.image}")`;
+    if (card.imageBg) cover.style.backgroundColor = card.imageBg;
+    row.appendChild(cover);
+    row.appendChild(textWrap);
+    el.appendChild(row);
+  } else {
+    el.appendChild(textWrap);
+  }
+
+  // where it came from, as a footnote to the item rather than a section
+  if (card.derivedFrom && card.derivedRelation) {
+    const parent = cardById(card.derivedFrom);
+    const words = t().lineageRelations[card.derivedRelation];
+    const rel = document.createElement('span');
+    rel.className = 'thread-rel';
+    rel.textContent = ((words && words.back) || card.derivedRelation)
+      + (parent ? ' — ' + truncateForSummary(cardText(parent).title || '', 60) : '');
+    el.appendChild(rel);
+  }
+
+  /* What came back. A question's thread is the conversation on it; anything
+     else shows the pieces that were built out of it, which is the same
+     relationship seen from the other end. */
+  const answers = [];
+  if (isOpenQuestion(card)) {
+    getConversationMessages(card).slice(1).forEach((m) => {
+      if (m.text) answers.push({ who: m.author, text: m.text });
+    });
+  } else {
+    /* Pieces built out of this one — but only those that are NOT in this
+       thread already. A card that sits three rows above as its own item
+       does not also belong underneath this one; the first version printed
+       both and the same sentence appeared twice on one screen. */
+    const inThread = new Set(threadViewCards(threadViewKey).map((c) => c.id));
+    ALL_CARDS
+      .filter((c) => c.derivedFrom === card.id && !inThread.has(c.id))
+      .forEach((child) => {
+        answers.push({ who: child.author, text: cardText(child).title || '' });
+      });
+  }
+  if (answers.length) {
+    const wrap = document.createElement('div');
+    wrap.className = 'thread-answers';
+    answers.slice(0, 4).forEach((a) => {
+      const row = document.createElement('div');
+      row.className = 'thread-answer';
+      const name = document.createElement('span');
+      name.className = 'thread-answer-who';
+      name.textContent = a.who || '';
+      row.appendChild(name);
+      row.appendChild(document.createTextNode(truncateForSummary(a.text, 130)));
+      wrap.appendChild(row);
+    });
+    el.appendChild(wrap);
+  }
+
+  el.addEventListener('click', () => openCardById(card.id));
+  return el;
+}
+
+function initThreadView() {
+  document.getElementById('threadViewClose').addEventListener('click', closeThreadView);
+  document.getElementById('threadBackdrop').addEventListener('click', closeThreadView);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !isThreadViewMode) return;
+    // a card opened from the panel sits above it — Escape peels that first
+    if (isCardExpanded) return;
+    closeThreadView();
+  });
+}
+
 function teardownActiveSurface() {
   // Threads is not in here any more: it is a floor, so it is underneath a
   // surface rather than competing with one.
+  if (isThreadViewMode) {
+    isThreadViewMode = false;
+    threadViewKey = null;
+    return document.getElementById('threadView');
+  }
   if (isDesignersMode) {
     isDesignersMode = false;
     return document.getElementById('designersViewport');
@@ -19121,6 +19862,7 @@ safeInit('browse rendering', renderBrowse);
 safeInit('questions rendering', renderQuestions);
 safeInit('designers', initDesigners);
 safeInit('threads', initThreads);
+safeInit('thread view', initThreadView);
 safeInit('threads text', refreshThreadsText);
 safeInit('type filter dropdown', renderTypeFilterDropdown);
 safeInit('search', initSearch);
