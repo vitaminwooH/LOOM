@@ -10109,6 +10109,18 @@ function isCanvasCard(data) {
   return !!data && (data.origin === 'canvas' || String(data.id || '').indexOf('cv-') === 0);
 }
 
+/* The name slot in a detail header: "Studio · Name · time". `author` is the
+   knowledge's owner (shared_by); a canvas card whose owner is unrecorded has
+   none, and then the slot AND its trailing separator go, so the line reads
+   "Whow · 2 days ago" rather than "Whow · · 2 days ago". */
+function setAuthorSlot(el, name) {
+  const text = (name || '').trim();
+  el.textContent = text;
+  el.style.display = text ? '' : 'none';
+  const sep = el.nextElementSibling;
+  if (sep && sep.classList.contains('sep')) sep.style.display = text ? '' : 'none';
+}
+
 function canEditCardBody(data) {
   if (!data) return false;
   if (isGuestSession()) return false; // guests read; the UI never offers more
@@ -11649,7 +11661,9 @@ function designersOf(studioKey) {
 
 // The newest thing this person put into the network, for the back of their
 // card. `name` is the join key between the roster and a card's author (see the
-// DESIGNERS note) — there is no id on either side to match on.
+// DESIGNERS note) — there is no id on either side to match on. `author` is the
+// knowledge's owner (shared_by), so a card someone else typed in for this
+// person is still theirs here.
 function mostRecentCardBy(name) {
   if (!name) return null;
   return ALL_CARDS
@@ -13626,7 +13640,7 @@ function populateExpanded(data, index) {
 
   document.getElementById('expandedDot').style.background = studio.color;
   document.getElementById('expandedStudioName').textContent = studio.name;
-  document.getElementById('expandedAuthor').textContent = data.author;
+  setAuthorSlot(document.getElementById('expandedAuthor'), data.author);
   document.getElementById('expandedTime').textContent = data.justNow ? t().justNow : formatRelativeTime(currentLang, data.timeValue, data.timeUnit);
   renderEditedStamp(document.getElementById('expandedEdited'), data);
   document.getElementById('expandedStatusBadge').innerHTML = statusBadgeHTML(data);
@@ -15559,7 +15573,7 @@ function populateQuestionDetail(data) {
   document.getElementById('expandedCard').style.setProperty('--studio-color', studio.color);
   document.getElementById('qdDot').style.background = studio.color;
   document.getElementById('qdStudioName').textContent = studio.name;
-  document.getElementById('qdAuthor').textContent = data.author;
+  setAuthorSlot(document.getElementById('qdAuthor'), data.author);
   document.getElementById('qdTime').textContent = data.justNow ? t().justNow : formatRelativeTime(currentLang, data.timeValue, data.timeUnit);
   document.getElementById('qdStatusBadge').innerHTML = statusBadgeHTML(data);
   document.getElementById('qdTitle').textContent = cardText(data).title;
@@ -18602,8 +18616,9 @@ function buildSharedCardEntry() {
     id: 'shared-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
     type: selectedType,
-    // the same name the DB will show once this card is saved (documented_by),
-    // so the local copy and the shared record never disagree
+    // `author` is the knowledge's OWNER (shared_by — see ownerName in data.js).
+    // A card written here is your own knowledge, so owner and documenter are
+    // the same person: the name the DB will show once it is saved.
     author: myDisplayName(),
     justNow: true,
     appliedBy: [],

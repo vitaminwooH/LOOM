@@ -88,6 +88,27 @@ const LoomData = (function () {
     return { timeValue: Math.max(1, Math.floor(days / 30)), timeUnit: 'month' };
   }
 
+  /* Whose name goes next to the studio on a card.
+
+     A card has two people: shared_by, whose knowledge it is, and
+     documented_by, who typed it in. On the canvas these differ whenever one
+     person logs another's answer (Aug 14: Miles records what Bengt and Felix
+     worked out — Whow's knowledge, in Whow's bracket). Showing the documenter
+     there read as "Whow · Minwoo Heo", a Whow person who does not exist.
+
+     So the screen names the OWNER only:
+       shared_by set            -> that person          ("Whow · Bengt Ott")
+       no shared_by, canvas card -> nobody               ("Whow")
+       no shared_by, form/test  -> the documenter, because on those paths the
+                                   writer IS the owner (0016 also stores it
+                                   that way; this covers rows written before)
+     documented_by is kept on the card (documentedBy) but never displayed. */
+  function ownerName(row) {
+    if (row.shared_by_name) return row.shared_by_name;
+    if ((row.origin || 'form') === 'canvas') return '';
+    return row.author || '';
+  }
+
   function toCard(row) {
     const age = row.demo_age
       ? {
@@ -101,9 +122,9 @@ const LoomData = (function () {
       id: row.id,
       studio: row.studio,               // originated_from
       type: row.type,
-      author: row.author || '',         // documented_by display name
-      sharedByName: row.shared_by_name || null, // shared_by — data kept even
-                                                // where the UI has no slot yet
+      author: ownerName(row),           // the knowledge's owner — see ownerName
+      sharedByName: row.shared_by_name || null, // shared_by, raw
+      documentedBy: row.author || null, // documented_by — kept, never shown
       justNow: age.justNow || undefined,
       timeValue: age.timeValue,
       timeUnit: age.timeUnit,
@@ -570,7 +591,9 @@ const LoomData = (function () {
       type: payload.type,
       studio: payload.studio,
       author: row.author || '',
-      shared_by_name: null,
+      // a form card's writer is its owner; submit_card stores it so (0016)
+      shared_by_name: row.author || null,
+      origin: 'form',
       keywords: payload.keywords,
       related_to: [],
       derived_from: null,
