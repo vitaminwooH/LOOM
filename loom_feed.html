@@ -788,7 +788,8 @@
      the Threads one used to carry its own 13px / 0.42em / uppercase copy
      and read as a different face entirely. */
   .brand-footer,
-  .threads-footer-mark {
+  .threads-footer-mark,
+  .home-mark {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 600;
     font-size: 15px;
@@ -927,6 +928,242 @@
      and becomes background; the title is the subject. */
   .discover-section {
     padding: 0;
+  }
+
+  /* ==================================================================
+     HOME — the cover as a place to ask from (HOME_ASK)
+     ------------------------------------------------------------------
+     The floor used to be a banner: one photograph, a 79px title, and a
+     five-second timer moving through six of them. It read beautifully and
+     it asked for nothing, which is the whole problem — a question had to
+     be filed through the Slack Canvas form, so none were.
+
+     What replaces it is a page of paper with four things on it: the name,
+     one line saying what you can do here, the field you do it in, and what
+     is already going on. The hero markup is still in the document and its
+     CSS is still below; HOME_ASK decides which of the two this floor is.
+
+     Two rules the whole screen follows:
+       - the field is the protagonist by CRAFT, not by size. It is a ruled
+         line on paper, and the largest measure of space on the page is the
+         silence underneath it.
+       - the lists are TYPESET, not tabulated. No boxes, no per-item
+         shadow, no cell borders. Hierarchy is type and space; a hairline
+         appears only in the denser of the two lists, so the two have
+         different texture and read as different kinds of thing.
+     ================================================================== */
+  .home-scroll { display: none; }
+  .discover-section.is-home .home-scroll { display: block; }
+  .discover-section.is-home .discover-hero,
+  .discover-section.is-home .now-strip { display: none; }
+
+  .home-scroll {
+    /* the reading column is centred; the type inside it is not */
+    padding: clamp(34px, 5.5vh, 62px) 24px 48px;
+  }
+  /* centred, and as wide as the bands need — see contentWidth in HOME_METRICS */
+  .home-inner { width: 100%; max-width: var(--home-content-width, 1140px); margin: 0 auto; }
+
+  /* ---------- type and rhythm ----------
+     Every value here comes from HOME_METRICS in the script, written onto
+     .home-inner by applyHomeMetrics(). The fallbacks are only for the frame
+     before that runs. */
+  .home-inner {
+    --home-gap-xs: 8px;
+  }
+
+  /* No lede and no sub any more — the field follows the wordmark directly,
+     and the bands below carry the rest. See the HOME_METRICS notes on why
+     the rule, not the wordmark, is what anchors the top. */
+
+  /* ---------- the field ----------
+     A rule under text, not a box around it. What you type is set in the
+     face the question will wear as a card title, so the sentence already
+     looks like the thing it is about to become. */
+  .ask { margin-top: var(--home-gap-mark-field, 24px); position: relative; }
+  .ask-field,
+  .ask-desc-field {
+    display: block; width: 100%; border: 0; outline: 0; background: transparent;
+    color: var(--ink); font-family: inherit; resize: none;
+  }
+  /* between the lede and body text — the presence comes from the rule and
+     the air, not the size. See the field notes in HOME_METRICS. */
+  .ask-field {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(var(--home-field-min, 20px), 2.1vw, var(--home-field-max, 24px));
+    font-weight: 500; line-height: 1.3;
+    padding: var(--home-field-pad-top, 10px) 0 var(--home-field-pad-bottom, 18px);
+    /* a net under the size budget above: if an example ever does overrun, it
+       ends in an ellipsis instead of a half-drawn glyph at the column edge */
+    text-overflow: ellipsis;
+  }
+  .ask-field::placeholder { color: rgba(28, 28, 30, var(--home-placeholder-ink, 0.44)); }
+  /* the caret is the studio's colour: the first colour the eye meets here */
+  .ask-field { caret-color: var(--studio-mine, var(--ink)); }
+  /* the top anchor — a masthead rule, full width, at half ink */
+  .ask-rule {
+    position: relative; height: var(--home-rule-weight, 1.5px);
+    background: var(--home-rule-rest, rgba(28, 28, 30, 0.50));
+    transition: background 0.18s ease;
+  }
+  /* hover moves the rule's VALUE, never its thickness — a 1px→2px hover
+     would nudge every line below it by a pixel */
+  .ask:hover .ask-rule { background: var(--home-rule-hover, rgba(28, 28, 30, 0.34)); }
+  .ask-rule-live {
+    position: absolute; left: 0; bottom: 0;
+    height: var(--home-rule-focus, 2px); width: 0;
+    background: var(--studio-mine, var(--ink));
+    transition: width 0.34s var(--reveal-ease);
+  }
+  /* focus draws it, left to right. The same growth the topic names use on
+     hover — one motion vocabulary for the whole floor. */
+  .ask.is-focused .ask-rule-live { width: 100%; }
+  .ask.is-guest-blocked .ask-rule-live { width: 100%; background: rgba(28, 28, 30, 0.28); }
+
+  /* the optional description: a second rule under the first, at body size,
+     so the two can never be mistaken for each other */
+  .ask-desc { margin-top: 14px; }
+  .ask-desc-field { font-size: 14.5px; line-height: 1.6; padding: 0 0 10px; }
+  .ask-desc-field::placeholder { color: var(--ink-faint); }
+
+  .ask-foot {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-top: var(--home-gap-xs); min-height: 18px;
+  }
+  .ask-foot-left { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+  .ask-foot-right { margin-left: auto; display: flex; align-items: baseline; gap: 12px; }
+  .ask-hint, .ask-status { font-size: 12px; color: var(--ink-faint); }
+  /* a failure is the one place this floor raises its voice, and it does it
+     in ink-weight red rather than a studio colour — this is not about a studio */
+  .ask-status.is-error { color: #b0442a; }
+  /* "add a description" only exists once there is something to describe —
+     the resting state is one line and nothing else */
+  /* display, not opacity: an invisible button still takes its width, and it
+     was pushing the resting hint a third of the way across the page */
+  .ask-more {
+    font-family: inherit; font-size: 12px; color: var(--ink-faint);
+    background: none; border: 0; padding: 0; cursor: pointer;
+    display: none;
+  }
+  .ask-more:hover { color: var(--ink-dim); }
+  .ask.is-typing .ask-more, .ask.is-desc-open .ask-more { display: inline; }
+  .ask-key {
+    font-size: 11px; color: var(--ink-dim);
+    border: 0.5px solid rgba(28, 28, 30, 0.28); border-radius: 4px; padding: 2px 7px;
+    opacity: 0; transition: opacity 0.2s ease;
+  }
+  .ask.is-typing .ask-key { opacity: 1; }
+  .ask-signin {
+    font-family: inherit; font-size: 12.5px; color: var(--studio-mine, var(--ink));
+    background: none; border: 0; border-bottom: 0.5px solid currentColor;
+    padding: 0 0 1px; cursor: pointer;
+  }
+  .ask.is-busy { opacity: 0.55; pointer-events: none; }
+
+  /* (the two vertical lists that used to sit here — "In circulation" and
+     "Lately" — were folded into the bands below. A page of lists read as a
+     document; the bands read as a place.) */
+
+  /* ---------- the bands ----------
+     One horizontal timeline per active thread. A diagram, not a table: the
+     thread name in serif on the left, then dots joined by hairlines. Left to
+     right is time. Every band's newest dot stands on the same "now" line, so
+     a short band is visibly a young one, and the hollow circle one step past
+     "now" is an ask the other studio has not answered — drawn in THEIR
+     colour, because it is their turn. Every number here comes from
+     HOME_METRICS. */
+  .home-bands {
+    margin-top: var(--home-gap-field-bands, 84px);
+    position: relative; padding-top: 28px;
+    /* the timeline has a fixed pixel width (see homeTimelineWidth); on a
+       window narrower than it, the diagram scrolls sideways rather than
+       forcing the whole floor to */
+    overflow-x: auto; overflow-y: hidden;
+  }
+  .home-now {
+    position: absolute; top: 2px; transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 0.02em; color: var(--ink-faint);
+  }
+  .home-band { display: flex; align-items: flex-start; margin-bottom: var(--home-band-gap, 72px); }
+  .home-band:last-child { margin-bottom: 0; }
+  .home-band-name { flex: none; width: var(--home-name-col, 254px); padding-right: 12px; }
+  .home-band-title {
+    display: inline; background: none; border: 0; padding: 0; text-align: left;
+    font-family: 'Cormorant Garamond', serif; font-size: var(--home-name-size, 29px);
+    font-weight: 600; line-height: 1.15; color: var(--ink); cursor: pointer;
+    /* the underline grows on hover — the same motion the field's focus rule makes */
+    background-image: linear-gradient(var(--band-accent, var(--ink)), var(--band-accent, var(--ink)));
+    background-repeat: no-repeat; background-position: 0 100%; background-size: 0 1.5px;
+    transition: background-size 0.26s var(--reveal-ease);
+  }
+  .home-band-title:hover, .home-band-title:focus-visible { background-size: 100% 1.5px; }
+  .home-band-sub { margin-top: 7px; font-size: 12px; color: var(--ink-faint); }
+
+  .home-band-line { flex: none; position: relative; width: var(--home-timeline-w, 906px); height: 96px; }
+  .home-seg {
+    position: absolute; top: calc(var(--home-dot, 14px) / 2 + 3px);
+    height: var(--home-line-weight, 1.5px); background: rgba(28, 28, 30, 0.28);
+  }
+  /* what is still to come is dotted; what happened is solid */
+  .home-seg.is-pending {
+    background: none; height: 0;
+    border-top: var(--home-line-weight, 1.5px) dotted rgba(28, 28, 30, 0.40);
+  }
+  .home-node {
+    position: absolute; top: 3px; width: var(--home-dot, 14px); height: var(--home-dot, 14px);
+    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: var(--node-color, var(--ink));
+    transform: translateX(-50%); transition: transform 0.18s ease;
+  }
+  .home-node.is-wait { background: var(--bg); border: 2px solid var(--node-color, var(--ink)); }
+  .home-node:hover, .home-node:focus-visible { transform: translateX(-50%) scale(1.25); }
+  .home-node-label {
+    position: absolute; top: calc(var(--home-dot, 14px) + 14px); width: var(--home-label-w, 210px);
+    transform: translateX(-50%); text-align: center; cursor: pointer;
+    background: none; border: 0; padding: 0; font: inherit; color: inherit;
+  }
+  /* the title in full ink: with the lede gone these are the dark marks that
+     give the floor its centres, one per card */
+  .home-node-title {
+    font-size: 13px; line-height: 1.4; color: var(--ink); word-break: keep-all;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .home-node-meta { margin-top: 4px; font-size: 11.5px; color: var(--ink-faint); }
+  .home-node-label.is-wait .home-node-title { color: var(--ink-dim); font-style: italic; }
+  .home-node-label.is-wait .home-node-who { color: var(--node-color, var(--ink)); font-weight: 500; }
+  .home-plus { position: absolute; top: 1px; font-size: 11.5px; color: var(--ink-faint); transform: translateX(-100%); }
+  /* a posted question's dot arrives once — the only motion on the floor the
+     reader did not cause with a keypress. Today a form question has no
+     keyword and so no band (see askSubmit); the hook stays for when it does. */
+  .home-node.is-arriving { animation: homeArrive 0.5s var(--reveal-ease) both; }
+
+  /* the empty page. Not "nothing here" — the one thing worth doing. */
+  .home-first { margin-top: 44px; font-size: 14px; color: var(--ink-dim); }
+
+  /* The offline notice is the SAME element the hero used (#feedEmpty, with its
+     retry already wired); initHome moves it in here, so it has to stop being a
+     full-bleed centred overlay and become a paragraph in the column.
+     `:not([hidden])` because `.feed-empty[hidden]` is declared further down and
+     would otherwise win the display race on equal specificity. */
+  .home-inner .feed-empty:not([hidden]) {
+    position: static; inset: auto; display: block;
+    text-align: left; padding: 0; background: none;
+    margin-top: 44px;
+  }
+  .home-inner .feed-empty-line { font-size: clamp(17px, 1.7vw, 21px); max-width: 40ch; }
+  .home-inner .feed-empty-retry { margin-top: 14px; }
+
+  /* The arrival of a just-posted dot, once per post — see askSubmit. The
+     keyframes keep the node's own translateX(-50%): a plain opacity/translateY
+     animation would replace that transform and jump the dot half a dot to
+     the right for the duration. */
+  @keyframes homeArrive {
+    from { opacity: 0; transform: translateX(-50%) scale(0.4); }
+    to   { opacity: 1; transform: translateX(-50%) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .home-node.is-arriving { animation: none; }
+    .ask-rule-live, .home-band-title, .home-node { transition: none; }
   }
 
   /* one full-bleed banner, not a row — the single newest thing, crossfading
@@ -6169,6 +6406,55 @@
          the first thing feed shows, and it fills the whole top of the page ---------- -->
     <!-- No heading, no explainer, no chrome: the banner IS the floor. -->
     <section class="discover-section">
+      <!-- ---------- Home: ask, and see what is already going on ----------
+           The floor's own scroller, so a long Lately list scrolls HERE and the
+           floors underneath stay put — .floor-scroll is the class the wheel and
+           touch handlers already look for (see initFeedWheelSnap).
+
+           Sits beside the hero rather than replacing it: HOME_ASK picks one,
+           and `.discover-section.is-home` hides the other. -->
+      <div class="home-scroll floor-scroll" id="homeScroll">
+        <div class="home-inner">
+          <div class="home-mark">Loom</div>
+
+          <!-- One required field: a line. Everything else on this form is
+               optional and hidden until there is something to attach it to. -->
+          <form class="ask" id="askForm" autocomplete="off">
+            <input type="text" class="ask-field" id="askField" maxlength="300">
+            <div class="ask-rule"><span class="ask-rule-live"></span></div>
+            <div class="ask-desc" id="askDesc" hidden>
+              <textarea class="ask-desc-field" id="askDescField" rows="3" maxlength="4000"></textarea>
+              <div class="ask-rule"></div>
+            </div>
+            <!-- The sentence and its link are ONE thing, so they sit together
+                 on the left. Split to opposite ends of the row, "Sign in to
+                 ask." and "Sign in" read as two unrelated remarks. -->
+            <div class="ask-foot">
+              <span class="ask-foot-left">
+                <button type="button" class="ask-more" id="askMore"></button>
+                <span class="ask-status" id="askStatus"></span>
+                <button type="button" class="ask-signin" id="askSignin" hidden></button>
+              </span>
+              <span class="ask-foot-right">
+                <span class="ask-key" id="askKey">Enter</span>
+              </span>
+            </div>
+          </form>
+
+          <!-- the action-inviting empty page: shown only when there is
+               genuinely nothing in the network yet -->
+          <p class="home-first" id="homeFirst" hidden></p>
+
+          <!-- The bands: one horizontal timeline per active thread, drawn by
+               renderHomeBands. Left to right is time; every band's newest card
+               sits on the same "now" line; a hollow circle beyond it is an ask
+               nobody has answered yet. -->
+          <div class="home-bands" id="homeBands" hidden>
+            <div class="home-now" id="homeNow"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="discover-hero" id="discoverHero">
         <div class="hero-slides" id="heroSlides"></div>
         <!-- Shown only when the feed has nothing to show. Two different
@@ -7032,6 +7318,40 @@ const TRANSLATIONS = {
         yourTurnFirst: () => `Nobody has posted this week. What is ${STUDIOS[MY_STUDIO_KEY].name} working on today?`,
         cta: 'Share an update',
       },
+      /* ---------- Home / Ask ----------
+         No lede, no sub, no section labels: the floor is a wordmark, the
+         field, and the bands. The placeholder is the ONE piece of guidance,
+         and it names the relationship rather than a studio — "ask Whow" broke
+         for guests (who belong to neither), showed each studio a different
+         sentence, and had nowhere to put a third studio. "Another studio"
+         reads the same for everyone.
+
+         The old rotating example questions went with the lede. They were
+         there to show the room was open to every job; the bands now do that
+         with the real record — the first exchange on the floor is a marketing
+         question — which is a better argument than an example. */
+      home: {
+        placeholder: 'Ask another studio',
+        hint: 'Enter to post',
+        addDescription: 'Add a description',
+        hideDescription: 'Hide description',
+        descriptionPlaceholder: 'A few more lines, if they help. Optional.',
+        /* The field is never hidden from a guest — what is possible here has
+           to be visible before it is available. */
+        guest: 'Sign in to ask.',
+        signIn: 'Sign in',
+        /* A question posted here has no keyword yet (see askSubmit), so it
+           joins no band. Say where it DID go rather than pretend it is on
+           this screen. */
+        posted: "Posted — it's on the Open questions floor",
+        failed: 'Could not post. Your text is still here — try again.',
+        // the one axis label on the bands: where the newest card of every thread sits
+        nowLabel: 'now',
+        // under the hollow circle, after the studio whose turn it is
+        awaiting: 'awaiting an answer',
+        /* the empty network: the one thing worth doing, not "nothing here" */
+        first: 'The first question starts here.',
+      },
       // ---- what came of a card. Never a score, never bold. ----
       trace: {
         answeredBy: (studio, n) => `${studio} answered ${n} ${n > 1 ? 'times' : 'time'}`,
@@ -7512,6 +7832,20 @@ const TRANSLATIONS = {
         yourTurnFirst: () => `이번 주엔 아직 아무도 남기지 않았어요. ${STUDIOS[MY_STUDIO_KEY].name}는 오늘 뭘 하고 있나요?`,
         cta: '업데이트 남기기',
       },
+      home: {
+        placeholder: '다른 스튜디오에 물어보세요',
+        hint: '엔터로 올리기',
+        addDescription: '설명 더하기',
+        hideDescription: '설명 접기',
+        descriptionPlaceholder: '필요하면 몇 줄 더. 없어도 괜찮아요.',
+        guest: '로그인하면 질문할 수 있어요.',
+        signIn: '로그인',
+        posted: '올렸어요 · 아직 모르는 것 층에 있어요',
+        failed: '올리지 못했어요. 글은 그대로 있으니 다시 시도해 주세요.',
+        nowLabel: '지금',
+        awaiting: '답 기다림',
+        first: '첫 질문이 여기서 시작해요.',
+      },
       trace: {
         answeredBy: (studio, n) => `${studio}가 ${n}번 답했어요`,
         pickedUpBy: (studio) => `${studio}가 이어받았어요`,
@@ -7955,6 +8289,20 @@ const TRANSLATIONS = {
         yourTurnFirst: () => `Diese Woche hat noch niemand gepostet. Woran arbeitet ${STUDIOS[MY_STUDIO_KEY].name} heute?`,
         cta: 'Update teilen',
       },
+      home: {
+        placeholder: 'Frag ein anderes Studio',
+        hint: 'Enter zum Posten',
+        addDescription: 'Beschreibung hinzufügen',
+        hideDescription: 'Beschreibung ausblenden',
+        descriptionPlaceholder: 'Ein paar Zeilen mehr, wenn sie helfen. Optional.',
+        guest: 'Melde dich an, um zu fragen.',
+        signIn: 'Anmelden',
+        posted: 'Gepostet — unter Offene Fragen',
+        failed: 'Konnte nicht gepostet werden. Dein Text ist noch da — versuch es erneut.',
+        nowLabel: 'jetzt',
+        awaiting: 'wartet auf Antwort',
+        first: 'Die erste Frage beginnt hier.',
+      },
       trace: {
         answeredBy: (studio, n) => `${studio} hat ${n}-mal geantwortet`,
         pickedUpBy: (studio) => `${studio} hat das aufgegriffen`,
@@ -8397,6 +8745,22 @@ const TRANSLATIONS = {
         yourTurnWith: (studio) => `${studio} az önce ne inşa ettiğini paylaştı. ${STUDIOS[MY_STUDIO_KEY].name} bugün ne üzerinde çalışıyor?`,
         yourTurnFirst: () => `Bu hafta henüz kimse paylaşmadı. ${STUDIOS[MY_STUDIO_KEY].name} bugün ne üzerinde çalışıyor?`,
         cta: 'Bir güncelleme paylaş',
+      },
+      home: {
+        // "stüdyoya" — the dative lands on a common noun, so no studio name's
+        // vowel harmony has to be guessed
+        placeholder: 'Başka bir stüdyoya sorun',
+        hint: 'Göndermek için Enter',
+        addDescription: 'Açıklama ekle',
+        hideDescription: 'Açıklamayı gizle',
+        descriptionPlaceholder: 'Yardımcı olacaksa birkaç satır daha. İsteğe bağlı.',
+        guest: 'Sormak için giriş yapın.',
+        signIn: 'Giriş yap',
+        posted: 'Gönderildi — Açık sorular katında',
+        failed: 'Gönderilemedi. Yazınız burada — tekrar deneyin.',
+        nowLabel: 'şimdi',
+        awaiting: 'yanıt bekliyor',
+        first: 'İlk soru burada başlıyor.',
       },
       trace: {
         answeredBy: (studio, n) => `${studio} ${n} kez yanıtladı`,
@@ -10058,6 +10422,7 @@ function authReady() {
     if (profile && profile.personName) authPersonName = profile.personName;
     if (authProfile) {
       // anything already on screen was drawn as if nobody were signed in
+      if (typeof askRefreshState === 'function') { askClearGuest(); askRefreshState(); }
       if (typeof renderDesigners === 'function') renderDesigners();
       if (isCardExpanded && currentOpenIndex !== null && ALL_CARDS[currentOpenIndex]) {
         populateExpanded(ALL_CARDS[currentOpenIndex], currentOpenIndex);
@@ -11046,6 +11411,7 @@ function setLanguage(lang) {
 
   const fadeEls = [
     document.getElementById('heroSlides'),
+    document.getElementById('homeScroll'),   // whichever of the two floor 1 is
     document.getElementById('browseGrid'),
     document.getElementById('menuList'),
     document.getElementById('searchInput'),
@@ -11240,7 +11606,634 @@ let heroIndices = [];
 let heroIndex = 0;
 let heroTimer = null;
 
+/* ======================================================================
+   HOME — floor 1 as a place to ask from
+   ----------------------------------------------------------------------
+   The bottleneck this exists to remove: asking a question meant filling in
+   the Slack Canvas form, so nobody asked one. Here it is a line and Enter.
+
+   Deliberately NOT a target picker. Offering Everyone / DoubleU / Whow
+   invites the thought "am I allowed to ask them this?", and that hesitation
+   is the barrier, not a routing problem. Every question is open; asked_to
+   stays null, which the read path already treats as everyone.
+
+   HOME_ASK is the switch back. false restores the banner exactly as it was
+   — the slides, the five-second autoplay, the arrows, the dots and the
+   Update strip are all still in this file and still wired. Nothing was
+   deleted to build this.
+   ====================================================================== */
+const HOME_ASK = true;
+
+// how many threads become bands; the ranking is homeTopics
+const HOME_TOPIC_COUNT = 3;
+// a word one card carries is a label; a conversation needs at least two
+const HOME_TOPIC_MIN_CARDS = 2;
+
+/* ---------- every number the page's type and spacing is made of ----------
+   One table, applied as CSS variables by applyHomeMetrics(). Tune here.
+
+   The order of the sizes IS the hierarchy, and it was upside down at first:
+   the lede was the largest thing on screen and the field's placeholder was
+   smaller and paler than it, so the field read as a caption to an
+   announcement. The lede is a sentence you read once; the field is where
+   the work happens. So the field is now the biggest type on the floor and
+   the lede sits under it — a heading, not a headline.
+
+   Sizes are px and interpolate with the viewport between min and max. */
+const HOME_METRICS = {
+  /* ---------- the top anchor ----------
+     With the lede gone there was nothing up here for the eye to land on. Of
+     the two ways to give the top weight — a bigger wordmark or a heavier
+     rule — the rule won: it puts the weight on the thing you are meant to
+     use, and at full width it reads as a masthead rule rather than a form
+     underline. The wordmark stays a signature. */
+  fieldMin: 20, fieldMax: 24,
+  fieldPadTop: 8,
+  fieldPadBottom: 14,
+  ruleWeight: 1.5,     // px, at rest
+  ruleRest: 0.50,      // ink alpha at rest — this IS the anchor
+  ruleHover: 0.70,
+  ruleFocus: 2,        // px — the one moment of colour on the floor
+  placeholderInk: 0.50,
+
+  /* ---------- the bands ----------
+     Geometry, in one place. The timeline is maxDots*step + labelW wide so
+     the oldest visible label still fits; the newest dot of every band sits
+     on the same "now" line, one step in from the right edge, and the hollow
+     "waiting" circle takes that last step.
+
+     maxDots is the lever on the left-hand gap. With four visible dots a
+     two-card thread left 41% of its band empty; with three it leaves 26%,
+     and no thread in the record has more than three cards yet. Past three
+     the band shows "+N" on the left instead. */
+  contentWidth: 1160,  // nameCol + the timeline (homeTimelineWidth)
+  nameCol: 254,        // the thread-name column — "Format Adaptation" on one line at nameSize
+  nameSize: 29,        // px, serif
+  labelW: 210,         // a card's label, centred under its dot
+  labelMaxChars: 34,   // two lines; truncated at a word boundary, never inside one
+  step: 232,           // dot to dot
+  maxDots: 3,
+  dot: 14,             // big enough to read as a target; hover scales it
+  lineWeight: 1.5,
+  bandGap: 72,
+
+  /* ---------- the vertical rhythm ---------- */
+  gapMarkField: 24,
+  gapFieldBands: 84,
+};
+
+// the pixel width one band's timeline needs — see HOME_METRICS
+function homeTimelineWidth() {
+  return HOME_METRICS.maxDots * HOME_METRICS.step + HOME_METRICS.labelW;
+}
+
+function applyHomeMetrics() {
+  const inner = document.querySelector('.home-inner');
+  if (!inner) return;
+  const M = HOME_METRICS;
+  const px = (name, value) => inner.style.setProperty(name, value + 'px');
+  px('--home-field-min', M.fieldMin);
+  px('--home-field-max', M.fieldMax);
+  px('--home-field-pad-top', M.fieldPadTop);
+  px('--home-field-pad-bottom', M.fieldPadBottom);
+  px('--home-rule-weight', M.ruleWeight);
+  px('--home-rule-focus', M.ruleFocus);
+  px('--home-content-width', M.contentWidth);
+  px('--home-name-col', M.nameCol);
+  px('--home-name-size', M.nameSize);
+  px('--home-label-w', M.labelW);
+  px('--home-dot', M.dot);
+  px('--home-line-weight', M.lineWeight);
+  px('--home-band-gap', M.bandGap);
+  px('--home-timeline-w', homeTimelineWidth());
+  px('--home-gap-mark-field', M.gapMarkField);
+  px('--home-gap-field-bands', M.gapFieldBands);
+  inner.style.setProperty('--home-rule-rest', 'rgba(28, 28, 30, ' + M.ruleRest + ')');
+  inner.style.setProperty('--home-rule-hover', 'rgba(28, 28, 30, ' + M.ruleHover + ')');
+  inner.style.setProperty('--home-placeholder-ink', String(M.placeholderInk));
+}
+
+/* Shortens a card title for the label under its dot. Cuts at the last word
+   boundary inside the budget — "사례와 그 이..." was a title broken in the
+   middle of a word, which reads as a rendering fault rather than a summary.
+   Falls back to a hard cut only when there is no space in the first half. */
+function clipWords(text, max) {
+  const s = String(text || '').trim();
+  if (s.length <= max) return s;
+  const cut = s.lastIndexOf(' ', max);
+  let head = cut > max * 0.45 ? s.slice(0, cut) : s.slice(0, max);
+  /* a cut that lands after "a", "on", "및" leaves the label hanging on a
+     word that says nothing — drop trailing tokens of two letters or fewer,
+     then any dangling dash */
+  head = head.replace(/(\s+\S{1,2})+$/, '').replace(/[\s—–-]+$/, '');
+  return head + '…';
+}
+
+// the studio whose turn it is: the one the asker is not
+function awaitedStudio(card) {
+  return enabledStudioKeys().find((key) => key !== card.studio) || null;
+}
+
+function homeRelativeTime(card) {
+  return card.justNow ? t().justNow : formatRelativeTime(currentLang, card.timeValue, card.timeUnit);
+}
+
+/* Which studio has put most into a topic. Only decides the colour of the
+   hover underline — the accent belongs to the conversation, not to the app. */
+function homeTopicAccent(topic) {
+  const tally = {};
+  topic.cards.forEach((card) => { tally[card.studio] = (tally[card.studio] || 0) + 1; });
+  const best = topic.studios.slice().sort((a, b) => (tally[b] || 0) - (tally[a] || 0))[0];
+  return (STUDIOS[best] && STUDIOS[best].color) || 'var(--ink)';
+}
+
+/* ---------- "awaiting an answer" ----------
+   The first version of this counted every question card whose status was not
+   'resolved', and it was wrong on the two exchanges that actually exist.
+
+   Oktoberfest: DoubleU asked which hooks work with German players (Aug 31,
+   status still 'open'), and Bengt answered with a Whow card three days later
+   that is linked to it as Continued from. Nobody had gone back to flip a
+   status field, so the floor told Whow their answer had not arrived. On a
+   screen the other studio reads, that is the expensive kind of wrong.
+
+   Format Adaptation: the DoubleU card of Sep 4 ends with "Any thoughts from
+   Felix on the current structure?" and nothing has come back. It is not a
+   question-type card at all, so the old rule could not see it — the one
+   genuinely open ask on the floor was the one it missed.
+
+   So: what asks is a field, not a type; and what answers is a card from the
+   OTHER studio, not a status. */
+function cardAsksSomething(card) {
+  if (isOpenQuestion(card) && card.status !== 'resolved') return true;
+  // any type of card can end with an open question, and often does
+  return !!String(cardText(card).openQuestion || '').trim();
+}
+
+/* Answered if any one of these is true — each catches a real case:
+     1. a card from the other studio explicitly derives from this one
+        (Continued from / Applied from / Built on — the direction is what
+        matters, not which relation it is)
+     2. somebody from the other studio spoke in its own conversation
+     3. the other studio has posted in this topic since it was asked
+
+   (3) is the loose one, and it is here on purpose. An answer written INTO
+   the prose of the field — the Aug 14 card ends "Felix does work with a
+   Windows setup" — is invisible to any rule short of reading it, and the
+   failure this whole function exists to avoid is telling the other studio
+   they never replied. Where the evidence is ambiguous this errs toward
+   saying nothing rather than toward an accusation. */
+function cardHasAnswer(card, topicCards) {
+  const from = card.studio;
+  if (ALL_CARDS.some((c) => c.derivedFrom === card.id && c.studio !== from)) return true;
+  const conversation = card.conversation || [];
+  if (conversation.some((m) => m && m.studio && m.studio !== from)) return true;
+  return topicCards.some((c) => c.studio !== from && daysAgoOf(c) < daysAgoOf(card));
+}
+
+/* What is actually going back and forth, by keyword.
+   Ranked CROSS-STUDIO FIRST, then by most recent activity: "in circulation"
+   claims an exchange, and a keyword only one studio has written under is a
+   subject rather than a conversation. Three DoubleU cards therefore rank
+   below two that cross — which is the honest reading of the word. */
+function homeTopics(limit) {
+  const byWord = new Map();
+  ALL_CARDS.forEach((card) => {
+    if (!isStudioEnabled(card.studio)) return;
+    keywordsOf(card).forEach((word) => {
+      const key = keywordKey(word);
+      if (!key) return;
+      if (!byWord.has(key)) byWord.set(key, { label: word, cards: [] });
+      byWord.get(key).cards.push(card);
+    });
+  });
+
+  const topics = [];
+  byWord.forEach((entry) => {
+    if (entry.cards.length < HOME_TOPIC_MIN_CARDS) return;
+    const newest = entry.cards.reduce((a, c) => (daysAgoOf(c) < daysAgoOf(a) ? c : a), entry.cards[0]);
+    topics.push({
+      label: entry.label,
+      cards: entry.cards,
+      studios: [...new Set(entry.cards.map((c) => c.studio))],
+      // an unanswered ask is more worth saying than a date — see cardHasAnswer
+      waiting: entry.cards.filter((c) =>
+        cardAsksSomething(c) && !cardHasAnswer(c, entry.cards)).length,
+      newest: newest,
+    });
+  });
+
+  topics.sort((a, b) => {
+    const cross = (b.studios.length > 1) - (a.studios.length > 1);
+    if (cross) return cross;
+    return daysAgoOf(a.newest) - daysAgoOf(b.newest);
+  });
+  return topics.slice(0, limit);
+}
+
+// the id of a just-posted card, so its dot can arrive once and only once
+let homeArrivingId = null;
+
+/* A card's dot and the label under it. Two buttons that do the same thing —
+   the dot is the target you aim for, the label is the one you read — both
+   carrying BOTH attributes openCard needs (index and card-id; see openCardById
+   on why an element with only the id hands it NaN). */
+function homeNodeEls(card, x, color) {
+  const node = document.createElement('button');
+  node.type = 'button';
+  node.className = 'home-node';
+  node.style.left = x + 'px';
+  node.style.setProperty('--node-color', color);
+  node.dataset.cardId = card.id;
+  node.dataset.index = String(ALL_CARDS.indexOf(card));
+  node.setAttribute('aria-label', cardText(card).title || '');
+  if (homeArrivingId && card.id === homeArrivingId) node.classList.add('is-arriving');
+
+  const label = document.createElement('button');
+  label.type = 'button';
+  label.className = 'home-node-label';
+  label.style.left = x + 'px';
+  label.dataset.cardId = card.id;
+  label.dataset.index = node.dataset.index;
+  const title = document.createElement('div');
+  title.className = 'home-node-title';
+  title.textContent = clipWords(cardText(card).title, HOME_METRICS.labelMaxChars);
+  const meta = document.createElement('div');
+  meta.className = 'home-node-meta';
+  meta.textContent = STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
+  label.appendChild(title);
+  label.appendChild(meta);
+
+  const open = () => openCard(node);
+  node.addEventListener('click', open);
+  label.addEventListener('click', open);
+  return [node, label];
+}
+
+function homeSegEl(fromX, toX, pending) {
+  const seg = document.createElement('div');
+  seg.className = 'home-seg' + (pending ? ' is-pending' : '');
+  seg.style.left = fromX + 'px';
+  seg.style.width = (toX - fromX) + 'px';
+  return seg;
+}
+
+/* One band per active thread. Geometry is HOME_METRICS; the ranking is
+   homeTopics (cross-studio first, then recency); what counts as an
+   unanswered ask is cardAsksSomething / cardHasAnswer. */
+function renderHomeBands() {
+  const wrap = document.getElementById('homeBands');
+  if (!wrap) return;
+  wrap.querySelectorAll('.home-band').forEach((el) => el.remove());
+
+  const topics = homeTopics(HOME_TOPIC_COUNT);
+  wrap.hidden = !topics.length;   // nothing in circulation → no diagram, not an empty one
+  if (!topics.length) { homeArrivingId = null; return; }
+
+  const M = HOME_METRICS;
+  const strings = t().home;
+  const T = homeTimelineWidth();
+  const R = T - M.labelW / 2;          // rightmost node: its label still fits
+  const NOW = R - M.step;              // every band's newest card stands here
+
+  const nowMark = document.getElementById('homeNow');
+  if (nowMark) {
+    nowMark.textContent = strings.nowLabel;
+    nowMark.style.left = (M.nameCol + NOW) + 'px';
+  }
+
+  topics.forEach((topic) => {
+    const band = document.createElement('div');
+    band.className = 'home-band';
+    band.style.setProperty('--band-accent', homeTopicAccent(topic));
+
+    // ---- the name column ----
+    const nameCol = document.createElement('div');
+    nameCol.className = 'home-band-name';
+    const title = document.createElement('button');
+    title.type = 'button';
+    title.className = 'home-band-title';
+    title.textContent = topic.label;
+    /* A thread IS a place — the panel that already exists for it, opened from
+       where the name sits (see openThreadView's transform-origin argument). */
+    title.addEventListener('click', () => {
+      const rect = title.getBoundingClientRect();
+      openThreadView(topic.label, { x: rect.left + 24, y: rect.top + rect.height / 2 });
+    });
+    const sub = document.createElement('div');
+    sub.className = 'home-band-sub';
+    sub.textContent = topic.studios.map((key) => STUDIOS[key].name).join(' + ')
+      + ' · ' + t().threadView.pieceCount(topic.cards.length);
+    nameCol.appendChild(title);
+    nameCol.appendChild(sub);
+    band.appendChild(nameCol);
+
+    // ---- the timeline ----
+    const line = document.createElement('div');
+    line.className = 'home-band-line';
+
+    const cards = topic.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)); // oldest → newest
+    const shown = cards.slice(-M.maxDots);
+    const hidden = cards.length - shown.length;
+    const x = (i) => NOW - (shown.length - 1 - i) * M.step;
+
+    /* Lines only where the record says so: a card that derives from an
+       earlier card in this band is joined to it, whatever the relation kind.
+       Two cards that merely share the keyword stand apart. */
+    shown.forEach((card, i) => {
+      if (!card.derivedFrom) return;
+      const j = shown.findIndex((c) => c.id === card.derivedFrom);
+      if (j >= 0 && j < i) line.appendChild(homeSegEl(x(j), x(i), false));
+    });
+
+    /* The newest unanswered ask in the band, if any, becomes a hollow circle
+       one step past "now", joined by a dotted line: what is still to come. */
+    const open = cards.filter((c) => cardAsksSomething(c) && !cardHasAnswer(c, cards));
+    const wait = open.length ? open[open.length - 1] : null;
+    if (wait) line.appendChild(homeSegEl(NOW, R, true));
+
+    shown.forEach((card, i) => {
+      homeNodeEls(card, x(i), STUDIOS[card.studio].color).forEach((el) => line.appendChild(el));
+    });
+
+    if (hidden > 0) {
+      const plus = document.createElement('span');
+      plus.className = 'home-plus';
+      plus.style.left = (x(0) - M.dot) + 'px';
+      plus.textContent = '+' + hidden;
+      line.appendChild(plus);
+    }
+
+    if (wait) {
+      const whoKey = awaitedStudio(wait);
+      const who = whoKey ? STUDIOS[whoKey] : null;
+      const color = who ? who.color : 'var(--ink)';
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = 'home-node is-wait';
+      node.style.left = R + 'px';
+      node.style.setProperty('--node-color', color);
+      node.dataset.cardId = wait.id;
+      node.dataset.index = String(ALL_CARDS.indexOf(wait));
+      const label = document.createElement('button');
+      label.type = 'button';
+      label.className = 'home-node-label is-wait';
+      label.style.left = R + 'px';
+      label.dataset.cardId = wait.id;
+      label.dataset.index = node.dataset.index;
+      // the open question itself, shortened — not a name the data cannot supply
+      const q = document.createElement('div');
+      q.className = 'home-node-title';
+      q.textContent = clipWords(cardText(wait).openQuestion || cardText(wait).title, M.labelMaxChars);
+      const meta = document.createElement('div');
+      meta.className = 'home-node-meta';
+      if (who) {
+        const whoEl = document.createElement('span');
+        whoEl.className = 'home-node-who';
+        whoEl.textContent = who.name;
+        meta.appendChild(whoEl);
+        meta.appendChild(document.createTextNode(' · '));
+      }
+      meta.appendChild(document.createTextNode(strings.awaiting));
+      label.appendChild(q);
+      label.appendChild(meta);
+      const openWait = () => openCard(node);
+      node.addEventListener('click', openWait);
+      label.addEventListener('click', openWait);
+      line.appendChild(node);
+      line.appendChild(label);
+    }
+
+    band.appendChild(line);
+    wrap.appendChild(band);
+  });
+
+  homeArrivingId = null;   // one arrival per post, never on a later redraw
+}
+
+function renderHome() {
+  if (!document.getElementById('homeBands')) return;
+  refreshHomeText();
+  renderHomeBands();
+
+  /* Two different nothings, and only one of them is an error.
+     Unreachable keeps the hero's own notice (moved into the column by
+     initHome — the retry button is already wired to a real reload).
+     Genuinely empty is not a failure and does not get an error's voice: it
+     gets the one line worth acting on. */
+  renderFeedEmpty();
+  const box = document.getElementById('feedEmpty');
+  const first = document.getElementById('homeFirst');
+  const trulyEmpty = !ALL_CARDS.length && !remoteLoadFailed;
+  if (box && trulyEmpty) box.hidden = true;
+  if (first) first.hidden = !trulyEmpty;
+}
+
+/* ---- the field ----------------------------------------------------------- */
+
+// A message occupying the status slot, or null for the resting hint.
+let askMessage = null;
+
+function askCanPost() {
+  return !!authProfile;
+}
+
+function refreshHomeText() {
+  const strings = t().home;
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  applyHomeMetrics();
+
+  // my studio's colour, for the field's caret and its focus rule
+  const inner = document.querySelector('.home-inner');
+  const mine = STUDIOS[MY_STUDIO_KEY];
+  if (inner && mine) inner.style.setProperty('--studio-mine', mine.color);
+
+  setText('homeFirst', strings.first);
+  setText('askSignin', strings.signIn);
+
+  const field = document.getElementById('askField');
+  if (field) field.placeholder = strings.placeholder;
+  const desc = document.getElementById('askDescField');
+  if (desc) desc.placeholder = strings.descriptionPlaceholder;
+
+  askRefreshState();
+}
+
+function askRefreshState() {
+  const form = document.getElementById('askForm');
+  if (!form) return;
+  const field = document.getElementById('askField');
+  const status = document.getElementById('askStatus');
+  const signin = document.getElementById('askSignin');
+  const more = document.getElementById('askMore');
+  const strings = t().home;
+  const typed = !!field.value.trim();
+  const descOpen = !document.getElementById('askDesc').hidden;
+
+  form.classList.toggle('is-typing', typed);
+  form.classList.toggle('is-desc-open', descOpen);
+  more.textContent = descOpen ? strings.hideDescription : strings.addDescription;
+
+  /* Read-only rather than disabled: a disabled field greys out and reads as
+     broken, while a guest's field has to look exactly like a member's — what
+     is possible here must be visible before it is available. */
+  field.readOnly = !askCanPost();
+
+  const guestBlocked = form.classList.contains('is-guest-blocked');
+  if (askMessage) {
+    status.textContent = askMessage.text;
+    status.classList.toggle('is-error', askMessage.kind === 'error');
+  } else {
+    status.textContent = typed ? '' : strings.hint;
+    status.classList.remove('is-error');
+  }
+  if (guestBlocked) status.textContent = strings.guest;
+  signin.hidden = !guestBlocked;
+}
+
+function askSetMessage(text, kind) {
+  askMessage = text ? { text: text, kind: kind || 'info' } : null;
+  askRefreshState();
+}
+
+function askShowGuest() {
+  const form = document.getElementById('askForm');
+  askMessage = null;
+  form.classList.add('is-guest-blocked');
+  askRefreshState();
+}
+
+function askClearGuest() {
+  const form = document.getElementById('askForm');
+  if (form) form.classList.remove('is-guest-blocked');
+}
+
+function askToggleDescription() {
+  const desc = document.getElementById('askDesc');
+  desc.hidden = !desc.hidden;
+  askRefreshState();
+  if (!desc.hidden) document.getElementById('askDescField').focus();
+}
+
+/* One line becomes a question card: title only, or title plus the optional
+   description in `blocked` — the question type's own body field, which the
+   card detail and the Thread panel already render as "Asked".
+
+   No localStorage fallback on purpose. The share form keeps one, and it is
+   what made a failed write look like a successful one; here a failure says
+   so and leaves the text in the field, which is the only copy that matters. */
+async function askSubmit() {
+  const form = document.getElementById('askForm');
+  const field = document.getElementById('askField');
+  const descBox = document.getElementById('askDesc');
+  const descField = document.getElementById('askDescField');
+  const title = field.value.trim();
+  if (!title || form.classList.contains('is-busy')) return;
+  if (!askCanPost()) { askShowGuest(); return; }
+
+  const text = { title: title };
+  const body = descBox.hidden ? '' : descField.value.trim();
+  if (body) text.blocked = body;
+
+  form.classList.add('is-busy');
+  askSetMessage(null);
+  const res = await LoomData.submitCard({
+    id: 'ask-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    studio: MY_STUDIO_KEY,
+    type: 'question',
+    sourceLang: currentLang,
+    /* No keywords: choosing them is the friction this screen exists to
+       remove, and a question with none is still reachable in Lately and on
+       the Open questions floor.
+       TODO(v2): the canvas sync has Gemini propose keywords per card; a
+       form-written question gets none, so it stays invisible in Threads
+       until a person tunes them. Give the same pass to form questions
+       after the fact (see canvas-sync v3 and submit_card_keywords). */
+    keywords: [],
+    askedTo: null,      // every question is open — see the header
+    link: null,
+    text: text,
+  }, null);
+  form.classList.remove('is-busy');
+
+  if (!res.ok) { askSetMessage(t().home.failed, 'error'); return; }
+
+  field.value = '';
+  descField.value = '';
+  descBox.hidden = true;
+  homeArrivingId = res.id;
+  // data.js has already folded the new card into every language's cache
+  rebuildAllSurfaces();
+  askSetMessage(t().home.posted, 'info');
+}
+
+function initHome() {
+  const section = document.querySelector('.discover-section');
+  if (section) section.classList.toggle('is-home', HOME_ASK);
+  if (!HOME_ASK) return;
+
+  /* The offline notice moves into the reading column once, before anything
+     renders. Reusing the hero's element keeps its retry button — already
+     wired to a real reload in initFeedEmptyRetry — instead of growing a
+     second one that would have to be kept in step. */
+  const box = document.getElementById('feedEmpty');
+  const inner = document.querySelector('.home-inner');
+  if (box && inner) inner.appendChild(box);
+
+  const form = document.getElementById('askForm');
+  const field = document.getElementById('askField');
+  const descField = document.getElementById('askDescField');
+
+  form.addEventListener('submit', (e) => { e.preventDefault(); askSubmit(); });
+  document.getElementById('askMore').addEventListener('click', askToggleDescription);
+
+  document.getElementById('askSignin').addEventListener('click', () => {
+    /* Signing in lives in the lobby. Drop the guest flag on the way out or
+       the lobby hands them straight back as a guest. */
+    try { localStorage.removeItem('loom_session_mode'); } catch (err) { /* fine */ }
+    window.location.href = 'loom_lobby.html';
+  });
+
+  field.addEventListener('focus', () => {
+    form.classList.add('is-focused');
+    /* The answer to "are you signed in?" may still be in flight at boot, and
+       telling a member to sign in because their profile had not landed yet is
+       worse than a moment's wait. So ask the shared promise, then decide. */
+    authReady().then(() => {
+      if (askCanPost()) { askClearGuest(); askRefreshState(); }
+      else askShowGuest();
+    });
+  });
+  field.addEventListener('blur', () => form.classList.remove('is-focused'));
+  field.addEventListener('input', () => {
+    if (askMessage) askMessage = null;   // a new line replaces the last verdict
+    askRefreshState();
+  });
+  field.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    askSubmit();
+  });
+  // Enter in the description submits too; Shift+Enter is a new line there
+  descField.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    askSubmit();
+  });
+
+  askRefreshState();
+}
+
 function renderDiscover() {
+  const section = document.querySelector('.discover-section');
+  if (section) section.classList.toggle('is-home', HOME_ASK);
+  // HOME_ASK false falls through to the banner below, untouched
+  if (HOME_ASK) { renderHome(); return; }
+
   heroIndices = computeDiscoverIndices();
   heroIndex = 0;
 
@@ -13082,8 +14075,12 @@ const SWIPE_AXIS_LOCK_PX = 8;   // movement needed before the axis can be called
 /* Shared with the wheel handler, so "when does the feed refuse to move" has one
    answer. A word being dragged on floor 4 pins the floor: without this a drag
    would carry the floor out from under the word being moved. */
+/* Everything that pins the floors. A surface over the feed (a card, the share
+   form, Designers, the Thread panel) owns the gesture while it is up: what
+   scrolls is the surface's own scroller, natively, and the stage underneath
+   does not move — so closing the surface lands exactly where you left. */
 function feedNavBlocked() {
-  return isCardExpanded || isShareMode || isDesignersMode || feedSnapAnimating || !!threadsDragNode;
+  return isCardExpanded || isShareMode || isDesignersMode || isThreadViewMode || feedSnapAnimating || !!threadsDragNode;
 }
 
 /* One vertical swipe = one floor, in the direction the content moves: dragging
@@ -13161,7 +14158,13 @@ function initFeedWheelSnap() {
      would otherwise swallow a tick that happened to land on it, and the page
      simply wouldn't move until you moved the pointer somewhere else. */
   document.addEventListener('wheel', (e) => {
-    if (isCardExpanded || isShareMode || isDesignersMode) return;
+    /* A surface over the feed owns the wheel: its own scroller takes it
+       natively (each one is overflow:auto with overscroll-behavior:contain, so
+       reaching its end does not chain out), and a tick on the dimmed backdrop
+       around it does nothing — the floors stay put until the surface closes.
+       The Thread panel was missing from this list: a wheel inside it fell
+       through to a floor change behind the panel. */
+    if (isCardExpanded || isShareMode || isDesignersMode || isThreadViewMode) return;
     if (e.deltaY === 0) return;
     /* A word being dragged on floor 4 pins the floor. Without this a trackpad
        two-finger drag — which is a pointer drag and a wheel gesture at the same
@@ -13169,9 +14172,9 @@ function initFeedWheelSnap() {
        drag would finish somewhere nobody asked for.
 
        Kept as two explicit checks rather than feedNavBlocked() because the wheel
-       swallows the event in these two cases and merely ignores it in the three
+       swallows the event in these two cases and merely ignores it in the four
        above — a distinction the shared helper cannot carry. The touch handler
-       declines all five the same way; see initFeedTouchSnap. */
+       declines all six the same way; see initFeedTouchSnap. */
     if (threadsDragNode) { e.preventDefault(); return; }
     if (feedSnapAnimating) { e.preventDefault(); return; }
 
@@ -14998,6 +16001,9 @@ function updateCards() {
 }
 
 function renderNowStrip() {
+  // Floor 1 is Home; the strip's own element is hidden and must not be given
+  // an inline display that would put it back over the page.
+  if (HOME_ASK) return;
   const strip = document.getElementById('nowStripRow');
   if (!strip) return;
 
@@ -19872,6 +20878,10 @@ safeInit('nebula resize', initNebulaResize);
 safeInit('menu overlay', renderMenuOverlay);
 safeInit('studio chips', renderStudioChips);
 safeInit('language switcher', renderLanguageSwitcher);
+// Before the first renderDiscover: initHome marks the floor and moves the
+// offline notice into the reading column, and both have to be true when the
+// first paint happens.
+safeInit('home', initHome);
 safeInit('discover rendering', renderDiscover);
 safeInit('browse rendering', renderBrowse);
 safeInit('questions rendering', renderQuestions);
