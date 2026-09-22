@@ -1115,7 +1115,12 @@
     background: var(--node-color, var(--ink));
     transform: translateX(-50%); transition: transform 0.18s ease;
   }
-  .home-node.is-wait { background: var(--bg); border: 2px solid var(--node-color, var(--ink)); }
+  /* hollow means open: the circle past "now" (is-wait) and a card of the band
+     that is itself still waiting on an answer (is-waiting). The ring of a card
+     keeps ITS studio's colour — whose card it is — while the studio named
+     under it is the one who owes, in theirs. */
+  .home-node.is-wait,
+  .home-node.is-waiting { background: var(--bg); border: 2px solid var(--node-color, var(--ink)); }
   .home-node:hover, .home-node:focus-visible { transform: translateX(-50%) scale(1.25); }
   .home-node-label {
     position: absolute; top: calc(var(--home-dot, 14px) + 14px); width: var(--home-label-w, 210px);
@@ -1130,7 +1135,8 @@
   }
   .home-node-meta { margin-top: 4px; font-size: 11.5px; color: var(--ink-faint); }
   .home-node-label.is-wait .home-node-title { color: var(--ink-dim); font-style: italic; }
-  .home-node-label.is-wait .home-node-who { color: var(--node-color, var(--ink)); font-weight: 500; }
+  .home-node-label.is-wait .home-node-who,
+  .home-node-label.is-waiting .home-node-who { color: var(--node-color, var(--ink)); font-weight: 500; }
   .home-plus { position: absolute; top: 1px; font-size: 11.5px; color: var(--ink-faint); transform: translateX(-100%); }
   /* a posted question's dot arrives once — the only motion on the floor the
      reader did not cause with a keypress. Today a form question has no
@@ -11856,6 +11862,29 @@ function askIsOpen(card) {
   return cardAsksSomething(card) && !cardHasAnswer(card);
 }
 
+/* Whether the ask is a FIELD on the card or the card itself. A project that
+   ends with "Any thoughts from Felix on the current structure?" carries a
+   question no dot of its own can show; a question card's dot already carries
+   its title. The band's one circle goes to the first kind — see
+   renderHomeBands on why that is the whole of the duplicate-label rule. */
+function askIsSpoken(card) {
+  return !!String(cardText(card).openQuestion || '').trim();
+}
+
+/* Which cards of a band get a dot. The newest maxDots, except that a card
+   still waiting on an answer is never folded into "+N": it is what the other
+   studio has to come back to, and this floor exists to say so. Older cards
+   that are NOT waiting give up their place first, so a fold can now take a
+   card out of the middle — "+N" counts them wherever they were. */
+function homeVisibleCards(cards, max) {
+  if (cards.length <= max) return cards;
+  const newestFirst = cards.slice().reverse();
+  const keep = new Set();
+  newestFirst.forEach((c) => { if (keep.size < max && askIsOpen(c)) keep.add(c.id); });
+  newestFirst.forEach((c) => { if (keep.size < max) keep.add(c.id); });
+  return cards.filter((c) => keep.has(c.id));
+}
+
 /* What is actually going back and forth, by keyword.
    Ranked CROSS-STUDIO FIRST, then by most recent activity: "in circulation"
    claims an exchange, and a keyword only one studio has written under is a
@@ -11923,11 +11952,16 @@ let homeArrivingId = null;
 /* A card's dot and the label under it. Two buttons that do the same thing —
    the dot is the target you aim for, the label is the one you read — both
    carrying BOTH attributes openCard needs (index and card-id; see openCardById
-   on why an element with only the id hands it NaN). */
-function homeNodeEls(card, x, color) {
+   on why an element with only the id hands it NaN).
+
+   awaitedKey, when given, is the studio this card is still waiting on: the dot
+   goes hollow and the meta line says so instead of saying when. A band has one
+   circle past "now" and can have more open asks than that, so this is how the
+   others stay on the screen (see renderHomeBands). */
+function homeNodeEls(card, x, color, awaitedKey) {
   const node = document.createElement('button');
   node.type = 'button';
-  node.className = 'home-node';
+  node.className = 'home-node' + (awaitedKey ? ' is-waiting' : '');
   node.style.left = x + 'px';
   node.style.setProperty('--node-color', color);
   node.dataset.cardId = card.id;
@@ -11937,7 +11971,7 @@ function homeNodeEls(card, x, color) {
 
   const label = document.createElement('button');
   label.type = 'button';
-  label.className = 'home-node-label';
+  label.className = 'home-node-label' + (awaitedKey ? ' is-waiting' : '');
   label.style.left = x + 'px';
   label.dataset.cardId = card.id;
   label.dataset.index = node.dataset.index;
@@ -11946,7 +11980,19 @@ function homeNodeEls(card, x, color) {
   title.textContent = clipWords(cardText(card).title, HOME_METRICS.labelMaxChars);
   const meta = document.createElement('div');
   meta.className = 'home-node-meta';
-  meta.textContent = STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
+  if (awaitedKey && STUDIOS[awaitedKey]) {
+    /* The time gives way to who owes an answer — the one thing this floor is
+       for. Where the dot sits between the oldest card and "now" still says
+       when, and the card itself says it in full. */
+    label.style.setProperty('--node-color', STUDIOS[awaitedKey].color);
+    const whoEl = document.createElement('span');
+    whoEl.className = 'home-node-who';
+    whoEl.textContent = STUDIOS[awaitedKey].name;
+    meta.appendChild(whoEl);
+    meta.appendChild(document.createTextNode(' · ' + t().home.awaiting));
+  } else {
+    meta.textContent = STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
+  }
   label.appendChild(title);
   label.appendChild(meta);
 
@@ -12019,7 +12065,7 @@ function renderHomeBands() {
     line.className = 'home-band-line';
 
     const cards = topic.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)); // oldest → newest
-    const shown = cards.slice(-M.maxDots);
+    const shown = homeVisibleCards(cards, M.maxDots);
     const hidden = cards.length - shown.length;
     const x = (i) => NOW - (shown.length - 1 - i) * M.step;
 
@@ -12032,14 +12078,29 @@ function renderHomeBands() {
       if (j >= 0 && j < i) line.appendChild(homeSegEl(x(j), x(i), false));
     });
 
-    /* The newest unanswered ask in the band, if any, becomes a hollow circle
-       one step past "now", joined by a dotted line: what is still to come. */
+    /* The band's open end: a hollow circle one step past "now", joined by a
+       dotted line — what is still to come. There is one such circle and a
+       band can hold more than one open ask, so the circle goes to the ask
+       that needs it most and the others are rings on their own dots.
+
+       Needs it most = the newest ask a card only SPEAKS (askIsSpoken): that
+       sentence has no dot of its own and the circle is the only place it can
+       be read. A question card is already a dot with its own title, so it
+       takes the circle only when nothing else wants it — and then the circle
+       says no sentence at all, standing for the missing ANSWER at the end of
+       the dotted line. That is the duplicate gone: the circle used to reprint
+       the very title sitting one step to its left. */
     const open = cards.filter(askIsOpen);
-    const wait = open.length ? open[open.length - 1] : null;
+    const spoken = open.filter(askIsSpoken);
+    const waitList = spoken.length ? spoken : open;
+    const wait = waitList.length ? waitList[waitList.length - 1] : null;
     if (wait) line.appendChild(homeSegEl(NOW, R, true));
 
     shown.forEach((card, i) => {
-      homeNodeEls(card, x(i), STUDIOS[card.studio].color).forEach((el) => line.appendChild(el));
+      // every other open ask keeps its own mark, so the circle cannot hide it
+      const waiting = askIsOpen(card) && !(wait && card.id === wait.id);
+      homeNodeEls(card, x(i), STUDIOS[card.studio].color, waiting ? awaitedStudio(card) : null)
+        .forEach((el) => line.appendChild(el));
     });
 
     if (hidden > 0) {
@@ -12065,12 +12126,15 @@ function renderHomeBands() {
       label.type = 'button';
       label.className = 'home-node-label is-wait';
       label.style.left = R + 'px';
+      label.style.setProperty('--node-color', color);   // the who name, in their colour
       label.dataset.cardId = wait.id;
       label.dataset.index = node.dataset.index;
-      // the open question itself, shortened — not a name the data cannot supply
+      /* The open question itself, shortened — but ONLY when the card speaks
+         one. When the ask is the card, its title is already the label one
+         step to the left and printing it again here was the duplicate. */
       const q = document.createElement('div');
       q.className = 'home-node-title';
-      q.textContent = clipWords(cardText(wait).openQuestion || cardText(wait).title, M.labelMaxChars);
+      q.textContent = clipWords(cardText(wait).openQuestion, M.labelMaxChars);
       const meta = document.createElement('div');
       meta.className = 'home-node-meta';
       if (who) {
@@ -12081,7 +12145,7 @@ function renderHomeBands() {
         meta.appendChild(document.createTextNode(' · '));
       }
       meta.appendChild(document.createTextNode(strings.awaiting));
-      label.appendChild(q);
+      if (q.textContent) label.appendChild(q);
       label.appendChild(meta);
       const openWait = () => openCard(node);
       node.addEventListener('click', openWait);
