@@ -961,7 +961,7 @@
     /* the reading column is centred; the type inside it is not */
     padding: clamp(34px, 5.5vh, 62px) 24px 48px;
   }
-  /* centred, and as wide as the bands need — see contentWidth in HOME_METRICS */
+  /* centred, and exactly as wide as the bands — see homeBandGeometry */
   .home-inner { width: 100%; max-width: var(--home-content-width, 1140px); margin: 0 auto; }
 
   /* ---------- type and rhythm ----------
@@ -980,7 +980,13 @@
      A rule under text, not a box around it. What you type is set in the
      face the question will wear as a card title, so the sentence already
      looks like the thing it is about to become. */
-  .ask { margin-top: var(--home-gap-mark-field, 24px); position: relative; }
+  /* Left-aligned in the column, not centred in it: the field's left edge is
+     the floor's datum, shared with the wordmark and the thread names. The
+     cap is on the rule's length only — see fieldMaxWidth in HOME_METRICS. */
+  .ask {
+    margin-top: var(--home-gap-mark-field, 24px); position: relative;
+    max-width: var(--home-field-w, 1160px);
+  }
   .ask-field,
   .ask-desc-field {
     display: block; width: 100%; border: 0; outline: 0; background: transparent;
@@ -1075,9 +1081,13 @@
   .home-bands {
     margin-top: var(--home-gap-field-bands, 84px);
     position: relative; padding-top: 28px;
-    /* the timeline has a fixed pixel width (see homeTimelineWidth); on a
-       window narrower than it, the diagram scrolls sideways rather than
-       forcing the whole floor to */
+    /* The column is sized to the bands (see applyHomeMetrics), so the
+       diagram simply fills it — no break-out, and the thread names start on
+       the same left edge as the wordmark and the field. */
+    width: 100%;
+    /* The step shrinks with the window only down to stepMin (see
+       homeBandGeometry); below that the diagram scrolls sideways rather than
+       cramping, and rather than forcing the whole floor to scroll. */
     overflow-x: auto; overflow-y: hidden;
   }
   .home-now {
@@ -9614,6 +9624,7 @@ const WEAVE_STUDIOS = Object.keys(STUDIOS)
 const FLOOR_COUNT = 4;
 // Named because the menu's sub-items go to floor 2 without being floor 2's own
 // entry in MENU_ITEMS, so the number would otherwise be written twice.
+const FLOOR_HOME = 0;
 const FLOOR_BROWSE = 1;
 const FLOOR_THREADS = 3;
 
@@ -11713,21 +11724,44 @@ const HOME_METRICS = {
   placeholderInk: 0.50,
 
   /* ---------- the bands ----------
-     Geometry, in one place. The timeline is maxDots*step + labelW wide so
-     the oldest visible label still fits; the newest dot of every band sits
-     on the same "now" line, one step in from the right edge, and the hollow
-     "waiting" circle takes that last step.
+     The timeline is maxDots*step + labelW wide so the oldest visible label
+     still fits; the newest dot of every band sits on the same "now" line,
+     one step in from the right edge, and the hollow "waiting" circle takes
+     that last step.
 
      maxDots is the lever on the left-hand gap. With four visible dots a
      two-card thread left 41% of its band empty; with three it leaves 26%,
      and no thread in the record has more than three cards yet. Past three
-     the band shows "+N" on the left instead. */
-  contentWidth: 1160,  // nameCol + the timeline (homeTimelineWidth)
-  nameCol: 254,        // the thread-name column — "Format Adaptation" on one line at nameSize
+     the band shows "+N" on the left instead. The gap that remains on the
+     left of a short band is not waste — it is the thread's age, and the
+     reason every band shares one "now" axis.
+
+     The step used to be a fixed 232px, which meant a wide window turned its
+     extra room into margin: the diagram huddled right of centre with both
+     ends of the screen empty. The step is now whatever the room divides
+     into (homeBandGeometry), so the name sits at the left edge and "now"
+     near the right on any window, and the labels grow with it. */
+  bandsMax: 1680,      // the widest the floor's one column may run
+  bandsGutter: 40,     // air kept at both window edges
+  /* The wordmark, the field and the thread names share one left edge — the
+     column IS the bands' width, so there is a single datum on the floor
+     rather than a centred field floating over a wider diagram.
+
+     The RULE under the field is capped short of that, though, and this is a
+     judgement rather than a constraint: run to 1680 and the line stops
+     reading as the one you write on and starts reading as a divider between
+     the wordmark and the bands, which is a meaning the floor does not want.
+     1160 is the length it has always had — only its left edge moved. Set
+     this to bandsMax for the full-width masthead rule instead. */
+  fieldMaxWidth: 1160,
+  nameCol: 254,        // the thread-name column, at its narrowest
+  nameColMax: 320,     // ...and at its widest, so a two-word thread fits one line
+  nameColRatio: 0.18,  // its share of the band until it hits nameColMax
   nameSize: 29,        // px, serif
-  labelW: 210,         // a card's label, centred under its dot
-  labelMaxChars: 34,   // two lines; truncated at a word boundary, never inside one
-  step: 232,           // dot to dot
+  labelRatio: 0.88,    // a label's width as a share of the step — the rest is the gutter between labels
+  labelMax: 340,       // past this a label stops reading as a caption
+  labelCharW: 6.2,     // px per character at 13px — turns labelW into labelMaxChars
+  stepMin: 190,        // narrower than this the band scrolls sideways instead of cramping
   maxDots: 3,
   dot: 14,             // big enough to read as a target; hover scales it
   lineWeight: 1.5,
@@ -11738,15 +11772,46 @@ const HOME_METRICS = {
   gapFieldBands: 84,
 };
 
-// the pixel width one band's timeline needs — see HOME_METRICS
-function homeTimelineWidth() {
-  return HOME_METRICS.maxDots * HOME_METRICS.step + HOME_METRICS.labelW;
+/* The band geometry for the window as it is now. Pure — call it, do not
+   cache it: it is read by applyHomeMetrics for the CSS variables and by
+   renderHomeBands for the same numbers in JS, and both run again on resize.
+
+   The room divides into maxDots steps plus one label (the half-label that
+   overhangs each end), which is exactly the width homeNodeEls needs for the
+   oldest label to start at 0 and the waiting circle's to end at the edge. */
+function homeBandGeometry() {
+  const M = HOME_METRICS;
+  const room = Math.max(360, (window.innerWidth || M.bandsMax) - M.bandsGutter * 2);
+  const width = Math.min(M.bandsMax, room);
+  const nameCol = Math.round(Math.min(M.nameColMax, Math.max(M.nameCol, width * M.nameColRatio)));
+
+  let step = (width - nameCol) / (M.maxDots + M.labelRatio);
+  let labelW = step * M.labelRatio;
+  if (labelW > M.labelMax) {          // a very wide window: hold the label, spend the rest on the step
+    labelW = M.labelMax;
+    step = (width - nameCol - labelW) / M.maxDots;
+  }
+  if (step < M.stepMin) {             // a very narrow one: keep the diagram legible and let it scroll
+    step = M.stepMin;
+    labelW = Math.min(M.labelMax, step * M.labelRatio);
+  }
+  step = Math.round(step);
+  labelW = Math.round(labelW);
+  return {
+    width: width,
+    nameCol: nameCol,
+    step: step,
+    labelW: labelW,
+    timelineW: M.maxDots * step + labelW,
+    labelMaxChars: Math.max(18, Math.round(labelW / M.labelCharW)),
+  };
 }
 
 function applyHomeMetrics() {
   const inner = document.querySelector('.home-inner');
   if (!inner) return;
   const M = HOME_METRICS;
+  const G = homeBandGeometry();
   const px = (name, value) => inner.style.setProperty(name, value + 'px');
   px('--home-field-min', M.fieldMin);
   px('--home-field-max', M.fieldMax);
@@ -11754,14 +11819,18 @@ function applyHomeMetrics() {
   px('--home-field-pad-bottom', M.fieldPadBottom);
   px('--home-rule-weight', M.ruleWeight);
   px('--home-rule-focus', M.ruleFocus);
-  px('--home-content-width', M.contentWidth);
-  px('--home-name-col', M.nameCol);
+  /* One width for the floor. bandsGutter (40) is wider than .home-scroll's
+     own padding (24), so this is always the narrower of the two and the
+     column lands exactly where the bands do — no second left edge. */
+  px('--home-content-width', G.width);
+  px('--home-field-w', Math.min(M.fieldMaxWidth, G.width));
+  px('--home-name-col', G.nameCol);
   px('--home-name-size', M.nameSize);
-  px('--home-label-w', M.labelW);
+  px('--home-label-w', G.labelW);
   px('--home-dot', M.dot);
   px('--home-line-weight', M.lineWeight);
   px('--home-band-gap', M.bandGap);
-  px('--home-timeline-w', homeTimelineWidth());
+  px('--home-timeline-w', G.timelineW);
   px('--home-gap-mark-field', M.gapMarkField);
   px('--home-gap-field-bands', M.gapFieldBands);
   inner.style.setProperty('--home-rule-rest', 'rgba(28, 28, 30, ' + M.ruleRest + ')');
@@ -11949,6 +12018,10 @@ function homeTopics(limit) {
 // the id of a just-posted card, so its dot can arrive once and only once
 let homeArrivingId = null;
 
+// a drag of the window edge is one resize per frame; the bands are rebuilt
+// from scratch, so wait for the drag to stop
+const HOME_RESIZE_SETTLE_MS = 120;
+
 /* A card's dot and the label under it. Two buttons that do the same thing —
    the dot is the target you aim for, the label is the one you read — both
    carrying BOTH attributes openCard needs (index and card-id; see openCardById
@@ -11958,7 +12031,7 @@ let homeArrivingId = null;
    goes hollow and the meta line says so instead of saying when. A band has one
    circle past "now" and can have more open asks than that, so this is how the
    others stay on the screen (see renderHomeBands). */
-function homeNodeEls(card, x, color, awaitedKey) {
+function homeNodeEls(card, x, color, awaitedKey, maxChars) {
   const node = document.createElement('button');
   node.type = 'button';
   node.className = 'home-node' + (awaitedKey ? ' is-waiting' : '');
@@ -11977,7 +12050,7 @@ function homeNodeEls(card, x, color, awaitedKey) {
   label.dataset.index = node.dataset.index;
   const title = document.createElement('div');
   title.className = 'home-node-title';
-  title.textContent = clipWords(cardText(card).title, HOME_METRICS.labelMaxChars);
+  title.textContent = clipWords(cardText(card).title, maxChars);
   const meta = document.createElement('div');
   meta.className = 'home-node-meta';
   if (awaitedKey && STUDIOS[awaitedKey]) {
@@ -12024,14 +12097,15 @@ function renderHomeBands() {
 
   const M = HOME_METRICS;
   const strings = t().home;
-  const T = homeTimelineWidth();
-  const R = T - M.labelW / 2;          // rightmost node: its label still fits
-  const NOW = R - M.step;              // every band's newest card stands here
+  const G = homeBandGeometry();        // the step and the label width the window allows
+  const T = G.timelineW;
+  const R = T - G.labelW / 2;          // rightmost node: its label still fits
+  const NOW = R - G.step;              // every band's newest card stands here
 
   const nowMark = document.getElementById('homeNow');
   if (nowMark) {
     nowMark.textContent = strings.nowLabel;
-    nowMark.style.left = (M.nameCol + NOW) + 'px';
+    nowMark.style.left = (G.nameCol + NOW) + 'px';
   }
 
   topics.forEach((topic) => {
@@ -12067,7 +12141,7 @@ function renderHomeBands() {
     const cards = topic.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)); // oldest → newest
     const shown = homeVisibleCards(cards, M.maxDots);
     const hidden = cards.length - shown.length;
-    const x = (i) => NOW - (shown.length - 1 - i) * M.step;
+    const x = (i) => NOW - (shown.length - 1 - i) * G.step;
 
     /* Lines only where the record says so: a card that derives from an
        earlier card in this band is joined to it, whatever the relation kind.
@@ -12099,7 +12173,7 @@ function renderHomeBands() {
     shown.forEach((card, i) => {
       // every other open ask keeps its own mark, so the circle cannot hide it
       const waiting = askIsOpen(card) && !(wait && card.id === wait.id);
-      homeNodeEls(card, x(i), STUDIOS[card.studio].color, waiting ? awaitedStudio(card) : null)
+      homeNodeEls(card, x(i), STUDIOS[card.studio].color, waiting ? awaitedStudio(card) : null, G.labelMaxChars)
         .forEach((el) => line.appendChild(el));
     });
 
@@ -12134,7 +12208,7 @@ function renderHomeBands() {
          step to the left and printing it again here was the duplicate. */
       const q = document.createElement('div');
       q.className = 'home-node-title';
-      q.textContent = clipWords(cardText(wait).openQuestion, M.labelMaxChars);
+      q.textContent = clipWords(cardText(wait).openQuestion, G.labelMaxChars);
       const meta = document.createElement('div');
       meta.className = 'home-node-meta';
       if (who) {
@@ -12385,6 +12459,16 @@ function initHome() {
     if (e.key !== 'Enter' || e.shiftKey) return;
     e.preventDefault();
     askSubmit();
+  });
+
+  /* The bands are laid out in pixels from the window's width, so a resize is
+     a re-layout, not a re-scale — stretching the diagram would put the labels
+     through each other. Same reasoning, and same shape, as Threads. */
+  let homeResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (currentFloor !== FLOOR_HOME) return;
+    clearTimeout(homeResizeTimer);
+    homeResizeTimer = setTimeout(renderHome, HOME_RESIZE_SETTLE_MS);
   });
 
   askRefreshState();
