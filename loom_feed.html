@@ -1083,7 +1083,8 @@
      HOME_METRICS. */
   .home-bands {
     margin-top: var(--home-gap-field-bands, 84px);
-    position: relative; padding-top: 28px;
+    /* the legend's row, then the "now" line's, then the bands */
+    position: relative; padding-top: calc(28px + var(--home-legend-h, 24px));
     /* The bands are wider than the column the field stands in, and break out
        of it: the ask is a sentence and wants a reading measure, the diagram
        is a map and wants the room. 50% of the parent then back half of
@@ -1096,8 +1097,24 @@
        cramping, and rather than forcing the whole floor to scroll. */
     overflow-x: auto; overflow-y: hidden;
   }
+  /* ---------- the legend: colours and shapes, one word each ----------
+     Set small and faint on purpose. It is a key, not a caption: the eye goes
+     to it once, learns two colours and four shapes, and never needs it again. */
+  .home-legend {
+    position: absolute; top: 0; right: 0;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 11px; letter-spacing: 0.01em; color: var(--ink-faint); white-space: nowrap;
+  }
+  .home-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .home-legend-gap { width: 10px; }
+  .home-legend-glyph { display: inline-flex; color: var(--ink-dim); }
+  .home-legend-glyph .home-glyph { width: 12px; height: 12px; }
+  .home-studio-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  }
+
   .home-now {
-    position: absolute; top: 2px; transform: translateX(-50%);
+    position: absolute; top: calc(2px + var(--home-legend-h, 24px)); transform: translateX(-50%);
     font-size: 11px; letter-spacing: 0.02em; color: var(--ink-faint);
   }
   .home-band { display: flex; align-items: flex-start; margin-bottom: var(--home-band-gap, 72px); }
@@ -1113,7 +1130,14 @@
     transition: background-size 0.26s var(--reveal-ease);
   }
   .home-band-title:hover, .home-band-title:focus-visible { background-size: 100% 1.5px; }
-  .home-band-sub { margin-top: 7px; font-size: 12px; color: var(--ink-faint); }
+  /* the door mark after the name: faint at rest, it steps right on hover */
+  .home-band-chev {
+    display: inline-block; margin-left: 6px; font-weight: 400; color: var(--ink-faint);
+    transition: transform 0.2s var(--reveal-ease), color 0.2s ease;
+  }
+  .home-band-title:hover .home-band-chev { transform: translateX(3px); color: var(--band-accent, var(--ink)); }
+  /* who is in the thread, as their colours; the legend has named them */
+  .home-band-studios { display: flex; gap: 6px; margin-top: 12px; padding-left: 2px; }
 
   .home-band-line { flex: none; position: relative; width: var(--home-timeline-w, 906px); height: 96px; }
   .home-seg {
@@ -1125,34 +1149,45 @@
     background: none; height: 0;
     border-top: var(--home-line-weight, 1.5px) dotted rgba(28, 28, 30, 0.40);
   }
+  /* A glyph, not a dot: the SVG inside draws the card's kind in currentColor
+     (see homeGlyphSVG), so the button only positions it and lends it the
+     studio's colour. The shape may reach past the button's box — the diamond
+     does — so nothing here may clip. */
   .home-node {
     position: absolute; top: 3px; width: var(--home-dot, 14px); height: var(--home-dot, 14px);
-    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
-    background: var(--node-color, var(--ink));
+    border: 0; padding: 0; cursor: pointer; background: none; overflow: visible;
+    color: var(--node-color, var(--ink));
     transform: translateX(-50%); transition: transform 0.18s ease;
   }
-  /* hollow means open: the circle past "now" (is-wait) and a card of the band
-     that is itself still waiting on an answer (is-waiting). The ring of a card
-     keeps ITS studio's colour — whose card it is — while the studio named
-     under it is the one who owes, in theirs. */
-  .home-node.is-wait,
-  .home-node.is-waiting { background: var(--bg); border: 2px solid var(--node-color, var(--ink)); }
-  .home-node:hover, .home-node:focus-visible { transform: translateX(-50%) scale(1.25); }
+  .home-node .home-glyph { display: block; overflow: visible; }
+  .home-glyph-q { font-family: inherit; font-weight: 700; }
+  /* The halo: a faint ring on every glyph, always — the one thing on the
+     floor that says "this can be pressed" without saying it. It darkens and
+     the glyph grows on hover, the same answer every button gives. */
+  .home-node::before {
+    content: ''; position: absolute; inset: calc(-1 * var(--home-halo, 4px)); border-radius: 50%;
+    border: 1.5px solid color-mix(in srgb, var(--node-color, var(--ink)) 22%, transparent);
+    transition: border-color 0.18s ease;
+  }
+  .home-node:hover, .home-node:focus-visible { transform: translateX(-50%) scale(1.15); }
+  .home-node:hover::before, .home-node:focus-visible::before {
+    border-color: color-mix(in srgb, var(--node-color, var(--ink)) 60%, transparent);
+  }
   .home-node-label {
     position: absolute; top: calc(var(--home-dot, 14px) + 14px); width: var(--home-label-w, 210px);
     transform: translateX(-50%); text-align: center; cursor: pointer;
     background: none; border: 0; padding: 0; font: inherit; color: inherit;
   }
   /* the title in full ink: with the lede gone these are the dark marks that
-     give the floor its centres, one per card */
+     give the floor its centres, one per card — and the title is all a label
+     is now. Studio, kind, state and time are the glyph and where it stands. */
   .home-node-title {
     font-size: 13px; line-height: 1.4; color: var(--ink); word-break: keep-all;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .home-node-meta { margin-top: 4px; font-size: 11.5px; color: var(--ink-faint); }
+  /* the question a card spoke, under the hollow ? past "now": set apart as a
+     quotation rather than a title */
   .home-node-label.is-wait .home-node-title { color: var(--ink-dim); font-style: italic; }
-  .home-node-label.is-wait .home-node-who,
-  .home-node-label.is-waiting .home-node-who { color: var(--node-color, var(--ink)); font-weight: 500; }
   .home-plus { position: absolute; top: 1px; font-size: 11.5px; color: var(--ink-faint); transform: translateX(-100%); }
   /* a posted question's dot arrives once — the only motion on the floor the
      reader did not cause with a keypress. Today a form question has no
@@ -6520,6 +6555,9 @@
                sits on the same "now" line; a hollow circle beyond it is an ask
                nobody has answered yet. -->
           <div class="home-bands" id="homeBands" hidden>
+            <!-- the legend is the floor's only explanation: colours and
+                 shapes, one word each — filled by renderHomeLegend -->
+            <div class="home-legend" id="homeLegend" aria-label="legend"></div>
             <div class="home-now" id="homeNow"></div>
           </div>
         </div>
@@ -7421,8 +7459,11 @@ const TRANSLATIONS = {
         failed: 'Could not post. Your text is still here — try again.',
         // the one axis label on the bands: where the newest card of every thread sits
         nowLabel: 'now',
-        // under the hollow circle, after the studio whose turn it is
+        // the hover on a hollow question mark — nothing on the floor says this in text
         awaiting: 'awaiting an answer',
+        /* the legend: one word per shape, never a sentence. The shapes are
+           drawn, not typed, so these are the only words in it. */
+        legend: { question: 'question', project: 'project', update: 'update', experiment: 'experiment' },
         /* the empty network: the one thing worth doing, not "nothing here" */
         first: 'The first question starts here.',
       },
@@ -7923,6 +7964,7 @@ const TRANSLATIONS = {
         failed: '올리지 못했어요. 글은 그대로 있으니 다시 시도해 주세요.',
         nowLabel: '지금',
         awaiting: '답 기다림',
+        legend: { question: '질문', project: '프로젝트', update: '업데이트', experiment: '실험' },
         first: '첫 질문이 여기서 시작해요.',
       },
       trace: {
@@ -8383,6 +8425,7 @@ const TRANSLATIONS = {
         failed: 'Konnte nicht gepostet werden. Dein Text ist noch da — versuch es erneut.',
         nowLabel: 'jetzt',
         awaiting: 'wartet auf Antwort',
+        legend: { question: 'Frage', project: 'Projekt', update: 'Update', experiment: 'Experiment' },
         first: 'Die erste Frage beginnt hier.',
       },
       trace: {
@@ -8845,6 +8888,7 @@ const TRANSLATIONS = {
         failed: 'Gönderilemedi. Yazınız burada — tekrar deneyin.',
         nowLabel: 'şimdi',
         awaiting: 'yanıt bekliyor',
+        legend: { question: 'soru', project: 'proje', update: 'güncelleme', experiment: 'deney' },
         first: 'İlk soru burada başlıyor.',
       },
       trace: {
@@ -11811,9 +11855,32 @@ const HOME_METRICS = {
   labelCharW: 6.2,     // px per character at 13px — turns labelW into labelMaxChars
   stepMin: 190,        // narrower than this the band scrolls sideways instead of cramping
   maxDots: 3,
-  dot: 14,             // big enough to read as a target; hover scales it
   lineWeight: 1.5,
   bandGap: 72,
+
+  /* ---------- the glyphs ----------
+     Shape is the KIND of card, fill is its state, colour is the studio — and
+     colour is spent on nothing else, so a reader who has learned the two
+     studio colours from the legend is never lied to by a hue.
+
+       ?   a question — hollow while it waits, filled once answered
+       ■   a project      ●   an update      ◆   an experiment
+
+     A hollow non-question is a card that ENDS with a question nobody has
+     answered and did not get the circle past "now" (see renderHomeBands).
+
+     The sizes differ per shape on purpose. Drawn to one diameter, a square
+     reads heavier than the circle and a diamond reads lighter — the eye
+     weighs area and the diamond's points hold almost none — so each is set
+     to the size that carries the circle's weight. Optical, not equal. */
+  dot: 14,             // the circle's diameter, and the box every glyph is laid in
+  glyphSquare: 12,     // side
+  glyphDiamond: 17,    // point to point
+  glyphQuestion: 16,   // the question's circle: larger than the update's, because a mark has to fit inside and stay a mark
+  glyphStroke: 2,      // the wall of a hollow shape
+  glyphMark: 11,       // the ? inside the question, px — at 9.5 an answered question read as a plain dot
+  halo: 4,             // the faint ring around every glyph: the standing invitation to click
+  legendH: 24,         // the legend's row, above the "now" line
 
   /* ---------- the vertical rhythm ---------- */
   gapMarkField: 24,
@@ -11873,6 +11940,8 @@ function applyHomeMetrics() {
   px('--home-name-size', M.nameSize);
   px('--home-label-w', G.labelW);
   px('--home-dot', M.dot);
+  px('--home-halo', M.halo);
+  px('--home-legend-h', M.legendH);
   px('--home-line-weight', M.lineWeight);
   px('--home-band-gap', M.bandGap);
   px('--home-timeline-w', G.timelineW);
@@ -11897,11 +11966,6 @@ function clipWords(text, max) {
      then any dangling dash */
   head = head.replace(/(\s+\S{1,2})+$/, '').replace(/[\s—–-]+$/, '');
   return head + '…';
-}
-
-// the studio whose turn it is: the one the asker is not
-function awaitedStudio(card) {
-  return enabledStudioKeys().find((key) => key !== card.studio) || null;
 }
 
 function homeRelativeTime(card) {
@@ -12067,57 +12131,122 @@ let homeArrivingId = null;
 // from scratch, so wait for the drag to stop
 const HOME_RESIZE_SETTLE_MS = 120;
 
-/* A card's dot and the label under it. Two buttons that do the same thing —
-   the dot is the target you aim for, the label is the one you read — both
+/* The glyph for one kind of card, as inline SVG in currentColor — the node
+   sets its colour, the shape says its kind, `hollow` says it is still owed
+   something. Drawn in a box two pixels larger than the dot on every side so
+   the diamond's points can pass the circle's edge without being clipped;
+   the button itself stays the dot's size. Sizes: HOME_METRICS. */
+function homeGlyphSVG(type, hollow) {
+  const M = HOME_METRICS;
+  const c = M.dot / 2;                 // centre, in the dot's own coordinates
+  const w = M.glyphStroke;
+  const pad = 2;
+  const box = `viewBox="${-pad} ${-pad} ${M.dot + pad * 2} ${M.dot + pad * 2}" width="${M.dot}" height="${M.dot}"`;
+  const wall = hollow ? `fill="var(--paper)" stroke="currentColor" stroke-width="${w}"` : 'fill="currentColor"';
+  let shape;
+  switch (type) {
+    case 'project': {
+      const s = M.glyphSquare - (hollow ? w : 0);
+      shape = `<rect x="${c - s / 2}" y="${c - s / 2}" width="${s}" height="${s}" ${wall}/>`;
+      break;
+    }
+    case 'experiment': {
+      const h = M.glyphDiamond / 2 - (hollow ? w / 2 : 0);
+      shape = `<polygon points="${c},${c - h} ${c + h},${c} ${c},${c + h} ${c - h},${c}" ${wall}/>`;
+      break;
+    }
+    case 'question': {
+      const r = M.glyphQuestion / 2 - (hollow ? w / 2 : 0);
+      // the mark is cut out of a filled question and drawn on a hollow one
+      const ink = hollow ? 'currentColor' : 'var(--paper)';
+      shape = `<circle cx="${c}" cy="${c}" r="${r}" ${wall}/>`
+        + `<text class="home-glyph-q" x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" fill="${ink}" font-size="${M.glyphMark}">?</text>`;
+      break;
+    }
+    default: {                          // update, and anything unforeseen
+      const r = c - (hollow ? w / 2 : 0);
+      shape = `<circle cx="${c}" cy="${c}" r="${r}" ${wall}/>`;
+    }
+  }
+  return `<svg class="home-glyph is-${type}" ${box} aria-hidden="true" focusable="false">${shape}</svg>`;
+}
+
+// a studio's colour as a small dot — under the thread name, and in the legend
+function homeStudioDot(key) {
+  const dot = document.createElement('span');
+  dot.className = 'home-studio-dot';
+  dot.style.background = STUDIOS[key].color;
+  dot.title = STUDIOS[key].name;
+  return dot;
+}
+
+/* A card's glyph and the label under it. Two buttons that do the same thing —
+   the glyph is the target you aim for, the label is the one you read — both
    carrying BOTH attributes openCard needs (index and card-id; see openCardById
    on why an element with only the id hands it NaN).
 
-   awaitedKey, when given, is the studio this card is still waiting on: the dot
-   goes hollow and the meta line says so instead of saying when. A band has one
-   circle past "now" and can have more open asks than that, so this is how the
-   others stay on the screen (see renderHomeBands). */
-function homeNodeEls(card, x, color, awaitedKey, maxChars) {
+   The label is the title and nothing else. The studio is the colour, the
+   kind is the shape, whether it is waiting is the fill, and the time is
+   where the glyph stands between the oldest card and "now" — all of which
+   the meta line used to repeat in words. The exact time survives as the
+   hover, for whoever wants it. */
+function homeNodeEls(card, x, color, hollow, maxChars) {
   const node = document.createElement('button');
   node.type = 'button';
-  node.className = 'home-node' + (awaitedKey ? ' is-waiting' : '');
+  node.className = 'home-node is-' + (card.type || 'update') + (hollow ? ' is-hollow' : '');
   node.style.left = x + 'px';
   node.style.setProperty('--node-color', color);
   node.dataset.cardId = card.id;
   node.dataset.index = String(ALL_CARDS.indexOf(card));
   node.setAttribute('aria-label', cardText(card).title || '');
+  node.title = STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
+  node.innerHTML = homeGlyphSVG(card.type, hollow);
   if (homeArrivingId && card.id === homeArrivingId) node.classList.add('is-arriving');
 
   const label = document.createElement('button');
   label.type = 'button';
-  label.className = 'home-node-label' + (awaitedKey ? ' is-waiting' : '');
+  label.className = 'home-node-label';
   label.style.left = x + 'px';
   label.dataset.cardId = card.id;
   label.dataset.index = node.dataset.index;
+  label.title = node.title;
   const title = document.createElement('div');
   title.className = 'home-node-title';
   title.textContent = clipWords(cardText(card).title, maxChars);
-  const meta = document.createElement('div');
-  meta.className = 'home-node-meta';
-  if (awaitedKey && STUDIOS[awaitedKey]) {
-    /* The time gives way to who owes an answer — the one thing this floor is
-       for. Where the dot sits between the oldest card and "now" still says
-       when, and the card itself says it in full. */
-    label.style.setProperty('--node-color', STUDIOS[awaitedKey].color);
-    const whoEl = document.createElement('span');
-    whoEl.className = 'home-node-who';
-    whoEl.textContent = STUDIOS[awaitedKey].name;
-    meta.appendChild(whoEl);
-    meta.appendChild(document.createTextNode(' · ' + t().home.awaiting));
-  } else {
-    meta.textContent = STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
-  }
   label.appendChild(title);
-  label.appendChild(meta);
 
   const open = () => openCard(node);
   node.addEventListener('click', open);
   label.addEventListener('click', open);
   return [node, label];
+}
+
+/* The legend: the two studio colours, then the four shapes, one word each.
+   It is the whole of the floor's explanation — there is no lede and no sub
+   any more, and there must not be. It sits in its own row above the "now"
+   line so the two never meet whatever the window's width. */
+function renderHomeLegend() {
+  const el = document.getElementById('homeLegend');
+  if (!el) return;
+  el.innerHTML = '';
+  const strings = t().home.legend;
+  const item = (glyphEl, word) => {
+    const li = document.createElement('span');
+    li.className = 'home-legend-item';
+    li.appendChild(glyphEl);
+    li.appendChild(document.createTextNode(word));
+    return li;
+  };
+  enabledStudioKeys().forEach((key) => el.appendChild(item(homeStudioDot(key), STUDIOS[key].name)));
+  const gap = document.createElement('span');
+  gap.className = 'home-legend-gap';
+  el.appendChild(gap);
+  ['question', 'project', 'update', 'experiment'].forEach((type) => {
+    const g = document.createElement('span');
+    g.className = 'home-legend-glyph';
+    g.innerHTML = homeGlyphSVG(type, false);
+    el.appendChild(item(g, strings[type]));
+  });
 }
 
 function homeSegEl(fromX, toX, pending) {
@@ -12152,6 +12281,7 @@ function renderHomeBands() {
     nowMark.textContent = strings.nowLabel;
     nowMark.style.left = (G.nameCol + NOW) + 'px';
   }
+  renderHomeLegend();
 
   topics.forEach((topic) => {
     const band = document.createElement('div');
@@ -12171,12 +12301,20 @@ function renderHomeBands() {
       const rect = title.getBoundingClientRect();
       openThreadView(topic.label, { x: rect.left + 24, y: rect.top + rect.height / 2 });
     });
-    const sub = document.createElement('div');
-    sub.className = 'home-band-sub';
-    sub.textContent = topic.studios.map((key) => STUDIOS[key].name).join(' + ')
-      + ' · ' + t().threadView.pieceCount(topic.cards.length);
+    // the one mark that says the name is a door, not a heading
+    const chev = document.createElement('span');
+    chev.className = 'home-band-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '›';
+    title.appendChild(chev);
+    /* Who is in the thread, as their colours — the legend has already paired
+       each colour with a name, so the names need not be printed a fifth time,
+       and a count of pieces is what the dots on the right already are. */
+    const who = document.createElement('div');
+    who.className = 'home-band-studios';
+    topic.studios.forEach((key) => who.appendChild(homeStudioDot(key)));
     nameCol.appendChild(title);
-    nameCol.appendChild(sub);
+    nameCol.appendChild(who);
     band.appendChild(nameCol);
 
     // ---- the timeline ----
@@ -12197,28 +12335,24 @@ function renderHomeBands() {
       if (j >= 0 && j < i) line.appendChild(homeSegEl(x(j), x(i), false));
     });
 
-    /* The band's open end: a hollow circle one step past "now", joined by a
-       dotted line — what is still to come. There is one such circle and a
-       band can hold more than one open ask, so the circle goes to the ask
-       that needs it most and the others are rings on their own dots.
-
-       Needs it most = the newest ask a card only SPEAKS (askIsSpoken): that
-       sentence has no dot of its own and the circle is the only place it can
-       be read. A question card is already a dot with its own title, so it
-       takes the circle only when nothing else wants it — and then the circle
-       says no sentence at all, standing for the missing ANSWER at the end of
-       the dotted line. That is the duplicate gone: the circle used to reprint
-       the very title sitting one step to its left. */
+    /* The band's open end: a hollow ? one step past "now", joined by a dotted
+       line — what is still to come. It is for a question a card only SPEAKS
+       (askIsSpoken on a non-question card): that sentence has no glyph of its
+       own, and this is the only place it can be read. A question CARD never
+       takes it — its own glyph is already a ?, hollow while it waits and
+       filled once answered, so printing it again a step to the right was the
+       duplicate this used to have. One slot, so the newest spoken ask gets
+       it; any older one shows as a hollow glyph on its own card instead,
+       which is how nothing waiting can be crowded off the band. */
     const open = cards.filter(askIsOpen);
-    const spoken = open.filter(askIsSpoken);
-    const waitList = spoken.length ? spoken : open;
-    const wait = waitList.length ? waitList[waitList.length - 1] : null;
+    const spoken = open.filter((c) => askIsSpoken(c) && !isOpenQuestion(c));
+    const wait = spoken.length ? spoken[spoken.length - 1] : null;
     if (wait) line.appendChild(homeSegEl(NOW, R, true));
 
     shown.forEach((card, i) => {
-      // every other open ask keeps its own mark, so the circle cannot hide it
-      const waiting = askIsOpen(card) && !(wait && card.id === wait.id);
-      homeNodeEls(card, x(i), STUDIOS[card.studio].color, waiting ? awaitedStudio(card) : null, G.labelMaxChars)
+      // hollow = still owed an answer, unless the circle past "now" is already saying so for this card
+      const hollow = askIsOpen(card) && !(wait && card.id === wait.id);
+      homeNodeEls(card, x(i), STUDIOS[card.studio].color, hollow, G.labelMaxChars)
         .forEach((el) => line.appendChild(el));
     });
 
@@ -12231,41 +12365,34 @@ function renderHomeBands() {
     }
 
     if (wait) {
-      const whoKey = awaitedStudio(wait);
-      const who = whoKey ? STUDIOS[whoKey] : null;
-      const color = who ? who.color : 'var(--ink)';
+      /* In the ASKING card's colour, not the awaited studio's, as it was:
+         colour means one thing on this floor now — whose — and a hollow ?
+         in DoubleU's blue beside DoubleU's own hollow question reads as two
+         open asks from the same side, which is what they are. With two
+         studios, who is being asked needs no second colour to say it. */
+      const color = STUDIOS[wait.studio].color;
       const node = document.createElement('button');
       node.type = 'button';
-      node.className = 'home-node is-wait';
+      node.className = 'home-node is-question is-hollow is-wait';
       node.style.left = R + 'px';
       node.style.setProperty('--node-color', color);
       node.dataset.cardId = wait.id;
       node.dataset.index = String(ALL_CARDS.indexOf(wait));
+      node.title = STUDIOS[wait.studio].name + ' · ' + strings.awaiting;
+      node.setAttribute('aria-label', strings.awaiting);
+      node.innerHTML = homeGlyphSVG('question', true);
       const label = document.createElement('button');
       label.type = 'button';
       label.className = 'home-node-label is-wait';
       label.style.left = R + 'px';
-      label.style.setProperty('--node-color', color);   // the who name, in their colour
       label.dataset.cardId = wait.id;
       label.dataset.index = node.dataset.index;
-      /* The open question itself, shortened — but ONLY when the card speaks
-         one. When the ask is the card, its title is already the label one
-         step to the left and printing it again here was the duplicate. */
+      label.title = node.title;
+      // the question itself and nothing under it: the hollow ? has said the rest
       const q = document.createElement('div');
       q.className = 'home-node-title';
       q.textContent = clipWords(cardText(wait).openQuestion, G.labelMaxChars);
-      const meta = document.createElement('div');
-      meta.className = 'home-node-meta';
-      if (who) {
-        const whoEl = document.createElement('span');
-        whoEl.className = 'home-node-who';
-        whoEl.textContent = who.name;
-        meta.appendChild(whoEl);
-        meta.appendChild(document.createTextNode(' · '));
-      }
-      meta.appendChild(document.createTextNode(strings.awaiting));
-      if (q.textContent) label.appendChild(q);
-      label.appendChild(meta);
+      label.appendChild(q);
       const openWait = () => openCard(node);
       node.addEventListener('click', openWait);
       label.addEventListener('click', openWait);
