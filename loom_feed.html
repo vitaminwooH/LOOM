@@ -60,17 +60,25 @@
        the floors do, which is what reads as depth rather than as a second
        layer sliding. */
     /* ---------- the paper each floor is printed on ----------
-       Not one surface any more. The cover fills its own floor; Browse and
-       Threads want the warmth of actual paper under them; Open questions is
-       left as it was. The bands live in their own layer (see .floor-paper)
-       which travels with the stage, so each colour stays with its floor.
+       One stock for the whole building. Browse and Threads were given the
+       warmth of actual paper and the other two were simply left at the near
+       white they started on, which made going down the building alternate
+       warm, cool, warm — and a colour that changes on every floor reads as
+       a rendering fault rather than as four floors. The floors are told
+       apart by what is on them; the paper is what they have in common.
+
+       The per-floor names stay, so one floor can still be given its own
+       stock deliberately. The bands live in their own layer (see
+       .floor-paper) which travels with the stage, so a colour set here
+       stays with its floor.
 
        Which floors carry the nebula is the other half of the same decision,
        and it lives beside these on purpose — see FLOOR_BACKDROP. */
-    --paper-cover: #fafaf8;
-    --paper-browse: #f7f3ec;
-    --paper-questions: #fafaf8;
-    --paper-threads: #f7f3ec;
+    --paper: #f7f3ec;
+    --paper-cover: var(--paper);
+    --paper-browse: var(--paper);
+    --paper-questions: var(--paper);
+    --paper-threads: var(--paper);
 
     --nebula-opacity: 0.5;
     --nebula-dot: rgba(40, 64, 110, 0.5);
