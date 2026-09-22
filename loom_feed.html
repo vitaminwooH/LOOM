@@ -1477,6 +1477,9 @@
   }
   .status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .status-badge.status-open { color: #b45309; background: rgba(180, 83, 9, 0.14); }
+  /* answered: the other studio has replied, nobody has closed it — the
+     exchange happened (blue), it is not yet settled (not green) */
+  .status-badge.status-answered,
   .status-badge.status-discussion { color: #2563eb; background: rgba(37, 99, 235, 0.14); }
   .status-badge.status-resolved { color: #15803d; background: rgba(21, 128, 61, 0.14); }
 
@@ -7383,6 +7386,8 @@ const TRANSLATIONS = {
       questionHint: {
         discussing: (n) => `${n} ${n > 1 ? 'people are' : 'person is'} already discussing this`,
         noAnswers: 'Nobody has answered yet',
+        // the reply was a card (Continued from …), not a line in the conversation
+        answeredByCard: 'Answered in a later card',
       },
       /* A resolved question is a dead end unless it points somewhere. These are
          the three things that actually follow from an answer. */
@@ -7449,7 +7454,8 @@ const TRANSLATIONS = {
       sectionTried: 'What we tried',
       sectionResult: 'Result & learnings',
       sectionResolution: 'How it got resolved',
-      status: { open: 'Open', discussion: 'Discussing', resolved: 'Resolved' },
+      // the badge reads questionState, not the raw DB field — see that function
+      status: { open: 'Open', answered: 'Answered', discussion: 'Discussing', resolved: 'Resolved' },
       discoverHeading: 'New knowledge',
       discoverSub: 'What other studios just shared',
       newBadge: 'NEW',
@@ -7870,6 +7876,7 @@ const TRANSLATIONS = {
       questionHint: {
         discussing: (n) => `${n}명이 이미 이야기 중이에요`,
         noAnswers: '아직 아무도 답하지 않았어요',
+        answeredByCard: '이어진 카드에서 답이 왔어요',
       },
       resolvedNext: {
         label: '이제 뭘 할까요?',
@@ -7927,7 +7934,7 @@ const TRANSLATIONS = {
       sectionTried: '시도한 것',
       sectionResult: '결과 및 배운 점',
       sectionResolution: '어떻게 해결됐는지',
-      status: { open: '열림', discussion: '논의 중', resolved: '해결됨' },
+      status: { open: '열림', answered: '답 옴', discussion: '논의 중', resolved: '해결됨' },
       discoverHeading: '새로 올라온 지식',
       discoverSub: '다른 스튜디오가 방금 공유한 것들',
       newBadge: '신규',
@@ -8327,6 +8334,7 @@ const TRANSLATIONS = {
       questionHint: {
         discussing: (n) => `${n} ${n > 1 ? 'Personen sprechen' : 'Person spricht'} schon darüber`,
         noAnswers: 'Noch keine Antwort',
+        answeredByCard: 'In einer späteren Karte beantwortet',
       },
       resolvedNext: {
         label: 'Und jetzt?',
@@ -8384,7 +8392,7 @@ const TRANSLATIONS = {
       sectionTried: 'Was wir versucht haben',
       sectionResult: 'Ergebnis & Erkenntnisse',
       sectionResolution: 'Wie es gelöst wurde',
-      status: { open: 'Offen', discussion: 'In Diskussion', resolved: 'Gelöst' },
+      status: { open: 'Offen', answered: 'Beantwortet', discussion: 'In Diskussion', resolved: 'Gelöst' },
       discoverHeading: 'Neues Wissen',
       discoverSub: 'Was andere Studios gerade geteilt haben',
       newBadge: 'NEU',
@@ -8786,6 +8794,7 @@ const TRANSLATIONS = {
       questionHint: {
         discussing: (n) => `${n} kişi bunu şimdiden konuşuyor`,
         noAnswers: 'Henüz kimse yanıtlamadı',
+        answeredByCard: 'Sonraki bir kartta yanıtlandı',
       },
       resolvedNext: {
         label: 'Şimdi ne olacak?',
@@ -8843,7 +8852,7 @@ const TRANSLATIONS = {
       sectionTried: 'Ne denedik',
       sectionResult: 'Sonuç ve çıkarımlar',
       sectionResolution: 'Nasıl çözüldü',
-      status: { open: 'Açık', discussion: 'Tartışılıyor', resolved: 'Çözüldü' },
+      status: { open: 'Açık', answered: 'Yanıtlandı', discussion: 'Tartışılıyor', resolved: 'Çözüldü' },
       discoverHeading: 'Yeni bilgiler',
       discoverSub: 'Diğer stüdyoların az önce paylaştıkları',
       newBadge: 'YENİ',
@@ -10851,10 +10860,33 @@ function isOpenQuestion(data) {
   return data.type === 'question';
 }
 
-// Open/Discussing/Resolved — only Questions carry this at all.
+/* ---------- ONE judgement of whether a question has been answered ----------
+   Every place that says anything about a question's state reads it from
+   here: the Home bands, the Open questions floor (its badges, its count, its
+   sort), the card detail, the brief. They used to disagree — Home judged by
+   the record (a follow-up card from the other studio IS an answer) while the
+   floor judged by the status field, and the same Oktoberfest question was
+   answered on one floor and "Nobody has answered yet" on the next.
+
+     'resolved'  a person closed it (status field — the one human verdict)
+     'answered'  the other studio has replied: a card derived from it, a word
+                 in its conversation, or a newer card in the same thread
+                 (cardHasAnswer, defined with the Home bands)
+     'open'      nothing has come back yet
+
+   status = 'discussion' from the DB is treated as not-yet-answered: it says
+   people are talking, not that the asker got what they asked for. */
+function questionState(card) {
+  if (!card) return 'open';
+  if (card.status === 'resolved') return 'resolved';
+  return cardHasAnswer(card) ? 'answered' : 'open';
+}
+
+// Open / Answered / Resolved — only Questions carry this at all.
 function statusBadgeHTML(data) {
-  if (!isOpenQuestion(data) || !data.status) return '';
-  return `<span class="status-badge status-${data.status}">${t().status[data.status]}</span>`;
+  if (!isOpenQuestion(data)) return '';
+  const state = questionState(data);
+  return `<span class="status-badge status-${state}">${t().status[state]}</span>`;
 }
 
 // Replies typed into this session's Conversation pane (see initQuestionDetail) —
@@ -11788,7 +11820,22 @@ function cardHasAnswer(card, topicCards) {
   if (ALL_CARDS.some((c) => c.derivedFrom === card.id && c.studio !== from)) return true;
   const conversation = card.conversation || [];
   if (conversation.some((m) => m && m.studio && m.studio !== from)) return true;
-  return topicCards.some((c) => c.studio !== from && daysAgoOf(c) < daysAgoOf(card));
+  /* Without a band to hand it, "the same thread" is every card sharing a
+     keyword with this one — what a band is made of, so the floor and the
+     detail judge exactly as Home does. */
+  const thread = topicCards || cardsSharingKeywords(card);
+  return thread.some((c) => c.studio !== from && daysAgoOf(c) < daysAgoOf(card));
+}
+
+function cardsSharingKeywords(card) {
+  const mine = new Set(keywordsOf(card).map(keywordKey).filter(Boolean));
+  if (!mine.size) return [];
+  return ALL_CARDS.filter((c) => c !== card && keywordsOf(c).some((w) => mine.has(keywordKey(w))));
+}
+
+// the single question every surface asks: is this card still waiting?
+function askIsOpen(card) {
+  return cardAsksSomething(card) && !cardHasAnswer(card);
 }
 
 /* What is actually going back and forth, by keyword.
@@ -11948,7 +11995,7 @@ function renderHomeBands() {
 
     /* The newest unanswered ask in the band, if any, becomes a hollow circle
        one step past "now", joined by a dotted line: what is still to come. */
-    const open = cards.filter((c) => cardAsksSomething(c) && !cardHasAnswer(c, cards));
+    const open = cards.filter(askIsOpen);
     const wait = open.length ? open[open.length - 1] : null;
     if (wait) line.appendChild(homeSegEl(NOW, R, true));
 
@@ -12511,8 +12558,13 @@ function askedToMe(data) {
   return data.askedTo && data.askedTo !== 'all' && data.askedTo === MY_STUDIO_KEY;
 }
 
+/* Open questions first (yours before everyone's), then answered ones — the
+   other studio has replied but nobody has marked it settled — and resolved
+   last, as the record of what was closed. */
 function questionSortRank(data) {
-  if (data.status === 'resolved') return 2;
+  const state = questionState(data);
+  if (state === 'resolved') return 3;
+  if (state === 'answered') return 2;
   return askedToMe(data) ? 0 : 1;
 }
 
@@ -12593,7 +12645,8 @@ function renderQuestions() {
      floor is full enough to use its whole width. */
   grid.classList.toggle('is-sparse', indices.length > 0 && indices.length < 3);
 
-  const waitingCount = indices.filter((i) => ALL_CARDS[i].status !== 'resolved').length;
+  // "waiting" means nothing has come back — not merely "not closed"
+  const waitingCount = indices.filter((i) => questionState(ALL_CARDS[i]) === 'open').length;
   renderQuestionsDockLine(waitingCount);
   renderQuestionsPersonal(waitingCount);
   document.getElementById('questionsEmpty').style.display = indices.length > 0 ? 'none' : 'block';
@@ -16170,7 +16223,7 @@ function initExchangeTraceLinks() {
    Questions that want your studio
    ====================================================================== */
 function questionsNeedingMe() {
-  return ALL_CARDS.filter((c) => isOpenQuestion(c) && c.status !== 'resolved' && askedToMe(c));
+  return ALL_CARDS.filter((c) => isOpenQuestion(c) && questionState(c) === 'open' && askedToMe(c));
 }
 
 /* ---- the one dock line ----
@@ -16214,7 +16267,15 @@ function renderQuestionsPersonal(waitingCount) {
    people in it is a different invitation from an unanswered question. */
 function questionActivityHint(data) {
   const messages = getConversationMessages(data).slice(1);
-  if (!messages.length) return data.status === 'resolved' ? '' : t().questionHint.noAnswers;
+  if (!messages.length) {
+    /* An empty conversation is not the same as no answer: the reply may be a
+       whole card (Continued from …), which is how Oktoberfest was answered.
+       Say so rather than "nobody has answered yet" — the sentence this floor
+       used to show the studio that HAD answered. */
+    const state = questionState(data);
+    if (state === 'resolved') return '';
+    return state === 'answered' ? t().questionHint.answeredByCard : t().questionHint.noAnswers;
+  }
   const people = new Set(messages.map((m) => m.author).filter(Boolean));
   return people.size ? t().questionHint.discussing(people.size) : '';
 }
