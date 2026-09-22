@@ -961,7 +961,7 @@
     /* the reading column is centred; the type inside it is not */
     padding: clamp(34px, 5.5vh, 62px) 24px 48px;
   }
-  /* centred, and exactly as wide as the bands — see homeBandGeometry */
+  /* the reading column the ask stands in; the bands break out of it */
   .home-inner { width: 100%; max-width: var(--home-content-width, 1140px); margin: 0 auto; }
 
   /* ---------- type and rhythm ----------
@@ -980,13 +980,7 @@
      A rule under text, not a box around it. What you type is set in the
      face the question will wear as a card title, so the sentence already
      looks like the thing it is about to become. */
-  /* Left-aligned in the column, not centred in it: the field's left edge is
-     the floor's datum, shared with the wordmark and the thread names. The
-     cap is on the rule's length only — see fieldMaxWidth in HOME_METRICS. */
-  .ask {
-    margin-top: var(--home-gap-mark-field, 24px); position: relative;
-    max-width: var(--home-field-w, 1160px);
-  }
+  .ask { margin-top: var(--home-gap-mark-field, 24px); position: relative; }
   .ask-field,
   .ask-desc-field {
     display: block; width: 100%; border: 0; outline: 0; background: transparent;
@@ -1081,10 +1075,13 @@
   .home-bands {
     margin-top: var(--home-gap-field-bands, 84px);
     position: relative; padding-top: 28px;
-    /* The column is sized to the bands (see applyHomeMetrics), so the
-       diagram simply fills it — no break-out, and the thread names start on
-       the same left edge as the wordmark and the field. */
-    width: 100%;
+    /* The bands are wider than the column the field stands in, and break out
+       of it: the ask is a sentence and wants a reading measure, the diagram
+       is a map and wants the room. 50% of the parent then back half of
+       itself centres it on the same axis whatever either width is. */
+    width: var(--home-bands-w, 1160px);
+    margin-left: 50%;
+    transform: translateX(-50%);
     /* The step shrinks with the window only down to stepMin (see
        homeBandGeometry); below that the diagram scrolls sideways rather than
        cramping, and rather than forcing the whole floor to scroll. */
@@ -11760,19 +11757,16 @@ const HOME_METRICS = {
      ends of the screen empty. The step is now whatever the room divides
      into (homeBandGeometry), so the name sits at the left edge and "now"
      near the right on any window, and the labels grow with it. */
-  bandsMax: 1680,      // the widest the floor's one column may run
+  bandsMax: 1680,      // the widest the bands may run
   bandsGutter: 40,     // air kept at both window edges
-  /* The wordmark, the field and the thread names share one left edge — the
-     column IS the bands' width, so there is a single datum on the floor
-     rather than a centred field floating over a wider diagram.
-
-     The RULE under the field is capped short of that, though, and this is a
-     judgement rather than a constraint: run to 1680 and the line stops
-     reading as the one you write on and starts reading as a divider between
-     the wordmark and the bands, which is a meaning the floor does not want.
-     1160 is the length it has always had — only its left edge moved. Set
-     this to bandsMax for the full-width masthead rule instead. */
-  fieldMaxWidth: 1160,
+  /* The ask keeps its own centred column and does NOT share the bands' left
+     edge. Tried the other way: aligning the two put the field hard against
+     the window's left third, and a single sentence typed into a line that
+     starts at the screen edge reads as a search box in a toolbar rather than
+     as an invitation in the middle of a page. The field is a place to write
+     one thing and wants a measure around it; the bands are a map and want
+     the room. Two datums, on purpose. */
+  contentWidth: 1160,
   nameCol: 254,        // the thread-name column, at its narrowest
   nameColMax: 320,     // ...and at its widest, so a two-word thread fits one line
   nameColRatio: 0.18,  // its share of the band until it hits nameColMax
@@ -11838,11 +11832,8 @@ function applyHomeMetrics() {
   px('--home-field-pad-bottom', M.fieldPadBottom);
   px('--home-rule-weight', M.ruleWeight);
   px('--home-rule-focus', M.ruleFocus);
-  /* One width for the floor. bandsGutter (40) is wider than .home-scroll's
-     own padding (24), so this is always the narrower of the two and the
-     column lands exactly where the bands do — no second left edge. */
-  px('--home-content-width', G.width);
-  px('--home-field-w', Math.min(M.fieldMaxWidth, G.width));
+  px('--home-content-width', M.contentWidth);
+  px('--home-bands-w', G.width);
   px('--home-name-col', G.nameCol);
   px('--home-name-size', M.nameSize);
   px('--home-label-w', G.labelW);
