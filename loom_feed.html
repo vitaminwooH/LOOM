@@ -968,7 +968,7 @@
 
   .home-scroll {
     /* the reading column is centred; the type inside it is not */
-    padding: clamp(34px, 5.5vh, 62px) 24px 48px;
+    padding: clamp(34px, 5.5vh, 62px) 24px var(--home-gap-bands-bottom, 32px);
   }
   /* the reading column the ask stands in; the bands break out of it */
   .home-inner { width: 100%; max-width: var(--home-content-width, 1140px); margin: 0 auto; }
@@ -1083,8 +1083,8 @@
      HOME_METRICS. */
   .home-bands {
     margin-top: var(--home-gap-field-bands, 84px);
-    /* the legend's row, then the "now" line's, then the bands */
-    position: relative; padding-top: calc(28px + var(--home-legend-h, 24px));
+    /* the legend's row, air, the "now" line's row, then the bands */
+    position: relative; padding-top: calc(var(--home-legend-h, 24px) + var(--home-legend-gap, 16px) + 28px);
     /* The bands are wider than the column the field stands in, and break out
        of it: the ask is a sentence and wants a reading measure, the diagram
        is a map and wants the room. 50% of the parent then back half of
@@ -1101,12 +1101,15 @@
      Set small and faint on purpose. It is a key, not a caption: the eye goes
      to it once, learns two colours and four shapes, and never needs it again. */
   .home-legend {
-    position: absolute; top: 0; right: 0;
-    display: flex; align-items: center; gap: 14px;
+    position: absolute; top: 0; left: 0; right: 0;
+    /* two groups, one row: WHO over the thread-name column, WHAT over the
+       timeline. Six symbols in a single run read as one code to memorise;
+       split where the diagram splits, each half explains the column below it. */
+    display: flex; align-items: center; justify-content: space-between;
     font-size: 11px; letter-spacing: 0.01em; color: var(--ink-faint); white-space: nowrap;
   }
+  .home-legend-group { display: inline-flex; align-items: center; gap: 14px; }
   .home-legend-item { display: inline-flex; align-items: center; gap: 6px; }
-  .home-legend-gap { width: 10px; }
   .home-legend-glyph { display: inline-flex; color: var(--ink-dim); }
   .home-legend-glyph .home-glyph { width: 12px; height: 12px; }
   .home-studio-dot {
@@ -1114,7 +1117,7 @@
   }
 
   .home-now {
-    position: absolute; top: calc(2px + var(--home-legend-h, 24px)); transform: translateX(-50%);
+    position: absolute; top: calc(2px + var(--home-legend-h, 24px) + var(--home-legend-gap, 16px)); transform: translateX(-50%);
     font-size: 11px; letter-spacing: 0.02em; color: var(--ink-faint);
   }
   .home-band { display: flex; align-items: flex-start; margin-bottom: var(--home-band-gap, 72px); }
@@ -1135,7 +1138,7 @@
     display: inline-block; margin-left: 6px; font-weight: 400; color: var(--ink-faint);
     transition: transform 0.2s var(--reveal-ease), color 0.2s ease;
   }
-  .home-band-title:hover .home-band-chev { transform: translateX(3px); color: var(--band-accent, var(--ink)); }
+  .home-band-title:hover .home-band-chev { transform: translateX(6px); color: var(--band-accent, var(--ink)); }
   /* who is in the thread, as their colours; the legend has named them */
   .home-band-studios { display: flex; gap: 6px; margin-top: 12px; padding-left: 2px; }
 
@@ -1167,11 +1170,23 @@
   .home-node::before {
     content: ''; position: absolute; inset: calc(-1 * var(--home-halo, 4px)); border-radius: 50%;
     border: 1.5px solid color-mix(in srgb, var(--node-color, var(--ink)) 22%, transparent);
-    transition: border-color 0.18s ease;
+    background: transparent;
+    transition: border-color 0.18s ease, inset 0.18s ease, background-color 0.18s ease, border-width 0.18s ease;
   }
-  .home-node:hover, .home-node:focus-visible { transform: translateX(-50%) scale(1.15); }
-  .home-node:hover::before, .home-node:focus-visible::before {
-    border-color: color-mix(in srgb, var(--node-color, var(--ink)) 60%, transparent);
+  /* Lit: by the pointer on the glyph, by the keyboard, or by the pointer on
+     the label under it (is-lit, mirrored in JS — CSS cannot pair the two
+     siblings by card). The state has to be seen from across the room: the
+     ring goes to the studio's full colour and steps out, a tint fills it,
+     and the glyph itself grows. Numbers: haloLit / litScale in HOME_METRICS. */
+  .home-node:hover, .home-node:focus-visible, .home-node.is-lit {
+    transform: translateX(-50%) scale(var(--home-lit-scale, 1.4));
+    z-index: 2;
+  }
+  .home-node:hover::before, .home-node:focus-visible::before, .home-node.is-lit::before {
+    inset: calc(-1 * var(--home-halo-lit, 7px));
+    border-width: 2px;
+    border-color: var(--node-color, var(--ink));
+    background: color-mix(in srgb, var(--node-color, var(--ink)) 14%, transparent);
   }
   .home-node-label {
     position: absolute; top: calc(var(--home-dot, 14px) + 14px); width: var(--home-label-w, 210px);
@@ -1188,6 +1203,12 @@
   /* the question a card spoke, under the hollow ? past "now": set apart as a
      quotation rather than a title */
   .home-node-label.is-wait .home-node-title { color: var(--ink-dim); font-style: italic; }
+  /* the label answers the glyph: hovering either lights both (see homePairHover) */
+  .home-node-label .home-node-title { transition: color 0.18s ease; text-decoration-color: transparent; }
+  .home-node-label:hover .home-node-title, .home-node-label.is-lit .home-node-title {
+    text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+    text-decoration-color: var(--node-color, var(--ink));
+  }
   .home-plus { position: absolute; top: 1px; font-size: 11.5px; color: var(--ink-faint); transform: translateX(-100%); }
   /* a posted question's dot arrives once — the only motion on the floor the
      reader did not cause with a keypress. Today a form question has no
@@ -11856,7 +11877,7 @@ const HOME_METRICS = {
   stepMin: 190,        // narrower than this the band scrolls sideways instead of cramping
   maxDots: 3,
   lineWeight: 1.5,
-  bandGap: 72,
+  bandGap: 60,         // band to band. 72 left four bands 58px over a 900px window
 
   /* ---------- the glyphs ----------
      Shape is the KIND of card, fill is its state, colour is the studio — and
@@ -11880,11 +11901,28 @@ const HOME_METRICS = {
   glyphStroke: 2,      // the wall of a hollow shape
   glyphMark: 11,       // the ? inside the question, px — at 9.5 an answered question read as a plain dot
   halo: 4,             // the faint ring around every glyph: the standing invitation to click
+  /* The lit state — hover, focus, or the label under it hovered. 1.15x and
+     a ring from 22% to 60% were measured working and still went unseen at
+     arm's length on a 1920 monitor: a 14px mark grows two pixels. So it
+     blooms instead: the ring goes to full colour and steps outward, a tint
+     fills it, and the glyph grows by nearly half. */
+  haloLit: 7,          // the ring's reach when lit
+  litScale: 1.4,       // the glyph's growth when lit
   legendH: 24,         // the legend's row, above the "now" line
 
-  /* ---------- the vertical rhythm ---------- */
+  /* ---------- the vertical rhythm ----------
+     The floor has to fit one window without scrolling, or a wheel tick is
+     spent on the slack instead of the floor. Four bands at these numbers
+     take 882px; five would not fit 900 and the wheel handler then carries
+     the tick through (innerScrollHasRoom).
+
+     The field sits close to the bands and the legend stands clear of them:
+     the legend is the head of the group, not a footnote pinned to the first
+     band, and it used to be the other way round — 84px above it, 38 below. */
   gapMarkField: 24,
-  gapFieldBands: 84,
+  gapFieldBands: 44,   // field to legend
+  legendGap: 16,       // legend to the "now" row — the air that makes it a heading
+  gapBandsBottom: 32,  // under the last band
 };
 
 /* The band geometry for the window as it is now. Pure — call it, do not
@@ -11941,7 +11979,11 @@ function applyHomeMetrics() {
   px('--home-label-w', G.labelW);
   px('--home-dot', M.dot);
   px('--home-halo', M.halo);
+  px('--home-halo-lit', M.haloLit);
+  inner.style.setProperty('--home-lit-scale', String(M.litScale));
   px('--home-legend-h', M.legendH);
+  px('--home-legend-gap', M.legendGap);
+  px('--home-gap-bands-bottom', M.gapBandsBottom);
   px('--home-line-weight', M.lineWeight);
   px('--home-band-gap', M.bandGap);
   px('--home-timeline-w', G.timelineW);
@@ -12180,6 +12222,21 @@ function homeStudioDot(key) {
   return dot;
 }
 
+/* A glyph and its label are two buttons for one card, and the pointer is
+   only ever on one of them. Hovering the title should light the glyph it
+   belongs to, and hovering the glyph should mark the title — a card, not a
+   button, is what the reader is pointing at. CSS has no selector that pairs
+   two siblings by a shared attribute, so the pairing is mirrored here. */
+function homePairHover(node, label) {
+  const lit = (on) => () => { node.classList.toggle('is-lit', on); label.classList.toggle('is-lit', on); };
+  [node, label].forEach((el) => {
+    el.addEventListener('mouseenter', lit(true));
+    el.addEventListener('mouseleave', lit(false));
+    el.addEventListener('focus', lit(true));
+    el.addEventListener('blur', lit(false));
+  });
+}
+
 /* A card's glyph and the label under it. Two buttons that do the same thing —
    the glyph is the target you aim for, the label is the one you read — both
    carrying BOTH attributes openCard needs (index and card-id; see openCardById
@@ -12214,10 +12271,12 @@ function homeNodeEls(card, x, color, hollow, maxChars) {
   title.className = 'home-node-title';
   title.textContent = clipWords(cardText(card).title, maxChars);
   label.appendChild(title);
+  label.style.setProperty('--node-color', color);   // the underline under a lit title, in the studio's colour
 
   const open = () => openCard(node);
   node.addEventListener('click', open);
   label.addEventListener('click', open);
+  homePairHover(node, label);
   return [node, label];
 }
 
@@ -12237,16 +12296,21 @@ function renderHomeLegend() {
     li.appendChild(document.createTextNode(word));
     return li;
   };
-  enabledStudioKeys().forEach((key) => el.appendChild(item(homeStudioDot(key), STUDIOS[key].name)));
-  const gap = document.createElement('span');
-  gap.className = 'home-legend-gap';
-  el.appendChild(gap);
+  // WHO — over the thread names, where the studio dots under each name sit
+  const who = document.createElement('span');
+  who.className = 'home-legend-group is-who';
+  enabledStudioKeys().forEach((key) => who.appendChild(item(homeStudioDot(key), STUDIOS[key].name)));
+  // WHAT — over the timeline, where the shapes are
+  const what = document.createElement('span');
+  what.className = 'home-legend-group is-what';
   ['question', 'project', 'update', 'experiment'].forEach((type) => {
     const g = document.createElement('span');
     g.className = 'home-legend-glyph';
     g.innerHTML = homeGlyphSVG(type, false);
-    el.appendChild(item(g, strings[type]));
+    what.appendChild(item(g, strings[type]));
   });
+  el.appendChild(who);
+  el.appendChild(what);
 }
 
 function homeSegEl(fromX, toX, pending) {
@@ -12393,9 +12457,11 @@ function renderHomeBands() {
       q.className = 'home-node-title';
       q.textContent = clipWords(cardText(wait).openQuestion, G.labelMaxChars);
       label.appendChild(q);
+      label.style.setProperty('--node-color', color);
       const openWait = () => openCard(node);
       node.addEventListener('click', openWait);
       label.addEventListener('click', openWait);
+      homePairHover(node, label);
       line.appendChild(node);
       line.appendChild(label);
     }
@@ -14528,14 +14594,24 @@ function goToFloor(floor, options) {
   requestAnimationFrame(step);
 }
 
-// True while `el` still has somewhere to go in the wheel's direction. A floor
-// with its own overflow (Questions, when there are a lot of them) consumes
-// the wheel until it reaches its own edge, and only then hands back over to
-// the floor-to-floor snap.
+/* True while `el` still has somewhere to go in the wheel's direction. A floor
+   with its own overflow (Questions, when there are a lot of them) consumes
+   the wheel until it reaches its own edge, and only then hands back over to
+   the floor-to-floor snap.
+
+   "Somewhere to go" is measured against THIS tick, not against a pixel. Home
+   on a 900px-tall window overflowed its floor by 58px, and a floor that can
+   scroll 58px has room by the old test — so the first tick spent itself on
+   those 58px and only the second moved the floor: two wheels per floor, and
+   only on some windows. If the tick would reach the edge anyway, the edge is
+   where we are, and the tick goes to the floor. A mouse wheel's ~100px tick
+   therefore walks straight through a few pixels of slack, while a trackpad's
+   5px ticks still stop exactly at the end of a long scroller. */
 function innerScrollHasRoom(el, deltaY) {
   const max = el.scrollHeight - el.clientHeight;
   if (max <= 1) return false;
-  return deltaY > 0 ? el.scrollTop < max - 1 : el.scrollTop > 1;
+  const remaining = deltaY > 0 ? max - el.scrollTop : el.scrollTop;
+  return remaining > Math.abs(deltaY);
 }
 
 /* ---- the same gesture with a finger ----
