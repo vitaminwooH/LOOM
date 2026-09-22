@@ -820,7 +820,8 @@
        instead, and give the row the full width back */
     .bottom-center { bottom: 74px; padding: 0 32px; }
     .browse-section { padding-bottom: 214px; }
-    .questions-scroll { padding-bottom: 214px; }
+    /* .questions-scroll's share of this lives with its own rule instead —
+       from here it could never win against the padding shorthand there. */
   }
 
 
@@ -1557,7 +1558,7 @@
      needs to beat it has to be written after it. */
   @media (max-width: 820px) {
     .browse-section { padding: 34px 24px 292px; }
-    .questions-scroll { padding-bottom: 292px; }
+    /* and .questions-scroll's, likewise, beside its own rule */
   }
   .filter-divider { width: 1px; height: 22px; background: var(--border-strong); flex-shrink: 0; }
 
@@ -1832,6 +1833,24 @@
     display: flex;
     flex-direction: column;
   }
+  /* The dock is what the bottom padding is a lane for, and the dock gets
+     taller as the window narrows: at 1240 it climbs to clear the two corner
+     buttons, and at 820 it stops being one row at all (search on the first,
+     the studio chips and the type filter on the second). The lane has to
+     grow with it or the last row of cards ends up underneath the search
+     field.
+
+     These two lines used to sit in the `max-width: 1240px` and `820px`
+     blocks earlier in the sheet, where they did nothing at all: media
+     queries add no specificity, the rule above comes later in the sheet,
+     and its `padding` shorthand resets `padding-bottom`. Anything that
+     needs to beat it has to be written after it — so they live here, next
+     to the rule they are overriding, where the next person editing that
+     padding will see them. (The same trap still has `.browse-section`'s
+     1240px override dead; see the note beside .browse-section.) */
+  @media (max-width: 1240px) { .questions-scroll { padding-bottom: 214px; } }
+  @media (max-width: 820px)  { .questions-scroll { padding-bottom: 292px; } }
+
   .questions-grid {
     /* ---------- the three numbers this floor is made of ----------
        colsMax   how many questions may stand in a row. Four: past that a
