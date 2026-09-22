@@ -1815,35 +1815,54 @@
     flex-direction: column;
   }
   .questions-grid {
+    /* ---------- the three numbers this floor is made of ----------
+       colsMax   how many questions may stand in a row. Four: past that a
+                 row stops reading as a row and starts reading as a table.
+       cardMax   352, and the value is load-bearing. auto-fit counts
+                 repetitions against the *max* track when it is definite, so
+                 the card width decides the column count outright:
+                   4 cards = 4*352 + 3*22 = 1474  → four columns from 1568px
+                   3 cards = 3*352 + 2*22 = 1100  → three from 1170px
+                 360 (the old value) needs 1506 for four, which a 1600 window
+                 just misses — four questions folded to 3+1 with the whole
+                 right-hand side empty. 400 would need 1244 for three and a
+                 1280 laptop would drop to two. 352 is the widest card that
+                 keeps four at 1600 and three at 1280.
+       cardMin   the narrowest a question may be squeezed before the row
+                 gives up a column instead. */
+    --q-cols-max: 4;
+    --q-card-min: 280px;
+    --q-card-max: 352px;
+    --q-gap: 22px;
+
     display: grid;
-    /* auto-FIT with a capped track, not auto-fill with 1fr: auto-fill kept the
-       empty fourth column, so three questions read as "one is missing" instead
-       of as three questions. The cap stops a lone question from stretching to
-       1500px, and centring keeps a partial row under the middle of the floor
+    /* auto-FIT, not auto-fill: auto-fill keeps the empty fourth column, so
+       three questions read as "one is missing" instead of as three
+       questions. Centring keeps a partial row under the middle of the floor
        rather than pushed against the left edge. */
-    /* The cap is 360, not 400: auto-fit counts repetitions against the *max*
-       track size when it is definite, so a 400px cap needed 1244px of room for
-       three tracks and a 1280-wide laptop got two — three questions wrapping
-       to a second row that then had to be scrolled for. 360 fits three from
-       1240px up, and still stops a lone question stretching to the width of
-       the floor. */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+    grid-template-columns: repeat(auto-fit, minmax(var(--q-card-min), var(--q-card-max)));
     justify-content: center;
-    gap: 22px;
-    /* A floor holding one question was mostly floor. The card cannot simply
-       grow — three of them have to fit the same row — so the ROOM narrows
-       instead: with one or two questions the grid is capped near the middle
-       of the screen, which reads as a considered placement rather than as a
-       page with something missing. Three or more, and the cap is off. */
-    max-width: min(1180px, 92vw);
+    gap: var(--q-gap);
+    /* Exactly the room colsMax cards need, so the grid can never open a
+       fifth column — and 94vw below that, so a narrow window sheds columns
+       instead of overflowing. */
+    max-width: min(
+      calc(var(--q-cols-max) * var(--q-card-max) + (var(--q-cols-max) - 1) * var(--q-gap)),
+      94vw
+    );
     margin-inline: auto;
     width: 100%;
   }
   /* one or two: a narrower room, and cards allowed to be a little larger —
-     the same two numbers do both, since the tracks are capped, not fluid */
+     the same two numbers do both, since the tracks are capped, not fluid.
+     This is the cap the wide layout above would otherwise remove: a single
+     question on a 1920 screen must not become a 1700px card. */
   .questions-grid.is-sparse {
+    --q-cols-max: 2;
+    --q-card-min: 300px;
+    --q-card-max: 390px;
     max-width: min(820px, 86vw);
-    grid-template-columns: repeat(auto-fit, minmax(300px, 390px));
+    grid-template-columns: repeat(auto-fit, minmax(var(--q-card-min), var(--q-card-max)));
     /* margin-block: auto, not justify-content: center — auto margins collapse
        to zero the moment the content is taller than the scroller, so three
        questions sit in the middle of the floor and thirty still scroll from
@@ -12831,6 +12850,67 @@ function buildQuestionCard(data, index) {
   return card;
 }
 
+/* ---------- how many questions stand in a row ----------
+   The same four numbers the .questions-grid rule is built from. They live
+   here as well because CSS can size the room but cannot count what is in
+   it: auto-fit will happily leave one card alone on a second row, and one
+   card alone under three is the shape this floor looks worst in.
+
+   So: work out how many columns the room allows, and if that would strand
+   exactly one card at the end, give up a column. Four questions in a room
+   that fits three become 2 + 2 — balanced, and no wider than the row above
+   it. Only when dropping a column actually fixes it: seven in three would
+   still leave one in two, so seven keeps its 3 + 3 + 1. */
+const QUESTION_GRID = {
+  colsMax: 4,
+  cardMax: 352,   // px — must match --q-card-max
+  gap: 22,        // px — must match --q-gap
+  vwShare: 0.94,  // must match the 94vw in the max-width
+  colsMin: 2,     // never fold below two: a one-column floor is a list, not a grid
+};
+
+// a drag of the window edge is one resize per frame; wait for it to stop
+const QUESTION_GRID_SETTLE_MS = 120;
+
+// the column count the window allows, by the same arithmetic as the CSS
+function questionGridColumns() {
+  const Q = QUESTION_GRID;
+  const room = Math.min(
+    Q.colsMax * Q.cardMax + (Q.colsMax - 1) * Q.gap,
+    (window.innerWidth || Q.colsMax * Q.cardMax) * Q.vwShare
+  );
+  const fits = Math.floor((room + Q.gap) / (Q.cardMax + Q.gap));
+  return Math.max(1, Math.min(Q.colsMax, fits));
+}
+
+function applyQuestionGridColumns(grid, count) {
+  const Q = QUESTION_GRID;
+  grid.style.removeProperty('--q-cols-max');
+  // is-sparse has its own two-column room; leave it alone
+  if (count < 3) return;
+  const cols = questionGridColumns();
+  const strands = (n) => count > n && count % n === 1;
+  if (strands(cols) && cols - 1 >= Q.colsMin && !strands(cols - 1)) {
+    grid.style.setProperty('--q-cols-max', String(cols - 1));
+  }
+}
+
+/* The column count comes from the window, so it has to be reconsidered when
+   the window changes — and NOT only while floor 3 is on screen: the cards
+   are rendered once at startup and on data changes, so a resize made on
+   another floor would otherwise be waiting, wrong, when you arrive. Writing
+   one custom property is cheap enough to do unconditionally. */
+function initQuestionsLayout() {
+  let timer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const grid = document.getElementById('questionsGrid');
+      if (grid) applyQuestionGridColumns(grid, grid.children.length);
+    }, QUESTION_GRID_SETTLE_MS);
+  });
+}
+
 function renderQuestions() {
   const grid = document.getElementById('questionsGrid');
   grid.innerHTML = '';
@@ -12843,6 +12923,7 @@ function renderQuestions() {
      room the grid stands in (see .questions-grid.is-sparse); at three the
      floor is full enough to use its whole width. */
   grid.classList.toggle('is-sparse', indices.length > 0 && indices.length < 3);
+  applyQuestionGridColumns(grid, indices.length);
 
   // "waiting" means nothing has come back — not merely "not closed"
   const waitingCount = indices.filter((i) => questionState(ALL_CARDS[i]) === 'open').length;
@@ -21145,6 +21226,7 @@ safeInit('home', initHome);
 safeInit('discover rendering', renderDiscover);
 safeInit('browse rendering', renderBrowse);
 safeInit('questions rendering', renderQuestions);
+safeInit('questions layout', initQuestionsLayout);
 safeInit('designers', initDesigners);
 safeInit('threads', initThreads);
 safeInit('thread view', initThreadView);
