@@ -7347,6 +7347,10 @@ const TRANSLATIONS = {
            joins no band. Say where it DID go rather than pretend it is on
            this screen. */
         posted: "Posted — it's on the Open questions floor",
+        /* the beat between saving and the keywords arriving (keyword-card),
+           and what to say once the dot is in a band */
+        postedTagging: 'Posted — finding its thread…',
+        postedInBand: 'Posted — it has joined a thread below',
         failed: 'Could not post. Your text is still here — try again.',
         // the one axis label on the bands: where the newest card of every thread sits
         nowLabel: 'now',
@@ -7847,6 +7851,8 @@ const TRANSLATIONS = {
         guest: '로그인하면 질문할 수 있어요.',
         signIn: '로그인',
         posted: '올렸어요 · 아직 모르는 것 층에 있어요',
+        postedTagging: '올렸어요 · 주제를 찾는 중…',
+        postedInBand: '올렸어요 · 아래 띠에 올라왔어요',
         failed: '올리지 못했어요. 글은 그대로 있으니 다시 시도해 주세요.',
         nowLabel: '지금',
         awaiting: '답 기다림',
@@ -8305,6 +8311,8 @@ const TRANSLATIONS = {
         guest: 'Melde dich an, um zu fragen.',
         signIn: 'Anmelden',
         posted: 'Gepostet — unter Offene Fragen',
+        postedTagging: 'Gepostet — Thema wird gesucht…',
+        postedInBand: 'Gepostet — unten in seinem Faden',
         failed: 'Konnte nicht gepostet werden. Dein Text ist noch da — versuch es erneut.',
         nowLabel: 'jetzt',
         awaiting: 'wartet auf Antwort',
@@ -8765,6 +8773,8 @@ const TRANSLATIONS = {
         guest: 'Sormak için giriş yapın.',
         signIn: 'Giriş yap',
         posted: 'Gönderildi — Açık sorular katında',
+        postedTagging: 'Gönderildi — konusu aranıyor…',
+        postedInBand: 'Gönderildi — aşağıdaki iplikte',
         failed: 'Gönderilemedi. Yazınız burada — tekrar deneyin.',
         nowLabel: 'şimdi',
         awaiting: 'yanıt bekliyor',
@@ -11656,8 +11666,9 @@ let heroTimer = null;
    ====================================================================== */
 const HOME_ASK = true;
 
-// how many threads become bands; the ranking is homeTopics
-const HOME_TOPIC_COUNT = 3;
+// how many threads become bands; the ranking is homeTopics. Four, so the three
+// exchanges in the record stay on the page when a new question opens a band.
+const HOME_TOPIC_COUNT = 4;
 // a word one card carries is a label; a conversation needs at least two
 const HOME_TOPIC_MIN_CARDS = 2;
 
@@ -11857,25 +11868,46 @@ function homeTopics(limit) {
 
   const topics = [];
   byWord.forEach((entry) => {
-    if (entry.cards.length < HOME_TOPIC_MIN_CARDS) return;
+    /* Two cards make a conversation. One card does not — unless it is an
+       unanswered ask: a question standing alone is exactly the thing this
+       floor exists to surface, and it is how a just-posted question becomes
+       visible the moment its keyword lands. */
+    if (entry.cards.length < HOME_TOPIC_MIN_CARDS && !entry.cards.some(askIsOpen)) return;
     const newest = entry.cards.reduce((a, c) => (daysAgoOf(c) < daysAgoOf(a) ? c : a), entry.cards[0]);
     topics.push({
       label: entry.label,
       cards: entry.cards,
       studios: [...new Set(entry.cards.map((c) => c.studio))],
-      // an unanswered ask is more worth saying than a date — see cardHasAnswer
-      waiting: entry.cards.filter((c) =>
-        cardAsksSomething(c) && !cardHasAnswer(c, entry.cards)).length,
+      // an unanswered ask is more worth saying than a date — see askIsOpen
+      waiting: entry.cards.filter(askIsOpen).length,
       newest: newest,
     });
   });
 
+  /* Ranking, as approved: cross-studio first ("in circulation" claims an
+     exchange), then a thread with something WAITING before one with nothing,
+     then most recent activity. Waiting ranks inside the cross-studio rule
+     rather than above it — put first, a single-studio thread with a stray
+     open question outranked real exchanges. A fresh one-card question is
+     single-studio too and lands after the exchanges; HOME_TOPIC_COUNT is
+     four so that slot exists. */
   topics.sort((a, b) => {
     const cross = (b.studios.length > 1) - (a.studios.length > 1);
     if (cross) return cross;
+    const waiting = (b.waiting > 0) - (a.waiting > 0);
+    if (waiting) return waiting;
     return daysAgoOf(a.newest) - daysAgoOf(b.newest);
   });
-  return topics.slice(0, limit);
+
+  /* A question standing alone — one card, still waiting — is pinned onto the
+     page whatever its rank. The record already has four cross-studio threads,
+     which is every slot; under the rule alone a question posted a minute ago
+     would rank below all of them and never be seen by the person who asked
+     it. It takes the last slot rather than the first so the approved order
+     above stays exactly what it is. */
+  const pinned = topics.filter((tp) => tp.cards.length === 1 && tp.waiting > 0);
+  const ranked = topics.filter((tp) => pinned.indexOf(tp) < 0).slice(0, Math.max(0, limit - pinned.length));
+  return ranked.concat(pinned.slice(0, limit));
 }
 
 // the id of a just-posted card, so its dot can arrive once and only once
@@ -12193,13 +12225,10 @@ async function askSubmit() {
     studio: MY_STUDIO_KEY,
     type: 'question',
     sourceLang: currentLang,
-    /* No keywords: choosing them is the friction this screen exists to
-       remove, and a question with none is still reachable in Lately and on
-       the Open questions floor.
-       TODO(v2): the canvas sync has Gemini propose keywords per card; a
-       form-written question gets none, so it stays invisible in Threads
-       until a person tunes them. Give the same pass to form questions
-       after the fact (see canvas-sync v3 and submit_card_keywords). */
+    /* No keywords at post time: choosing them is the friction this screen
+       exists to remove. They arrive a moment later from the keyword-card
+       function (Gemini, existing vocabulary first — see the tail of this
+       function), and the daily sync sweeps anything that call missed. */
     keywords: [],
     askedTo: null,      // every question is open — see the header
     link: null,
@@ -12212,10 +12241,25 @@ async function askSubmit() {
   field.value = '';
   descField.value = '';
   descBox.hidden = true;
-  homeArrivingId = res.id;
   // data.js has already folded the new card into every language's cache
   rebuildAllSurfaces();
-  askSetMessage(t().home.posted, 'info');
+  askSetMessage(t().home.postedTagging, 'info');
+
+  /* Then the keywords, in the background: the card is saved and on the Open
+     questions floor already, so nothing here can lose it. When they land the
+     card joins a band and its dot arrives — the one motion on this floor the
+     reader did not cause with a keypress. If the person has started typing
+     the next line meanwhile, the field's status is theirs, not this one's. */
+  LoomData.requestCardKeywords(res.id).then((tagged) => {
+    const settled = tagged.ok && tagged.keywords.length;
+    if (settled) {
+      homeArrivingId = res.id;
+      rebuildAllSurfaces();
+    }
+    if (field.value.trim()) return;
+    const inBand = settled && !!document.querySelector('#homeBands .home-node[data-card-id="' + res.id + '"]');
+    askSetMessage(inBand ? t().home.postedInBand : t().home.posted, 'info');
+  });
 }
 
 function initHome() {

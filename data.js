@@ -664,6 +664,45 @@ const LoomData = (function () {
     }
   }
 
+  /* Asks the keyword-card function to give a just-posted form card its
+     keywords — Gemini, existing vocabulary first, the same pass the canvas
+     sync runs. Members only: the session JWT is the gate, so a guest gets
+     {ok:false, reason:'signed-out'} without a request. Resolves
+     {ok, keywords} or {ok:false, reason, message?}; on success the caches are
+     patched so the Home bands redraw without a refetch. Never rejects. A
+     failure here is not a lost card: the card is saved, and the daily sync
+     sweeps every form card still without keywords. */
+  async function requestCardKeywords(cardId) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const session = await getSession();
+    if (!session) return { ok: false, reason: 'signed-out' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000); // a Gemini call, not a row
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/keyword-card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify({ card_id: cardId }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok || !json || !json.ok) {
+        return { ok: false, reason: 'rejected', message: (json && json.error) || ('HTTP ' + res.status) };
+      }
+      const keywords = Array.isArray(json.keywords) ? json.keywords : [];
+      if (keywords.length) patchCachedCard(cardId, { keywords: keywords });
+      return { ok: true, keywords: keywords };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /* ---- public API ---------------------------------------------------------- */
 
   /* Loads the knowledge cards for `lang`. Resolves to an array of cards in
@@ -738,7 +777,7 @@ const LoomData = (function () {
 
   return {
     isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
-    submitCardKeywords, submitCardEdit,
+    submitCardKeywords, submitCardEdit, requestCardKeywords,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };
