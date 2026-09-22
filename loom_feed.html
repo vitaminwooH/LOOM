@@ -1805,9 +1805,22 @@
      floor dock's lane. */
   .questions-scroll {
     margin: 0 -8px;
-    padding: 0 8px 162px;
-    /* a flex column purely so the grid below can centre itself with auto
-       margins — see .questions-grid */
+    /* Top-aligned, like floor 1 — but with a smaller top margin than floor 1
+       uses, and the difference is the dock. This floor spends 162px at the
+       bottom on it; floor 1 spends 48. What is left over is not the same
+       amount of room, so copying floor 1's 5.5vh put the second row of cards
+       under the dock's own line on a 900px-tall window. The idiom is shared,
+       the number is this floor's.
+
+       It used to be vertically centred, by an auto margin above the headline
+       and another below the grid. That was written when the cards took two
+       rows; once four of them fit one row the block was short, and centring
+       a short block on a tall window left the headline starting halfway down
+       with nothing above it. The centring was never reliable either — auto
+       margins collapse to zero the moment the content is taller than the
+       scroller, so a tall window centred and a short one did not. This is
+       the same rule at every window and every card count. */
+    padding: clamp(12px, 2.4vh, 40px) 8px 162px;
     display: flex;
     flex-direction: column;
   }
@@ -1860,14 +1873,9 @@
     --q-card-max: 390px;
     max-width: min(820px, 86vw);
     grid-template-columns: repeat(auto-fit, minmax(var(--q-card-min), var(--q-card-max)));
-    /* margin-block: auto, not justify-content: center — auto margins collapse
-       to zero the moment the content is taller than the scroller, so three
-       questions sit in the middle of the floor and thirty still scroll from
-       the top instead of having their first row clipped above the scrollport.
-       Only the bottom half of that pair lives here now — the top auto margin
-       moved onto .questions-personal, which sits above the grid and has to be
-       inside the centred block rather than pinned above it. */
-    margin-block: 0 auto;
+    /* One or two questions sit where four do — the room narrows, the top does
+       not move. The auto bottom margin that used to centre them is gone with
+       its pair on .questions-personal. */
   }
 
   /* the marker that explains why a card is at the front of floor 3 */
@@ -2472,12 +2480,12 @@
   .questions-count.is-wanted { color: var(--ink); font-weight: 600; }
 
   /* The sentence at the top of floor 3, addressed to whoever is reading. */
-  /* Sits with the cards rather than in the corner: the auto margin above it and
-     the one below the grid make the pair one centred block, so a floor with
-     three questions on it is a sentence and three cards, not a caption stranded
-     at the top edge under the hamburger. */
+  /* Sits with the cards rather than in the corner — it is the floor's headline,
+     and the cards are what it is about. The auto margin that used to be here
+     (and its pair below the grid) centred the block vertically; the floor is
+     top-aligned now, see .questions-scroll. */
   .questions-personal {
-    margin: auto auto 34px;
+    margin: 0 auto 34px;
     /* A measure, so a long sentence breaks into two balanced lines instead of
        running the width of the floor. 30ch, not 20: at 20 the longest of these
        sentences took three lines, and three lines of headline plus three cards
