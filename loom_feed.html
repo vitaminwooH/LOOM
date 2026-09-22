@@ -10833,7 +10833,14 @@ function buildLineageNodes(data) {
    Discover is a curated top slice of it, not a separate pool.
    ====================================================================== */
 const DISCOVER_COUNT = 6;
-const TIME_UNIT_DAYS = { day: 1, week: 7, month: 30 };
+/* Every unit data.js can hand back (see ageOf there). minute and hour were
+   missing, and the fallback of 1 then read them as DAYS: a question posted 31
+   minutes ago sorted as 31 days old. It never showed while the only cards were
+   canvas posts aged in weeks and a freshly shared one carried justNow — a
+   question asked from Home and read back from the DB is the first card that
+   is genuinely minutes old, and it landed at the wrong end of its band and
+   counted as already answered (cardHasAnswer compares these). */
+const TIME_UNIT_DAYS = { minute: 1 / 1440, hour: 1 / 24, day: 1, week: 7, month: 30 };
 
 function daysAgoOf(data) {
   return data.justNow ? -1 : data.timeValue * (TIME_UNIT_DAYS[data.timeUnit] || 1);
