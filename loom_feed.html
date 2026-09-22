@@ -1121,7 +1121,12 @@
     font-size: 11px; letter-spacing: 0.02em; color: var(--ink-faint);
   }
   .home-band { display: flex; align-items: flex-start; margin-bottom: var(--home-band-gap, 72px); }
-  .home-band:last-child { margin-bottom: 0; }
+  /* last-of-TYPE, not last-child: the "N more topics" line is the last child
+     now, and with :last-child the final band kept its full 56px gap under
+     it — 41px of slack on a 900px window, and the two-ticks-per-floor bug
+     back by another door. The bands are the only divs after the legend and
+     the "now" mark, so the last div is the last band. */
+  .home-band:last-of-type { margin-bottom: 0; }
   .home-band-name { flex: none; width: var(--home-name-col, 254px); padding-right: 12px; }
   .home-band-title {
     display: inline; background: none; border: 0; padding: 0; text-align: left;
@@ -1141,6 +1146,15 @@
   .home-band-title:hover .home-band-chev { transform: translateX(6px); color: var(--band-accent, var(--ink)); }
   /* who is in the thread, as their colours; the legend has named them */
   .home-band-studios { display: flex; gap: 6px; margin-top: 12px; padding-left: 2px; }
+  /* the one line under the bands: where the rest of the threads are. Set in
+     the name column's left edge and the legend's size — a note, not a button */
+  .home-more {
+    display: block; margin-top: var(--home-more-gap, 14px); padding: 0;
+    background: none; border: 0; cursor: pointer; font: inherit;
+    font-size: 12.5px; letter-spacing: 0.01em; color: var(--ink-dim);
+    transition: color 0.18s ease;
+  }
+  .home-more:hover, .home-more:focus-visible { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
   .home-band-line { flex: none; position: relative; width: var(--home-timeline-w, 906px); height: 96px; }
   .home-seg {
@@ -4324,6 +4338,64 @@
   }
 
   .threads-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  .threads-stage[hidden] { display: none; }
+
+  /* ---------- the view switch ----------
+     Two words and a dot between them, under the title. Not tabs, not pills:
+     the active one is in ink, the other is faint, and that is the whole
+     mechanism — the same weight the floor gives everything else. */
+  .threads-view {
+    display: flex; justify-content: center; align-items: baseline; gap: 10px;
+    margin-top: clamp(8px, 1.2vh, 15px);
+    font-size: 13px; letter-spacing: 0.02em;
+  }
+  .threads-view-btn {
+    background: none; border: 0; padding: 2px 0; cursor: pointer; font: inherit;
+    color: var(--ink-faint); transition: color 0.18s ease;
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; text-decoration-thickness: 1.5px;
+  }
+  .threads-view-btn:hover { color: var(--ink-dim); }
+  .threads-view-btn.is-active { color: var(--ink); text-decoration-color: var(--ink); }
+  .threads-view-sep { color: var(--ink-faint); }
+
+  /* ---------- the list ----------
+     Typeset, not tabulated: hairlines between lines and no boxes. The name
+     in the serif the thread names on Home wear, the studios as their dots,
+     the count and the last activity in the small face, and the thread's
+     last three marks on the right — a band folded up small, so the list
+     still shows what has been going back and forth and not just that
+     something has. */
+  .threads-list {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    /* clears the fixed footer (see .threads-footer) at the bottom */
+    padding: clamp(6px, 1vh, 14px) 56px 96px;
+  }
+  .threads-list[hidden] { display: none; }
+  .threads-list-inner { max-width: 1160px; margin: 0 auto; }
+  .thread-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+    column-gap: 32px; width: 100%; padding: 17px 4px;
+    background: none; border: 0; border-top: 1px solid rgba(28, 28, 30, 0.08);
+    text-align: left; cursor: pointer; font: inherit; color: inherit;
+  }
+  .thread-row:first-child { border-top: 0; }
+  .thread-row-name {
+    display: flex; align-items: baseline; gap: 2px; min-width: 0;
+    font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; line-height: 1.15; color: var(--ink);
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; text-decoration-thickness: 1.5px;
+    transition: text-decoration-color 0.18s ease;
+  }
+  .thread-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .thread-row-studios { display: flex; gap: 6px; margin-top: 8px; padding-left: 2px; }
+  .thread-row-meta { font-size: 12px; letter-spacing: 0.01em; color: var(--ink-faint); white-space: nowrap; }
+  /* the last three marks, oldest to newest, each in its studio's colour */
+  .thread-row-glyphs { display: flex; align-items: center; gap: 16px; min-width: 88px; justify-content: flex-end; }
+  .thread-row-glyph { display: inline-flex; transition: transform 0.18s ease; }
+  .thread-row-glyph .home-glyph { overflow: visible; }
+  .thread-row:hover .thread-row-name, .thread-row:focus-visible .thread-row-name { text-decoration-color: var(--row-accent, var(--ink)); }
+  .thread-row:hover .home-band-chev { transform: translateX(6px); color: var(--row-accent, var(--ink)); }
+  .thread-row:hover .thread-row-glyph { transform: scale(1.25); }
+  .threads-list-empty { margin: 40px 0 0; text-align: center; font-size: 13.5px; color: var(--ink-faint); }
 
   /* ---------- floor 4's footer ----------
      The wordmark, and the one line that says what the weave above it is. Fixed
@@ -6659,8 +6731,25 @@
            places, which is what happened first, just reads as a stutter. -->
       <div class="threads-head">
         <h1 id="threadsHeading"></h1>
+        <!-- Two ways of seeing the same threads. The list is for finding one;
+             the weave is for seeing how they hang together. Remembered per
+             browser (setThreadsView). -->
+        <div class="threads-view" role="tablist" id="threadsView">
+          <button type="button" class="threads-view-btn" id="threadsViewList" role="tab"></button>
+          <span class="threads-view-sep" aria-hidden="true">·</span>
+          <button type="button" class="threads-view-btn" id="threadsViewWeave" role="tab"></button>
+        </div>
         <!-- shown until the first thread is opened, then retired for good -->
         <p class="threads-hint" id="threadsHint"></p>
+      </div>
+
+      <!-- The list: one thread per line, set like a contents page rather than
+           a table — and every mark on it is a mark Home already taught: the
+           studio dots, the shapes, a hollow ? for a question still waiting.
+           A .floor-scroll, so a long list scrolls inside the floor and the
+           wheel moves floors only from its end. Built by renderThreadsList. -->
+      <div class="floor-scroll threads-list" id="threadsList" hidden>
+        <div class="threads-list-inner" id="threadsListInner"></div>
       </div>
 
       <div class="threads-stage" id="threadsStage">
@@ -7415,6 +7504,9 @@ const TRANSLATIONS = {
         crossing: 'Both studios',
         oneStudio: 'One studio so far',
         close: 'Close',
+        // the two ways of seeing the same threads; the list is where you find one
+        viewList: 'List',
+        viewWeave: 'Weave',
       },
       /* One line each, on hover. Five nouns in a column tell you the names of
          the rooms and nothing about what is in them. */
@@ -7485,6 +7577,8 @@ const TRANSLATIONS = {
         /* the legend: one word per shape, never a sentence. The shapes are
            drawn, not typed, so these are the only words in it. */
         legend: { question: 'question', project: 'project', update: 'update', experiment: 'experiment' },
+        // under the last band: the threads Home does not show, and where they are
+        moreTopics: (n) => `${n} more ${n > 1 ? 'topics' : 'topic'}`,
         /* the empty network: the one thing worth doing, not "nothing here" */
         first: 'The first question starts here.',
       },
@@ -7945,6 +8039,8 @@ const TRANSLATIONS = {
         crossing: '두 스튜디오',
         oneStudio: '아직 한 스튜디오',
         close: '닫기',
+        viewList: '목록',
+        viewWeave: '그물',
       },
       menuDesc: {
         newest: '스튜디오들이 지금 하고 있는 일',
@@ -7986,6 +8082,7 @@ const TRANSLATIONS = {
         nowLabel: '지금',
         awaiting: '답 기다림',
         legend: { question: '질문', project: '프로젝트', update: '업데이트', experiment: '실험' },
+        moreTopics: (n) => `다른 주제 ${n}개`,
         first: '첫 질문이 여기서 시작해요.',
       },
       trace: {
@@ -8406,6 +8503,8 @@ const TRANSLATIONS = {
         crossing: 'Beide Studios',
         oneStudio: 'Bisher ein Studio',
         close: 'Schließen',
+        viewList: 'Liste',
+        viewWeave: 'Gewebe',
       },
       menuDesc: {
         newest: 'Woran die Studios gerade arbeiten',
@@ -8447,6 +8546,7 @@ const TRANSLATIONS = {
         nowLabel: 'jetzt',
         awaiting: 'wartet auf Antwort',
         legend: { question: 'Frage', project: 'Projekt', update: 'Update', experiment: 'Experiment' },
+        moreTopics: (n) => `${n} weitere ${n > 1 ? 'Themen' : 'Thema'}`,
         first: 'Die erste Frage beginnt hier.',
       },
       trace: {
@@ -8867,6 +8967,8 @@ const TRANSLATIONS = {
         crossing: 'İki stüdyo',
         oneStudio: 'Şimdilik tek stüdyo',
         close: 'Kapat',
+        viewList: 'Liste',
+        viewWeave: 'Ağ',
       },
       menuDesc: {
         newest: 'Stüdyoların şu anda ne yaptığı',
@@ -8910,6 +9012,7 @@ const TRANSLATIONS = {
         nowLabel: 'şimdi',
         awaiting: 'yanıt bekliyor',
         legend: { question: 'soru', project: 'proje', update: 'güncelleme', experiment: 'deney' },
+        moreTopics: (n) => `${n} konu daha`,
         first: 'İlk soru burada başlıyor.',
       },
       trace: {
@@ -11877,7 +11980,7 @@ const HOME_METRICS = {
   stepMin: 190,        // narrower than this the band scrolls sideways instead of cramping
   maxDots: 3,
   lineWeight: 1.5,
-  bandGap: 60,         // band to band. 72 left four bands 58px over a 900px window
+  bandGap: 56,         // band to band. 72 left four bands 58px over a 900px window; 56 pays for the line under them
 
   /* ---------- the glyphs ----------
      Shape is the KIND of card, fill is its state, colour is the studio — and
@@ -11922,7 +12025,8 @@ const HOME_METRICS = {
   gapMarkField: 24,
   gapFieldBands: 44,   // field to legend
   legendGap: 16,       // legend to the "now" row — the air that makes it a heading
-  gapBandsBottom: 32,  // under the last band
+  moreGap: 14,         // last band to the "N more topics" line. 18 left 3px of slack at 900 — a scrollbar for three pixels
+  gapBandsBottom: 8,   // under that line — most of what was here moved into moreGap
 };
 
 /* The band geometry for the window as it is now. Pure — call it, do not
@@ -11984,6 +12088,7 @@ function applyHomeMetrics() {
   px('--home-legend-h', M.legendH);
   px('--home-legend-gap', M.legendGap);
   px('--home-gap-bands-bottom', M.gapBandsBottom);
+  px('--home-more-gap', M.moreGap);
   px('--home-line-weight', M.lineWeight);
   px('--home-band-gap', M.bandGap);
   px('--home-timeline-w', G.timelineW);
@@ -12110,7 +12215,16 @@ function homeVisibleCards(cards, max) {
    claims an exchange, and a keyword only one studio has written under is a
    subject rather than a conversation. Three DoubleU cards therefore rank
    below two that cross — which is the honest reading of the word. */
-function homeTopics(limit) {
+/* Every thread there is, ranked — the one list both Home and the Threads
+   floor read from, so the two can never disagree about order. Home then
+   keeps the few in circulation (homeTopics); the Threads list shows all.
+
+   Ranking, as approved: cross-studio first ("in circulation" claims an
+   exchange), then a thread with something WAITING before one with nothing,
+   then most recent activity. Waiting ranks inside the cross-studio rule
+   rather than above it — put first, a single-studio thread with a stray
+   open question outranked real exchanges. */
+function threadTopics() {
   const byWord = new Map();
   ALL_CARDS.forEach((card) => {
     if (!isStudioEnabled(card.studio)) return;
@@ -12124,11 +12238,6 @@ function homeTopics(limit) {
 
   const topics = [];
   byWord.forEach((entry) => {
-    /* Two cards make a conversation. One card does not — unless it is an
-       unanswered ask: a question standing alone is exactly the thing this
-       floor exists to surface, and it is how a just-posted question becomes
-       visible the moment its keyword lands. */
-    if (entry.cards.length < HOME_TOPIC_MIN_CARDS && !entry.cards.some(askIsOpen)) return;
     const newest = entry.cards.reduce((a, c) => (daysAgoOf(c) < daysAgoOf(a) ? c : a), entry.cards[0]);
     topics.push({
       label: entry.label,
@@ -12140,13 +12249,6 @@ function homeTopics(limit) {
     });
   });
 
-  /* Ranking, as approved: cross-studio first ("in circulation" claims an
-     exchange), then a thread with something WAITING before one with nothing,
-     then most recent activity. Waiting ranks inside the cross-studio rule
-     rather than above it — put first, a single-studio thread with a stray
-     open question outranked real exchanges. A fresh one-card question is
-     single-studio too and lands after the exchanges; HOME_TOPIC_COUNT is
-     four so that slot exists. */
   topics.sort((a, b) => {
     const cross = (b.studios.length > 1) - (a.studios.length > 1);
     if (cross) return cross;
@@ -12154,16 +12256,34 @@ function homeTopics(limit) {
     if (waiting) return waiting;
     return daysAgoOf(a.newest) - daysAgoOf(b.newest);
   });
+  return topics;
+}
+
+/* The threads Home shows: the few in circulation, from threadTopics. */
+function homeTopics(limit) {
+  /* Two cards make a conversation. One card does not — unless it is an
+     unanswered ask: a question standing alone is exactly the thing this
+     floor exists to surface, and it is how a just-posted question becomes
+     visible the moment its keyword lands. */
+  const topics = threadTopics().filter((tp) => tp.cards.length >= HOME_TOPIC_MIN_CARDS || tp.waiting > 0);
 
   /* A question standing alone — one card, still waiting — is pinned onto the
      page whatever its rank. The record already has four cross-studio threads,
      which is every slot; under the rule alone a question posted a minute ago
      would rank below all of them and never be seen by the person who asked
      it. It takes the last slot rather than the first so the approved order
-     above stays exactly what it is. */
+     above stays exactly what it is. A fresh one-card question is
+     single-studio and lands after the exchanges; HOME_TOPIC_COUNT is four so
+     that slot exists. */
   const pinned = topics.filter((tp) => tp.cards.length === 1 && tp.waiting > 0);
   const ranked = topics.filter((tp) => pinned.indexOf(tp) < 0).slice(0, Math.max(0, limit - pinned.length));
   return ranked.concat(pinned.slice(0, limit));
+}
+
+// the threads Home leaves out — what the line under the last band counts
+function homeHiddenTopicCount() {
+  const shown = new Set(homeTopics(HOME_TOPIC_COUNT).map((tp) => tp.label));
+  return threadTopics().filter((tp) => !shown.has(tp.label)).length;
 }
 
 // the id of a just-posted card, so its dot can arrive once and only once
@@ -12327,7 +12447,7 @@ function homeSegEl(fromX, toX, pending) {
 function renderHomeBands() {
   const wrap = document.getElementById('homeBands');
   if (!wrap) return;
-  wrap.querySelectorAll('.home-band').forEach((el) => el.remove());
+  wrap.querySelectorAll('.home-band, .home-more').forEach((el) => el.remove());
 
   const topics = homeTopics(HOME_TOPIC_COUNT);
   wrap.hidden = !topics.length;   // nothing in circulation → no diagram, not an empty one
@@ -12469,6 +12589,23 @@ function renderHomeBands() {
     band.appendChild(line);
     wrap.appendChild(band);
   });
+
+  /* Home shows the threads in circulation and nothing else; the rest live on
+     the Threads floor. This is the one line that says so — and where — with
+     the count, so the floor is a door and not a rumour. Omitted when Home is
+     already showing everything: a door to an empty room is a wall. */
+  const hidden = homeHiddenTopicCount();
+  if (hidden > 0) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'home-more';
+    more.textContent = strings.moreTopics(hidden) + ' →';
+    more.addEventListener('click', () => {
+      setThreadsView('list');
+      goToFloor(FLOOR_THREADS);
+    });
+    wrap.appendChild(more);
+  }
 
   homeArrivingId = null;   // one arrival per post, never on a later redraw
 }
@@ -14518,7 +14655,7 @@ function playArrivalReveal(floor) {
    Leaving stops the drift loop, because a requestAnimationFrame running against
    an off-screen floor is work nobody can see. */
 function enterThreadsFloor() {
-  renderThreads();
+  renderThreadsFloor();
 }
 
 function leaveThreadsFloor() {
@@ -18827,9 +18964,131 @@ function openCardFromThreads(cardId) {
 }
 
 
+/* ---------- list or weave ----------
+   The floor has two views of the same threads. The list is the default and
+   the one you find a thread in; the weave is the one you see the shape of
+   them in. The choice is remembered per browser. */
+const THREADS_VIEW_KEY = 'loom_threads_view_v1';
+
+function threadsView() {
+  try { return localStorage.getItem(THREADS_VIEW_KEY) === 'weave' ? 'weave' : 'list'; } catch (err) { return 'list'; }
+}
+
+function setThreadsView(view) {
+  try { localStorage.setItem(THREADS_VIEW_KEY, view); } catch (err) { /* not remembered — harmless */ }
+  if (currentFloor === FLOOR_THREADS) renderThreadsFloor();
+  else applyThreadsView();
+}
+
+// which view is on screen: shows one, hides the other, marks the switch
+function applyThreadsView() {
+  const list = threadsView() === 'list';
+  const stage = document.getElementById('threadsStage');
+  const listEl = document.getElementById('threadsList');
+  if (stage) stage.hidden = list;
+  if (listEl) listEl.hidden = !list;
+  const btnList = document.getElementById('threadsViewList');
+  const btnWeave = document.getElementById('threadsViewWeave');
+  if (btnList) { btnList.classList.toggle('is-active', list); btnList.setAttribute('aria-selected', String(list)); }
+  if (btnWeave) { btnWeave.classList.toggle('is-active', !list); btnWeave.setAttribute('aria-selected', String(!list)); }
+  if (list && threadsOpenKey) closeThreadStory();   // the weave's side panel has no map to sit beside
+  refreshThreadsHint();
+}
+
+/* The one entry point for "draw this floor": everything that used to call
+   renderThreads (arrival, resize, a language switch, cards arriving) calls
+   this, and it draws whichever view is chosen. The weave is laid out from
+   the stage's measured size, so the stage must be visible BEFORE it is
+   drawn — hence apply first, render second. */
+function renderThreadsFloor() {
+  applyThreadsView();
+  if (threadsView() === 'list') {
+    stopThreadsDrift();          // no frame loop for a map nobody can see
+    renderThreadsList();
+  } else {
+    renderThreads();
+  }
+}
+
+// the last three cards of a thread, oldest to newest — a band folded small
+const THREAD_ROW_GLYPHS = 3;
+
+function renderThreadsList() {
+  const inner = document.getElementById('threadsListInner');
+  if (!inner) return;
+  inner.innerHTML = '';
+  const s = t().threads;
+  const topics = threadTopics();   // all of them, in Home's order — one-card threads included
+  if (!topics.length) {
+    const p = document.createElement('p');
+    p.className = 'threads-list-empty';
+    p.textContent = s.emptyTitle;
+    inner.appendChild(p);
+    return;
+  }
+
+  topics.forEach((topic) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'thread-row';
+    row.style.setProperty('--row-accent', homeTopicAccent(topic));
+
+    // ---- the name, its door mark, and who is in it
+    const nameCol = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'thread-row-name';
+    const nameText = document.createElement('span');
+    nameText.className = 'thread-row-name-text';
+    nameText.textContent = topic.label;
+    const chev = document.createElement('span');
+    chev.className = 'home-band-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '›';
+    name.appendChild(nameText);
+    name.appendChild(chev);
+    const who = document.createElement('div');
+    who.className = 'thread-row-studios';
+    topic.studios.filter(isStudioEnabled).forEach((key) => who.appendChild(homeStudioDot(key)));
+    nameCol.appendChild(name);
+    nameCol.appendChild(who);
+
+    // ---- how much, and how recently
+    const meta = document.createElement('div');
+    meta.className = 'thread-row-meta';
+    meta.textContent = s.nodeCount(topic.cards.length) + ' · ' + homeRelativeTime(topic.newest);
+
+    // ---- the last three marks. Hollow = still owed an answer, the same rule
+    //      as the bands (askIsOpen); there is no circle past "now" here, so a
+    //      card that speaks an open question is simply hollow itself.
+    const glyphs = document.createElement('div');
+    glyphs.className = 'thread-row-glyphs';
+    topic.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)).slice(-THREAD_ROW_GLYPHS).forEach((card) => {
+      const g = document.createElement('span');
+      g.className = 'thread-row-glyph';
+      g.style.color = STUDIOS[card.studio].color;
+      g.title = (cardText(card).title || '') + ' — ' + STUDIOS[card.studio].name + ' · ' + homeRelativeTime(card);
+      g.innerHTML = homeGlyphSVG(card.type, askIsOpen(card));
+      glyphs.appendChild(g);
+    });
+
+    row.appendChild(nameCol);
+    row.appendChild(meta);
+    row.appendChild(glyphs);
+    // the same door the weave's node opens, from where the name sits
+    row.addEventListener('click', () => {
+      const rect = name.getBoundingClientRect();
+      openThreadView(topic.label, { x: rect.left + 24, y: rect.top + rect.height / 2 });
+    });
+    inner.appendChild(row);
+  });
+}
+
 function initThreads() {
   // No back button: a floor is left by scrolling off it, like the other three.
   document.getElementById('threadsStoryClose').addEventListener('click', closeThreadStory);
+  document.getElementById('threadsViewList').addEventListener('click', () => setThreadsView('list'));
+  document.getElementById('threadsViewWeave').addEventListener('click', () => setThreadsView('weave'));
+  applyThreadsView();   // the remembered view, before anything is drawn
   // Clicking the paper behind the map puts the story away — the same gesture as
   // clicking off any panel.
   document.getElementById('threadsStage').addEventListener('click', (e) => {
@@ -18845,7 +19104,7 @@ function initThreads() {
   });
   // Re-laid out rather than re-scaled: the layout is computed from the stage's
   // real size, and stretching it would put labels through each other.
-  window.addEventListener('resize', () => { if (currentFloor === FLOOR_THREADS) renderThreads(); });
+  window.addEventListener('resize', () => { if (currentFloor === FLOOR_THREADS) renderThreadsFloor(); });
 }
 
 function refreshThreadsText() {
@@ -18856,17 +19115,19 @@ function refreshThreadsText() {
   set('threadsEmptyTitle', s.emptyTitle);
   set('threadsEmptyBody', s.emptyBody);
   set('threadsStoryLead', s.storyLead);
+  set('threadsViewList', s.viewList);
+  set('threadsViewWeave', s.viewWeave);
   // the footer says the same thing the head does, because it is the line the
   // whole floor is an illustration of
   set('threadsFooterLine', s.intro);
   document.getElementById('threadsStoryClose').setAttribute('aria-label', s.close);
   // Everything inside the map carries copy too (the per-node count, the tooltip,
-  // the story rows), so on a language switch the map is rebuilt rather than
-  // relabelled piece by piece.
+  // the story rows) and so do the list's rows, so on a language switch the
+  // floor is rebuilt rather than relabelled piece by piece.
   if (currentFloor === FLOOR_THREADS) {
     const openKey = threadsOpenKey;
-    renderThreads();
-    if (openKey) openThreadStory(openKey);
+    renderThreadsFloor();
+    if (openKey && threadsView() === 'weave') openThreadStory(openKey);
   }
 }
 
@@ -20135,7 +20396,7 @@ function rebuildAllSurfaces() {
      (Threads on a fresh load was the visible version of this: the weave was
      built from an empty list and said "no threads yet" until you left the
      floor and came back.) */
-  if (currentFloor === FLOOR_THREADS) renderThreads();
+  if (currentFloor === FLOOR_THREADS) renderThreadsFloor();
   if (isDesignersMode) renderDesigners();
   if (isThreadViewMode) renderThreadView();   // the panel reads ALL_CARDS too
 
@@ -20962,7 +21223,8 @@ function refreshThreadsHint() {
   const hint = document.getElementById('threadsHint');
   if (!hint) return;
   hint.textContent = t().threads.clickHint;
-  hint.style.display = threadsHintSeen() ? 'none' : '';
+  // the hint explains the weave's words; the list's rows explain themselves
+  hint.style.display = (threadsHintSeen() || threadsView() === 'list') ? 'none' : '';
 }
 
 let threadCloseTimer = null;
