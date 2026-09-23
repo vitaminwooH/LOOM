@@ -1083,8 +1083,10 @@
      HOME_METRICS. */
   .home-bands {
     margin-top: var(--home-gap-field-bands, 84px);
-    /* the legend's row, air, the "now" line's row, then the bands */
-    position: relative; padding-top: calc(var(--home-legend-h, 24px) + var(--home-legend-gap, 16px) + 28px);
+    /* the legend's row, air, then the bands. There was a third term here, 28px
+       for the "now" label's row; the label is gone (it promised a time axis
+       the ordinal x() does not provide) and its row went with it. */
+    position: relative; padding-top: calc(var(--home-legend-h, 24px) + var(--home-legend-gap, 16px));
     /* The bands are wider than the column the field stands in, and break out
        of it: the ask is a sentence and wants a reading measure, the diagram
        is a map and wants the room. 50% of the parent then back half of
@@ -1116,10 +1118,6 @@
     display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none;
   }
 
-  .home-now {
-    position: absolute; top: calc(2px + var(--home-legend-h, 24px) + var(--home-legend-gap, 16px)); transform: translateX(-50%);
-    font-size: 11px; letter-spacing: 0.02em; color: var(--ink-faint);
-  }
   .home-band { display: flex; align-items: flex-start; margin-bottom: var(--home-band-gap, 72px); }
   /* last-of-TYPE, not last-child: the "N more topics" line is the last child
      now, and with :last-child the final band kept its full 56px gap under
@@ -6672,7 +6670,6 @@
             <!-- the legend is the floor's only explanation: colours and
                  shapes, one word each — filled by renderHomeLegend -->
             <div class="home-legend" id="homeLegend" aria-label="legend"></div>
-            <div class="home-now" id="homeNow"></div>
           </div>
         </div>
       </div>
@@ -7595,8 +7592,6 @@ const TRANSLATIONS = {
         postedTagging: 'Posted — finding its thread…',
         postedInBand: 'Posted — it has joined a thread below',
         failed: 'Could not post. Your text is still here — try again.',
-        // the one axis label on the bands: where the newest card of every thread sits
-        nowLabel: 'now',
         // the hover on a hollow question mark — nothing on the floor says this in text
         awaiting: 'awaiting an answer',
         /* the legend: one word per shape, never a sentence. The shapes are
@@ -8104,7 +8099,6 @@ const TRANSLATIONS = {
         postedTagging: '올렸어요 · 주제를 찾는 중…',
         postedInBand: '올렸어요 · 아래 띠에 올라왔어요',
         failed: '올리지 못했어요. 글은 그대로 있으니 다시 시도해 주세요.',
-        nowLabel: '지금',
         awaiting: '답 기다림',
         legend: { question: '질문', project: '프로젝트', update: '업데이트', experiment: '실험' },
         moreTopics: (n) => `다른 주제 ${n}개`,
@@ -8568,7 +8562,6 @@ const TRANSLATIONS = {
         postedTagging: 'Gepostet — Thema wird gesucht…',
         postedInBand: 'Gepostet — unten in seinem Faden',
         failed: 'Konnte nicht gepostet werden. Dein Text ist noch da — versuch es erneut.',
-        nowLabel: 'jetzt',
         awaiting: 'wartet auf Antwort',
         legend: { question: 'Frage', project: 'Projekt', update: 'Update', experiment: 'Experiment' },
         moreTopics: (n) => `${n} weitere ${n > 1 ? 'Themen' : 'Thema'}`,
@@ -9034,7 +9027,6 @@ const TRANSLATIONS = {
         postedTagging: 'Gönderildi — konusu aranıyor…',
         postedInBand: 'Gönderildi — aşağıdaki iplikte',
         failed: 'Gönderilemedi. Yazınız burada — tekrar deneyin.',
-        nowLabel: 'şimdi',
         awaiting: 'yanıt bekliyor',
         legend: { question: 'soru', project: 'proje', update: 'güncelleme', experiment: 'deney' },
         moreTopics: (n) => `${n} konu daha`,
@@ -11970,16 +11962,24 @@ const HOME_METRICS = {
 
   /* ---------- the bands ----------
      The timeline is maxDots*step + labelW wide so the oldest visible label
-     still fits; the newest dot of every band sits on the same "now" line,
-     one step in from the right edge, and the hollow "waiting" circle takes
-     that last step.
+     still fits; the newest card of every band stands in the same right-hand
+     column, one step in from the right edge, and the hollow "waiting" circle
+     takes that last step.
+
+     The axis is an ORDER, not a scale. x() in renderHomeBands puts one card
+     per step counting back from that shared column and never reads a date, so
+     two cards posted the same day stand a full step apart and two a year
+     apart stand no further. Sorting is by time; position is not.
 
      maxDots is the lever on the left-hand gap. With four visible dots a
      two-card thread left 41% of its band empty; with three it leaves 26%,
      and no thread in the record has more than three cards yet. Past three
-     the band shows "+N" on the left instead. The gap that remains on the
-     left of a short band is not waste — it is the thread's age, and the
-     reason every band shares one "now" axis.
+     the band shows "+N" on the left instead. What the remaining gap says is
+     how many cards the band has — a two-card band is one step short of a
+     three-card one whatever the dates — and NOT how old the thread is. It
+     once said so here, which was wrong: the two only look alike because the
+     record's shorter threads happen to be its newer ones. The one date on a
+     band is the newest card's, printed under its label.
 
      The step used to be a fixed 232px, which meant a wide window turned its
      extra room into margin: the diagram huddled right of centre with both
@@ -12541,13 +12541,13 @@ function renderHomeBands() {
   const G = homeBandGeometry();        // the step and the label width the window allows
   const T = G.timelineW;
   const R = T - G.labelW / 2;          // rightmost node: its label still fits
-  const NOW = R - G.step;              // every band's newest card stands here
+  /* Not a clock, and no longer labelled as one: the column that every band's
+     newest card stands in. It carried a "now" label until the axis was looked
+     at properly — x() is ordinal (one step per card, counting back from here),
+     so the label was promising a time axis the geometry does not provide. The
+     newest card's own date is printed under it instead; see homeNodeEls. */
+  const NOW = R - G.step;
 
-  const nowMark = document.getElementById('homeNow');
-  if (nowMark) {
-    nowMark.textContent = strings.nowLabel;
-    nowMark.style.left = (G.nameCol + NOW) + 'px';
-  }
   renderHomeLegend();
 
   topics.forEach((topic) => {
