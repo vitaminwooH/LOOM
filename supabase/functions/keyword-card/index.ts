@@ -87,9 +87,10 @@ function buildKeywordPrompt(block: Record<string, unknown>, lang: string, vocab:
     'keywords: 1 to 3 short topical keywords for this card, in English, each at most 40 characters.',
     vocabList.length
       ? 'Existing vocabulary — reuse one of these (exact spelling) ONLY when it genuinely describes THIS card; ' +
-        'never attach an existing keyword just to reuse it. Invent a new keyword for a genuinely new topic:\n' +
+        'never attach an existing keyword just to reuse it. If nothing here fits, invent AT MOST ONE new keyword. ' +
+        'One name per topic: never return two keywords where one contains the other (not both "Market Trends" and "European Market Trends"):\n' +
         vocabList.map((v) => '- ' + v).join('\n')
-      : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse.',
+      : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse. One name per topic: never two keywords where one contains the other.',
     '',
     'The card may be written in Korean, German or Turkish. Keywords stay in English so they group with the vocabulary above.',
     'A question card asks something; tag what it is ABOUT, not the fact that it is a question.',
@@ -152,8 +153,23 @@ function normalizeKeywords(raw: unknown, vocab: Map<string, string>): string[] {
     out.push(canonical);
     if (out.length === 3) break;
   }
-  for (const k of out) if (!vocab.has(k.toLowerCase())) vocab.set(k.toLowerCase(), k);
-  return out;
+  /* One name per topic. The model was asked not to return both "Market
+     Trends" and "European Market Trends" for one card, and did anyway — so
+     when one keyword contains another, the longer one goes: the shorter is
+     the name the next card on the topic can share. Unless only the longer one
+     is already in the vocabulary — then that is the shared name, and it stays.
+     Checked against the vocabulary as it was, before this card adds to it. */
+  const kept = out.filter((k, i) => !out.some((o, j) => {
+    if (i === j) return false;
+    const a = k.toLowerCase(), b = o.toLowerCase();
+    if (!a.includes(b) && !b.includes(a)) return false;   // two different topics
+    // one topic, two names — decide the survivor once, symmetrically:
+    const aIn = vocab.has(a), bIn = vocab.has(b);
+    if (aIn !== bIn) return bIn;        // exactly one is already the shared name: k goes if o is it
+    return a.length > b.length;         // otherwise the longer goes
+  }));
+  for (const k of kept) if (!vocab.has(k.toLowerCase())) vocab.set(k.toLowerCase(), k);
+  return kept;
 }
 
 /* ---- the cards that still need keywords, and the write ---------------------- */

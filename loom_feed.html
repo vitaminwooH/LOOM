@@ -1140,7 +1140,8 @@
   .home-band-title:hover, .home-band-title:focus-visible { background-size: 100% 1.5px; }
   /* the door mark after the name: faint at rest, it steps right on hover */
   .home-band-chev {
-    display: inline-block; margin-left: 6px; font-weight: 400; color: var(--ink-faint);
+    /* the space before it is a no-break space in the markup, so it stays with the last word */
+    display: inline-block; margin-left: 1px; font-weight: 400; color: var(--ink-faint);
     transition: transform 0.2s var(--reveal-ease), color 0.2s ease;
   }
   .home-band-title:hover .home-band-chev { transform: translateX(6px); color: var(--band-accent, var(--ink)); }
@@ -4357,6 +4358,14 @@
   .threads-view-btn:hover { color: var(--ink-dim); }
   .threads-view-btn.is-active { color: var(--ink); text-decoration-color: var(--ink); }
   .threads-view-sep { color: var(--ink-faint); }
+  /* the list's legend — Home's, in flow: same face, same weight, same two
+     groups at the two edges of the list's measure */
+  .threads-legend {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1160px; margin: clamp(14px, 2vh, 24px) auto 0; padding: 0 4px;
+    font-size: 11px; letter-spacing: 0.01em; color: var(--ink-faint); white-space: nowrap; text-align: left;
+  }
+  .threads-legend[hidden] { display: none; }
 
   /* ---------- the list ----------
      Typeset, not tabulated: hairlines between lines and no boxes. The name
@@ -6739,6 +6748,10 @@
           <span class="threads-view-sep" aria-hidden="true">·</span>
           <button type="button" class="threads-view-btn" id="threadsViewWeave" role="tab"></button>
         </div>
+        <!-- the list's key: the same two groups Home shows, in the same words —
+             who (the studio colours) over the names, what (the shapes) over
+             the glyphs. Hidden with the weave, which has no glyphs to explain. -->
+        <div class="threads-legend" id="threadsLegend" aria-label="legend" hidden></div>
         <!-- shown until the first thread is opened, then retired for good -->
         <p class="threads-hint" id="threadsHint"></p>
       </div>
@@ -11909,8 +11922,9 @@ let heroTimer = null;
    ====================================================================== */
 const HOME_ASK = true;
 
-// how many threads become bands; the ranking is homeTopics. Four, so the three
-// exchanges in the record stay on the page when a new question opens a band.
+// how many threads IN CIRCULATION become bands; the ranking is homeTopics. A
+// fresh unanswered question is pinned as one more band on top of these (at
+// most one), so an exchange is never the price of a new question.
 const HOME_TOPIC_COUNT = 4;
 // a word one card carries is a label; a conversation needs at least two
 const HOME_TOPIC_MIN_CARDS = 2;
@@ -11961,7 +11975,12 @@ const HOME_METRICS = {
      into (homeBandGeometry), so the name sits at the left edge and "now"
      near the right on any window, and the labels grow with it. */
   bandsMax: 1680,      // the widest the bands may run
-  bandsGutter: 40,     // air kept at both window edges
+  /* Air kept at both window edges. 64, not 40: the pencil and the fork sit
+     fixed in the bottom-left 56px of every floor, and at 40 a 1280 window
+     put the band column's left edge inside that strip — the studio dots
+     under the last name and the "N more topics" line landed under the icons
+     whenever the floor was full. Nothing on Home may start left of 64. */
+  bandsGutter: 64,
   /* The ask keeps its own centred column and does NOT share the bands' left
      edge. Tried the other way: aligning the two put the field hard against
      the window's left third, and a single sentence typed into a line that
@@ -12249,35 +12268,67 @@ function threadTopics() {
     });
   });
 
-  topics.sort((a, b) => {
-    const cross = (b.studios.length > 1) - (a.studios.length > 1);
-    if (cross) return cross;
-    const waiting = (b.waiting > 0) - (a.waiting > 0);
-    if (waiting) return waiting;
-    return daysAgoOf(a.newest) - daysAgoOf(b.newest);
-  });
+  topics.sort(compareTopics);
   return topics;
+}
+
+// the one ranking: cross-studio, then waiting, then recent — see threadTopics
+function compareTopics(a, b) {
+  const cross = (b.studios.length > 1) - (a.studios.length > 1);
+  if (cross) return cross;
+  const waiting = (b.waiting > 0) - (a.waiting > 0);
+  if (waiting) return waiting;
+  return daysAgoOf(a.newest) - daysAgoOf(b.newest);
 }
 
 /* The threads Home shows: the few in circulation, from threadTopics. */
 function homeTopics(limit) {
-  /* Two cards make a conversation. One card does not — unless it is an
-     unanswered ask: a question standing alone is exactly the thing this
-     floor exists to surface, and it is how a just-posted question becomes
-     visible the moment its keyword lands. */
-  const topics = threadTopics().filter((tp) => tp.cards.length >= HOME_TOPIC_MIN_CARDS || tp.waiting > 0);
+  /* One card, one band. A card carries several keywords, so it belongs to
+     several threads — and the Threads list shows it in every one of them,
+     rightly. On Home that same fact made two bands out of one question: the
+     sweep tagged "What are the current trends in Europe?" both "European
+     Market Trends" and "Market Trends", each became a one-card waiting band,
+     each was pinned, and the two of them pushed two real exchanges off the
+     floor. So here a card is counted only by the highest-ranked thread that
+     holds it; a thread left with nothing drops out. Ranked in threadTopics'
+     order, then ranked again after the claiming, since a thread that lost
+     cards may have lost its second studio with them. */
+  const claimed = new Set();
+  const topics = [];
+  threadTopics().forEach((tp) => {
+    const cards = tp.cards.filter((c) => !claimed.has(c.id));
+    if (!cards.length) return;
+    const waiting = cards.filter(askIsOpen).length;
+    /* Two cards make a conversation. One card does not — unless it is an
+       unanswered ask: a question standing alone is exactly the thing this
+       floor exists to surface, and it is how a just-posted question becomes
+       visible the moment its keyword lands. */
+    if (cards.length < HOME_TOPIC_MIN_CARDS && !waiting) return;
+    cards.forEach((c) => claimed.add(c.id));
+    topics.push({
+      label: tp.label,
+      cards: cards,
+      studios: [...new Set(cards.map((c) => c.studio))],
+      waiting: waiting,
+      newest: cards.reduce((a, c) => (daysAgoOf(c) < daysAgoOf(a) ? c : a), cards[0]),
+    });
+  });
+  topics.sort(compareTopics);
 
   /* A question standing alone — one card, still waiting — is pinned onto the
-     page whatever its rank. The record already has four cross-studio threads,
-     which is every slot; under the rule alone a question posted a minute ago
-     would rank below all of them and never be seen by the person who asked
-     it. It takes the last slot rather than the first so the approved order
-     above stays exactly what it is. A fresh one-card question is
-     single-studio and lands after the exchanges; HOME_TOPIC_COUNT is four so
-     that slot exists. */
-  const pinned = topics.filter((tp) => tp.cards.length === 1 && tp.waiting > 0);
-  const ranked = topics.filter((tp) => pinned.indexOf(tp) < 0).slice(0, Math.max(0, limit - pinned.length));
-  return ranked.concat(pinned.slice(0, limit));
+     page whatever its rank, because under the rule alone a question posted a
+     minute ago ranks below every exchange and is never seen by the person
+     who asked it. At most ONE is pinned, the newest: two pinned at once is
+     how two exchanges left the floor. And it is a fifth band, not the fourth:
+     HOME_TOPIC_COUNT counts the threads in circulation, and the record has
+     four of those now — a slot the pin could take is a slot an exchange
+     loses. It comes last so the ranked order above stays exactly what it is. */
+  const waitingAlone = topics.filter((tp) => tp.cards.length === 1 && tp.waiting > 0);
+  const pinned = waitingAlone.length
+    ? [waitingAlone.reduce((a, b) => (daysAgoOf(b.newest) < daysAgoOf(a.newest) ? b : a))]
+    : [];
+  const ranked = topics.filter((tp) => pinned.indexOf(tp) < 0).slice(0, limit);
+  return ranked.concat(pinned);
 }
 
 // the threads Home leaves out — what the line under the last band counts
@@ -12404,9 +12455,7 @@ function homeNodeEls(card, x, color, hollow, maxChars) {
    It is the whole of the floor's explanation — there is no lede and no sub
    any more, and there must not be. It sits in its own row above the "now"
    line so the two never meet whatever the window's width. */
-function renderHomeLegend() {
-  const el = document.getElementById('homeLegend');
-  if (!el) return;
+function fillLegend(el) {
   el.innerHTML = '';
   const strings = t().home.legend;
   const item = (glyphEl, word) => {
@@ -12416,11 +12465,11 @@ function renderHomeLegend() {
     li.appendChild(document.createTextNode(word));
     return li;
   };
-  // WHO — over the thread names, where the studio dots under each name sit
+  // WHO — over the names, where the studio dots under each name sit
   const who = document.createElement('span');
   who.className = 'home-legend-group is-who';
   enabledStudioKeys().forEach((key) => who.appendChild(item(homeStudioDot(key), STUDIOS[key].name)));
-  // WHAT — over the timeline, where the shapes are
+  // WHAT — over the glyphs
   const what = document.createElement('span');
   what.className = 'home-legend-group is-what';
   ['question', 'project', 'update', 'experiment'].forEach((type) => {
@@ -12431,6 +12480,17 @@ function renderHomeLegend() {
   });
   el.appendChild(who);
   el.appendChild(what);
+}
+
+function renderHomeLegend() {
+  const el = document.getElementById('homeLegend');
+  if (el) fillLegend(el);
+}
+
+// the same key over the Threads list — one vocabulary, taught in one set of words
+function renderThreadsLegend() {
+  const el = document.getElementById('threadsLegend');
+  if (el) fillLegend(el);
 }
 
 function homeSegEl(fromX, toX, pending) {
@@ -12490,6 +12550,11 @@ function renderHomeBands() {
     chev.className = 'home-band-chev';
     chev.setAttribute('aria-hidden', 'true');
     chev.textContent = '›';
+    /* A no-break space, not a margin, between the name and its mark: a long
+       name wraps, and a plain space or none at all let the › wrap alone onto
+       the next line — a mark pointing at nothing. Bound to the last word, it
+       wraps with it. */
+    title.appendChild(document.createTextNode(' '));
     title.appendChild(chev);
     /* Who is in the thread, as their colours — the legend has already paired
        each colour with a name, so the names need not be printed a fifth time,
@@ -18987,6 +19052,8 @@ function applyThreadsView() {
   const listEl = document.getElementById('threadsList');
   if (stage) stage.hidden = list;
   if (listEl) listEl.hidden = !list;
+  const legend = document.getElementById('threadsLegend');
+  if (legend) legend.hidden = !list;   // the weave has no glyphs for it to explain
   const btnList = document.getElementById('threadsViewList');
   const btnWeave = document.getElementById('threadsViewWeave');
   if (btnList) { btnList.classList.toggle('is-active', list); btnList.setAttribute('aria-selected', String(list)); }
@@ -19017,6 +19084,7 @@ function renderThreadsList() {
   const inner = document.getElementById('threadsListInner');
   if (!inner) return;
   inner.innerHTML = '';
+  renderThreadsLegend();
   const s = t().threads;
   const topics = threadTopics();   // all of them, in Home's order — one-card threads included
   if (!topics.length) {
