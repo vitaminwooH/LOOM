@@ -1076,9 +1076,10 @@
   /* ---------- the bands ----------
      One horizontal timeline per active thread. A diagram, not a table: the
      thread name in serif on the left, then dots joined by hairlines. Left to
-     right is time. Every band's newest dot stands on the same "now" line, so
-     a short band is visibly a young one, and the hollow circle one step past
-     "now" is an ask the other studio has not answered — drawn in THEIR
+     right is order, one step per card, not time. Every band's newest dot
+     stands in the same column, the lead column, so a short band is one with
+     fewer cards, and the hollow circle one step to the right of the lead
+     column is an ask the other studio has not answered — drawn in THEIR
      colour, because it is their turn. Every number here comes from
      HOME_METRICS. */
   .home-bands {
@@ -1122,8 +1123,8 @@
   /* last-of-TYPE, not last-child: the "N more topics" line is the last child
      now, and with :last-child the final band kept its full 56px gap under
      it — 41px of slack on a 900px window, and the two-ticks-per-floor bug
-     back by another door. The bands are the only divs after the legend and
-     the "now" mark, so the last div is the last band. */
+     back by another door. The legend is the only div before the bands and
+     the "N more topics" line is a button, so the last div is the last band. */
   .home-band:last-of-type { margin-bottom: 0; }
   .home-band-name { flex: none; width: var(--home-name-col, 254px); padding-right: 12px; }
   .home-band-title {
@@ -6664,9 +6665,10 @@
           <p class="home-first" id="homeFirst" hidden></p>
 
           <!-- The bands: one horizontal timeline per active thread, drawn by
-               renderHomeBands. Left to right is time; every band's newest card
-               sits on the same "now" line; a hollow circle beyond it is an ask
-               nobody has answered yet. -->
+               renderHomeBands. Left to right is order, one step per card, not
+               time; every band's newest card stands in the same column, the
+               lead column, and prints its date; a hollow circle to the right of
+               it is an ask nobody has answered yet. -->
           <div class="home-bands" id="homeBands" hidden>
             <!-- the legend is the floor's only explanation: colours and
                  shapes, one word each — filled by renderHomeLegend -->
@@ -11985,8 +11987,8 @@ const HOME_METRICS = {
      The step used to be a fixed 232px, which meant a wide window turned its
      extra room into margin: the diagram huddled right of centre with both
      ends of the screen empty. The step is now whatever the room divides
-     into (homeBandGeometry), so the name sits at the left edge and "now"
-     near the right on any window, and the labels grow with it. */
+     into (homeBandGeometry), so the name sits at the left edge and the lead
+     column near the right on any window, and the labels grow with it. */
   bandsMax: 1680,      // the widest the bands may run
   /* Air kept at both window edges. 64, not 40: the pencil and the fork sit
      fixed in the bottom-left 56px of every floor, and at 40 a 1280 window
@@ -12023,7 +12025,8 @@ const HOME_METRICS = {
        ■   a project      ●   an update      ◆   an experiment
 
      A hollow non-question is a card that ENDS with a question nobody has
-     answered and did not get the circle past "now" (see renderHomeBands).
+     answered and did not get the hollow ? to the right of the lead column
+     (see renderHomeBands).
 
      The sizes differ per shape on purpose. Drawn to one diameter, a square
      reads heavier than the circle and a diamond reads lighter — the eye
@@ -12043,7 +12046,7 @@ const HOME_METRICS = {
      fills it, and the glyph grows by nearly half. */
   haloLit: 7,          // the ring's reach when lit
   litScale: 1.4,       // the glyph's growth when lit
-  legendH: 24,         // the legend's row, above the "now" line
+  legendH: 24,         // the legend's row: the first term of .home-bands' padding-top (24 + legendGap 16 = 40), where the absolute legend sits
 
   /* ---------- the vertical rhythm ----------
      The floor has to fit one window without scrolling, or a wheel tick is
@@ -12056,7 +12059,7 @@ const HOME_METRICS = {
      band, and it used to be the other way round — 84px above it, 38 below. */
   gapMarkField: 24,
   gapFieldBands: 44,   // field to legend
-  legendGap: 16,       // legend to the "now" row — the air that makes it a heading
+  legendGap: 16,       // legend's row to the first band — padding-top's second term; the air that makes it a heading
   moreGap: 14,         // last band to the "N more topics" line. 18 left 3px of slack at 900 — a scrollbar for three pixels
   gapBandsBottom: 8,   // under that line — most of what was here moved into moreGap
 };
@@ -12427,10 +12430,11 @@ function homePairHover(node, label) {
    on why an element with only the id hands it NaN).
 
    The label is the title and nothing else. The studio is the colour, the
-   kind is the shape, whether it is waiting is the fill, and the time is
-   where the glyph stands between the oldest card and "now" — all of which
-   the meta line used to repeat in words. The exact time survives as the
-   hover, for whoever wants it. */
+   kind is the shape, whether it is waiting is the fill, and its place in
+   the thread is where the glyph stands, one step per card counting back
+   from the lead column — all of which the meta line used to repeat in
+   words. Position is order, not time: the one date printed is the lead
+   card's (`lead`), and every card's time survives as the hover. */
 function homeNodeEls(card, x, color, hollow, maxChars, lead) {
   const node = document.createElement('button');
   node.type = 'button';
@@ -12477,8 +12481,9 @@ function homeNodeEls(card, x, color, hollow, maxChars, lead) {
 
 /* The legend: the two studio colours, then the four shapes, one word each.
    It is the whole of the floor's explanation — there is no lede and no sub
-   any more, and there must not be. It sits in its own row above the "now"
-   line so the two never meet whatever the window's width. */
+   any more, and there must not be. It sits in its own row above the first
+   band, reserved by .home-bands' padding-top (legendH + legendGap), so it
+   never meets the bands whatever the window's width. */
 function fillLegend(el) {
   el.innerHTML = '';
   const strings = t().home.legend;
@@ -12608,10 +12613,11 @@ function renderHomeBands() {
       if (j >= 0 && j < i) line.appendChild(homeSegEl(x(j), x(i), false));
     });
 
-    /* The band's open end: a hollow ? one step past "now", joined by a dotted
-       line — what is still to come. It is for a question a card only SPEAKS
-       (askIsSpoken on a non-question card): that sentence has no glyph of its
-       own, and this is the only place it can be read. A question CARD never
+    /* The band's open end: a hollow ? one step to the right of the lead
+       column, joined by a dotted line — what is still to come. It is for a
+       question a card only SPEAKS (askIsSpoken on a non-question card): that
+       sentence has no glyph of its own, and this is the only place it can be
+       read. A question CARD never
        takes it — its own glyph is already a ?, hollow while it waits and
        filled once answered, so printing it again a step to the right was the
        duplicate this used to have. One slot, so the newest spoken ask gets
@@ -12623,7 +12629,7 @@ function renderHomeBands() {
     if (wait) line.appendChild(homeSegEl(NOW, R, true));
 
     shown.forEach((card, i) => {
-      // hollow = still owed an answer, unless the circle past "now" is already saying so for this card
+      // hollow = still owed an answer, unless the hollow ? to the right of the lead column is already saying so for this card
       const hollow = askIsOpen(card) && !(wait && card.id === wait.id);
       // shown runs oldest → newest, so the last of them is the band's newest card
       const lead = i === shown.length - 1;
@@ -19152,8 +19158,9 @@ function renderThreadsList() {
     meta.textContent = s.nodeCount(topic.cards.length) + ' · ' + homeRelativeTime(topic.newest);
 
     // ---- the last three marks. Hollow = still owed an answer, the same rule
-    //      as the bands (askIsOpen); there is no circle past "now" here, so a
-    //      card that speaks an open question is simply hollow itself.
+    //      as the bands (askIsOpen); there is no hollow ? to the right of the
+    //      lead column here, so a card that speaks an open question is simply
+    //      hollow itself.
     const glyphs = document.createElement('div');
     glyphs.className = 'thread-row-glyphs';
     topic.cards.slice().sort((a, b) => daysAgoOf(b) - daysAgoOf(a)).slice(-THREAD_ROW_GLYPHS).forEach((card) => {
