@@ -1218,6 +1218,18 @@
   /* the question a card spoke, under the hollow ? past "now": set apart as a
      quotation rather than a title */
   .home-node-label.is-wait .home-node-title { color: var(--ink-dim); font-style: italic; }
+  /* The band's newest CARD — one per band, never the hollow ? past "now",
+     which is a question and not a card. Every label was the same ink at the
+     same weight, so a band had no place for the eye to land; this gives the
+     last thing said a half-step more weight. Inter ships 500 (see the fonts
+     link), so this is a real cut rather than a synthesised one. Weight only:
+     the size must not change or the label's two-line budget changes with it. */
+  .home-node-label.is-lead .home-node-title { color: var(--ink); font-weight: 500; }
+  /* the date under that one label — the size and colour the Threads list
+     gives "3 pieces · 22 hours ago" (.thread-row-meta), so the same fact
+     wears the same face on both floors. Outside .home-node-title, so the
+     hover underline stays on the title alone. */
+  .home-node-when { margin-top: 4px; font-size: 12px; letter-spacing: 0.01em; color: var(--ink-faint); }
   /* the label answers the glyph: hovering either lights both (see homePairHover) */
   .home-node-label .home-node-title { transition: color 0.18s ease; text-decoration-color: transparent; }
   .home-node-label:hover .home-node-title, .home-node-label.is-lit .home-node-title {
@@ -12418,7 +12430,7 @@ function homePairHover(node, label) {
    where the glyph stands between the oldest card and "now" — all of which
    the meta line used to repeat in words. The exact time survives as the
    hover, for whoever wants it. */
-function homeNodeEls(card, x, color, hollow, maxChars) {
+function homeNodeEls(card, x, color, hollow, maxChars, lead) {
   const node = document.createElement('button');
   node.type = 'button';
   node.className = 'home-node is-' + (card.type || 'update') + (hollow ? ' is-hollow' : '');
@@ -12433,7 +12445,7 @@ function homeNodeEls(card, x, color, hollow, maxChars) {
 
   const label = document.createElement('button');
   label.type = 'button';
-  label.className = 'home-node-label';
+  label.className = 'home-node-label' + (lead ? ' is-lead' : '');
   label.style.left = x + 'px';
   label.dataset.cardId = card.id;
   label.dataset.index = node.dataset.index;
@@ -12442,6 +12454,17 @@ function homeNodeEls(card, x, color, hollow, maxChars) {
   title.className = 'home-node-title';
   title.textContent = clipWords(cardText(card).title, maxChars);
   label.appendChild(title);
+  /* The band's one date, on its newest card only. The axis is ordinal (see
+     the NOW note in renderHomeBands), so no position on it carries a time —
+     this is where the time actually is. Same function and same face as the
+     Threads list's "3 pieces · 22 hours ago", so a thread reads the same on
+     both floors and switches language with them. */
+  if (lead) {
+    const when = document.createElement('div');
+    when.className = 'home-node-when';
+    when.textContent = homeRelativeTime(card);
+    label.appendChild(when);
+  }
   label.style.setProperty('--node-color', color);   // the underline under a lit title, in the studio's colour
 
   const open = () => openCard(node);
@@ -12601,7 +12624,9 @@ function renderHomeBands() {
     shown.forEach((card, i) => {
       // hollow = still owed an answer, unless the circle past "now" is already saying so for this card
       const hollow = askIsOpen(card) && !(wait && card.id === wait.id);
-      homeNodeEls(card, x(i), STUDIOS[card.studio].color, hollow, G.labelMaxChars)
+      // shown runs oldest → newest, so the last of them is the band's newest card
+      const lead = i === shown.length - 1;
+      homeNodeEls(card, x(i), STUDIOS[card.studio].color, hollow, G.labelMaxChars, lead)
         .forEach((el) => line.appendChild(el));
     });
 
