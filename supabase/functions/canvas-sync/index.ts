@@ -517,66 +517,29 @@ async function fetchKeywordVocabulary(url: string, serviceKey: string) {
   return vocab;
 }
 
-/* ---- form cards still without keywords (the daily sweep) --------------------
-   A question posted from the Loom form is tagged by the keyword-card function
-   the moment it is saved. When that call failed — Gemini quota, a closed tab
-   — the card sits with no keyword and appears in no band. This sweep, run by
-   the ordinary daily sync, catches those. Keywords only: a form card's body
-   is in the language it was typed in and is not translated here. The view
-   already excludes canvas cards and hand-edited ones (db/0017). */
-type FormCardRow = { id: string; type: string; source_lang: string | null; body: Record<string, unknown> | null };
-
-async function fetchFormCardsWithoutKeywords(url: string, serviceKey: string) {
-  const res = await fetch(
-    `${url}/rest/v1/form_cards_without_keywords?select=id,type,source_lang,body&order=created_at.asc&limit=20`,
-    { headers: supabaseHeaders(serviceKey) },
-  );
-  if (!res.ok) throw new Error(`reading form cards without keywords failed: HTTP ${res.status}`);
-  return await res.json() as FormCardRow[];
-}
-
-async function assignCardKeywords(url: string, serviceKey: string, cardId: string, keywords: string[]) {
-  const res = await fetch(`${url}/rest/v1/rpc/assign_card_keywords`, {
+/* ---- cards written in Loom (the daily sweep) --------------------------------
+   A card written in Loom is enriched by the keyword-card function the moment
+   it is saved — keywords, the language it was written in, the other three
+   languages. When that call failed (Gemini quota, a closed tab) the card
+   waits with whatever it lacks. The ordinary daily sync closes the gap by
+   calling keyword-card's own sweep door, so the form path has exactly one
+   implementation and this function does not keep a second copy of it. The
+   view behind it excludes canvas cards (db/0018). */
+async function sweepFormCards(url: string, secret: string) {
+  const res = await fetch(`${url}/functions/v1/keyword-card`, {
     method: 'POST',
-    headers: supabaseHeaders(serviceKey),
-    body: JSON.stringify({ card_id: cardId, keywords }),
+    headers: { 'Content-Type': 'application/json', 'x-canvas-sync-secret': secret },
+    body: JSON.stringify({ sweep: true }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(`assign_card_keywords failed: ${JSON.stringify(json)}`);
-  return json as { id: string; keywords?: string[]; skipped?: string };
-}
-
-// the card's own text in the language it was typed in; attachments and the
-// conversation skeleton are not prose
-function pickFormTextBlock(card: FormCardRow): { lang: string; block: Record<string, unknown> } {
-  const body = card.body || {};
-  const lang = card.source_lang && body[card.source_lang] ? card.source_lang : 'en';
-  const raw = (body[lang] || body.en || {}) as Record<string, unknown>;
-  const { attachments: _a, conversation: _c, ...block } = raw;
-  return { lang, block };
-}
-
-// keywords-only variant of buildGeminiPrompt — same vocabulary clause, no translation
-function buildKeywordOnlyPrompt(block: Record<string, unknown>, lang: string, vocab: Map<string, string>) {
-  const vocabList = [...vocab.values()];
-  return [
-    'You tag one knowledge card of a shared game-studio knowledge base with topical keywords.',
-    'Return ONLY a JSON object: {"keywords": [...]}',
-    '',
-    'keywords: 1 to 3 short topical keywords for this card, in English, each at most 40 characters.',
-    vocabList.length
-      ? 'Existing vocabulary — reuse one of these (exact spelling) ONLY when it genuinely describes THIS card; ' +
-        'never attach an existing keyword just to reuse it. If nothing here fits, invent AT MOST ONE new keyword. ' +
-        'One name per topic: never return two keywords where one contains the other (not both "Market Trends" and "European Market Trends"):\n' +
-        vocabList.map((v) => '- ' + v).join('\n')
-      : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse. One name per topic: never two keywords where one contains the other.',
-    '',
-    'The card may be written in Korean, German or Turkish. Keywords stay in English so they group with the vocabulary above.',
-    'A question card asks something; tag what it is ABOUT, not the fact that it is a question.',
-    '',
-    `Card block (${lang}):`,
-    JSON.stringify(block),
-  ].join('\n');
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || !json.ok) {
+    throw new Error(`keyword-card sweep failed: HTTP ${res.status} ${JSON.stringify(json).slice(0, 200)}`);
+  }
+  return json as {
+    pending: number;
+    enriched: { id: string; keywords: string[]; source_lang: string; moved: boolean; filled: string[]; translation_failed: string[] }[];
+    failed: { id: string; reason: string }[];
+  };
 }
 
 /* ---- Gemini enrichment (keywords + ko/de/tr) --------------------------------
@@ -831,9 +794,11 @@ function summarizeForSlack(payload: Record<string, unknown>): string {
   if (inserted.length) parts.push(`new cards: ${inserted.join(', ')}`);
   if (enrichment.gemini_failed.length) parts.push(`⚠️ gemini failed: ${enrichment.gemini_failed.length}`);
   if (enrichment.translation_failed.length) parts.push(`⚠️ translations missing: ${enrichment.translation_failed.length}`);
-  const formKeywords = payload.formKeywords as { tagged: unknown[]; failed: unknown[] } | undefined;
-  if (formKeywords && formKeywords.tagged.length) parts.push(`form questions tagged: ${formKeywords.tagged.length}`);
-  if (formKeywords && formKeywords.failed.length) parts.push(`⚠️ form keywords failed: ${formKeywords.failed.length}`);
+  const formCards = payload.formCards as { enriched: { translation_failed: unknown[] }[]; failed: unknown[] } | undefined;
+  if (formCards && formCards.enriched.length) parts.push(`Loom cards enriched: ${formCards.enriched.length}`);
+  const formTranslationGaps = formCards ? formCards.enriched.filter((e) => e.translation_failed.length).length : 0;
+  if (formTranslationGaps) parts.push(`⚠️ Loom cards still missing a translation: ${formTranslationGaps}`);
+  if (formCards && formCards.failed.length) parts.push(`⚠️ Loom cards failed: ${formCards.failed.length}`);
   if (lineage.unresolved.length) parts.push(`⚠️ unresolved Related: ${lineage.unresolved.length}`);
   const storage = payload.storage as { failed: unknown[] } | undefined;
   if (storage && storage.failed.length) parts.push(`⚠️ attachments failed: ${storage.failed.length}`);
@@ -948,41 +913,26 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
     }
 
     /* Form-card sweep — the safety net under the keyword-card function (see
-       fetchFormCardsWithoutKeywords). Only on a real sync: a dry run must
-       not write, and this writes straight through assign_card_keywords
-       rather than through the canvas upsert, because these are not canvas
-       cards. Sequential like the pass above, for the same reason. */
-    const formKeywords = {
-      enabled: !!geminiKey && mode === 'sync',
+       sweepFormCards). Only on a real sync: a dry run must not write. It
+       runs after the canvas enrichment above, so the two never ask Gemini
+       at the same moment. */
+    const syncSecret = Deno.env.get('CANVAS_SYNC_SECRET');
+    const formCards = {
+      enabled: !!geminiKey && !!syncSecret && mode === 'sync',
       pending: 0,
-      tagged: [] as { id: string; keywords: string[] }[],
+      enriched: [] as { id: string; keywords: string[]; source_lang: string; moved: boolean; filled: string[]; translation_failed: string[] }[],
       failed: [] as { id: string; reason: string }[],
     };
-    if (formKeywords.enabled) {
+    if (formCards.enabled) {
       try {
-        const pending = await fetchFormCardsWithoutKeywords(supabaseUrl, serviceKey);
-        formKeywords.pending = pending.length;
-        if (pending.length) {
-          const formVocab = await fetchKeywordVocabulary(supabaseUrl, serviceKey);
-          for (const row of pending) {
-            try {
-              const { lang, block } = pickFormTextBlock(row);
-              const res = await callGemini(geminiKey!, buildKeywordOnlyPrompt(block, lang, formVocab));
-              const kws = normalizeKeywords(res.keywords, formVocab);
-              if (!kws.length) { formKeywords.failed.push({ id: row.id, reason: 'gemini returned no usable keyword' }); continue; }
-              const written = await assignCardKeywords(supabaseUrl, serviceKey, row.id, kws);
-              if (written.skipped) formKeywords.failed.push({ id: row.id, reason: written.skipped });
-              else formKeywords.tagged.push({ id: row.id, keywords: written.keywords || kws });
-            } catch (err) {
-              const reason = String(err instanceof Error ? err.message : err).slice(0, 300);
-              console.warn('[canvas-sync] form keywords failed for ' + row.id + ': ' + reason);
-              formKeywords.failed.push({ id: row.id, reason });
-            }
-          }
-        }
+        const swept = await sweepFormCards(supabaseUrl, syncSecret!);
+        formCards.pending = swept.pending;
+        formCards.enriched = swept.enriched;
+        formCards.failed = swept.failed;
+        for (const f of swept.failed) console.warn('[canvas-sync] form card failed for ' + f.id + ': ' + f.reason);
       } catch (err) {
         // the sweep must never cost the sync itself
-        formKeywords.failed.push({ id: '*', reason: String(err instanceof Error ? err.message : err).slice(0, 300) });
+        formCards.failed.push({ id: '*', reason: String(err instanceof Error ? err.message : err).slice(0, 300) });
       }
     }
 
@@ -1082,7 +1032,7 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
       purgeRequested: purge && mode === 'sync',
       refreshRequested: refresh && mode === 'sync',
       enrichment,
-      formKeywords, // the sweep over form cards still without keywords (db/0017)
+      formCards, // the sweep over cards written in Loom, via keyword-card (db/0018)
       canvas: { id: canvasId, title },
       counts: {
         blocks: parsed.length,

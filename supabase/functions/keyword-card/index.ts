@@ -1,30 +1,41 @@
 /* ============================================================================
-   Loom — keyword-card: machine keywords for a question posted from the form.
+   Loom — keyword-card: what a card written in Loom is missing, from one
+   Gemini call — keywords, the language it was written in, and the other
+   languages.
 
    A question typed into Home is saved with no keyword (choosing one is the
    friction the field exists to remove), and the Home bands and Threads group
    by keyword — so until something tags it, the person who just asked cannot
-   find their own question on the screen they asked from.
+   find their own question on the screen they asked from. And it is saved in
+   one language only, so a reader on another language saw it untranslated
+   while every canvas card around it was translated.
 
-   The client calls this the moment submit_card returns, in the background:
-   the card is already saved and visible on the Open questions floor, the
-   field says "finding its thread…", and when this comes back the card's dot
-   arrives in a band. If this call fails (quota, a closed tab) the daily
-   canvas-sync run sweeps every form card still without keywords — the same
-   pass, same vocabulary — so nothing stays untagged for more than a day.
+   The client calls this the moment submit_card (or submit_card_edit) returns,
+   in the background: the card is already saved and shown in its original, and
+   when this comes back its dot arrives in a band and its other languages are
+   there. If this call fails (quota, a closed tab) the daily canvas-sync run
+   calls the sweep door below, so nothing stays untagged, unchecked or
+   untranslated for more than a day.
+
+   One call per card, never two: keywords, source language and translations
+   are asked for together (the free quota is per request), and only what the
+   card actually lacks is asked for at all. A card that lacks nothing a model
+   is needed for — a Korean card whose only gap was the language check — makes
+   no call. Each part is written independently (db/0018), so a malformed
+   translation never costs the keywords.
 
    Two doors:
      - a member's JWT (Authorization: Bearer <access_token>) + { card_id }
        — checked against auth/v1/user; a guest or the bare anon key cannot
        spend Gemini calls
-     - the canvas-sync header secret + { sweep: true } — every pending card,
-       for an operator running the sweep by hand
+     - the canvas-sync header secret + { sweep: true } — every pending card;
+       the daily sync calls this, and an operator can by hand
 
-   What it will never do (the view and the RPC enforce it server-side too):
-     - touch a canvas card — the sync owns those keywords
-     - touch a card a PERSON has tuned (keywords_edited_at) — theirs stay
-     - set keywords_edited_at — a machine's guess must not lock the card or
-       be attributed to a person
+   What it will never do (db/0017 and 0018 enforce it server-side too):
+     - touch a canvas card — the sync owns those
+     - overwrite a language block that exists — only empty keys are filled
+     - call a block with a Hangul letter anything but Korean
+     - touch keywords a PERSON has tuned, or set keywords_edited_at
 
    Secrets (Dashboard → Edge Functions → Secrets): GEMINI_API_KEY and
    CANVAS_SYNC_SECRET, both already set for canvas-sync. SUPABASE_URL,
@@ -34,12 +45,20 @@
 
    The Gemini pieces are a deliberate copy of canvas-sync's so this function
    deploys as one file through the Management API; canvas-sync/index.ts is
-   the source of truth if they ever need to change.
+   the source of truth for the call and the keyword rules.
    ============================================================================ */
 
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_TIMEOUT_MS = 30_000;
-const SWEEP_LIMIT = 20;
+/* Per sweep. The sweep is one request (canvas-sync waits on it), and a
+   request lives about 150 s; a call that also translates takes several
+   seconds, so 10 leaves room. A bigger backlog drains over the next days. */
+const SWEEP_LIMIT = 10;
+const LANGS = ['en', 'ko', 'de', 'tr'] as const;
+const LANG_NAMES: Record<string, string> = { en: 'English', ko: 'Korean', de: 'German', tr: 'Turkish' };
+// any Hangul letter — syllables and jamo. A Korean sentence carries English
+// terms all the time; an English one almost never carries Hangul.
+const HANGUL_RE = /[ᄀ-ᇿ㄰-㆏가-힯]/;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -47,7 +66,25 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-type FormCard = { id: string; type: string; source_lang: string | null; body: Record<string, unknown> | null };
+type PendingCard = {
+  id: string;
+  type: string;
+  source_lang: string | null;
+  body: Record<string, unknown> | null;
+  needs_keywords: boolean;
+  needs_lang: boolean;
+  missing_langs: string[];
+};
+
+type Enriched = {
+  id: string;
+  keywords: string[];
+  source_lang: string;
+  moved: boolean;
+  filled: string[];
+  translation_failed: string[];
+  body: Record<string, unknown>;
+};
 
 function serviceHeaders(serviceKey: string) {
   return { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
@@ -68,36 +105,76 @@ async function fetchKeywordVocabulary(url: string, serviceKey: string) {
   return vocab;
 }
 
-// the card's own text, in the language it was typed in — attachments and
-// the conversation skeleton are not prose
-function pickTextBlock(card: FormCard): { lang: string; block: Record<string, unknown> } {
+/* The card's original, exactly as stored — it goes back to the RPC as
+   based_on, which refuses the write if the text changed meanwhile — and the
+   part of it that is prose. Attachments are file references; the
+   conversation stays, because it is the question's opening post and a
+   translated block without it shows that post empty. */
+function sourceBlock(card: PendingCard) {
   const body = card.body || {};
-  const lang = card.source_lang && body[card.source_lang] ? card.source_lang : 'en';
-  const raw = (body[lang] || body.en || {}) as Record<string, unknown>;
-  const { attachments: _a, conversation: _c, ...block } = raw;
-  return { lang, block };
+  const lang = card.source_lang || 'en';
+  const stored = body[lang];
+  if (!stored || typeof stored !== 'object') return null;
+  const { attachments: _a, ...prose } = stored as Record<string, unknown>;
+  return { lang, stored: stored as Record<string, unknown>, prose };
 }
 
-function buildKeywordPrompt(block: Record<string, unknown>, lang: string, vocab: Map<string, string>) {
-  const vocabList = [...vocab.values()];
-  return [
-    'You tag one knowledge card of a shared game-studio knowledge base with topical keywords.',
-    'Return ONLY a JSON object: {"keywords": [...]}',
+function hasHangul(block: Record<string, unknown>) {
+  return HANGUL_RE.test(JSON.stringify(block));
+}
+
+function buildPrompt(
+  prose: Record<string, unknown>,
+  ask: { keywords: boolean; detect: boolean; targets: string[] | 'all-but-source' },
+  vocab: Map<string, string>,
+) {
+  const fields: string[] = [];
+  if (ask.detect) fields.push('"source_lang": "en" | "ko" | "de" | "tr"');
+  if (ask.keywords) fields.push('"keywords": [...]');
+  const translating = ask.targets === 'all-but-source' || ask.targets.length > 0;
+  if (translating) fields.push('"translations": {"<lang>": {...}, ...}');
+
+  const lines = [
+    'You enrich one knowledge card of a shared game-studio knowledge base.',
+    `Return ONLY a JSON object: {${fields.join(', ')}}`,
     '',
-    'keywords: 1 to 3 short topical keywords for this card, in English, each at most 40 characters.',
-    vocabList.length
-      ? 'Existing vocabulary — reuse one of these (exact spelling) ONLY when it genuinely describes THIS card; ' +
-        'never attach an existing keyword just to reuse it. If nothing here fits, invent AT MOST ONE new keyword. ' +
-        'One name per topic: never return two keywords where one contains the other (not both "Market Trends" and "European Market Trends"):\n' +
-        vocabList.map((v) => '- ' + v).join('\n')
-      : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse. One name per topic: never two keywords where one contains the other.',
-    '',
-    'The card may be written in Korean, German or Turkish. Keywords stay in English so they group with the vocabulary above.',
-    'A question card asks something; tag what it is ABOUT, not the fact that it is a question.',
-    '',
-    `Card block (${lang}):`,
-    JSON.stringify(block),
-  ].join('\n');
+  ];
+  if (ask.detect) {
+    lines.push(
+      'source_lang: the language the card block below is written in — one of en, ko, de, tr.',
+      'Judge by the sentences, not by technical terms (a German sentence about an "AI Video Pipeline" is de).',
+      '',
+    );
+  }
+  if (ask.keywords) {
+    const vocabList = [...vocab.values()];
+    lines.push(
+      'keywords: 1 to 3 short topical keywords for this card, in English, each at most 40 characters.',
+      vocabList.length
+        ? 'Existing vocabulary — reuse one of these (exact spelling) ONLY when it genuinely describes THIS card; ' +
+          'never attach an existing keyword just to reuse it. If nothing here fits, invent AT MOST ONE new keyword. ' +
+          'One name per topic: never return two keywords where one contains the other (not both "Market Trends" and "European Market Trends"):\n' +
+          vocabList.map((v) => '- ' + v).join('\n')
+        : 'There is no existing vocabulary yet — choose keywords that other cards on similar topics could reuse. One name per topic: never two keywords where one contains the other.',
+      'Keywords stay in English whatever language the card is in, so they group with the vocabulary above.',
+      'A question card asks something; tag what it is ABOUT, not the fact that it is a question.',
+      '',
+    );
+  }
+  if (translating) {
+    lines.push(
+      ask.targets === 'all-but-source'
+        ? 'translations: translate the card block into every one of English (en), Korean (ko), German (de) and Turkish (tr) EXCEPT its own source_lang, keyed by language code.'
+        : `translations: translate the card block into ${ask.targets.map((l) => `${LANG_NAMES[l]} (${l})`).join(', ')}, keyed by language code.`,
+      'Each translation has the SAME keys as the input block; string values stay strings, arrays of strings stay arrays of the same length.',
+      'Style: concise internal studio documentation, no added politeness or flourish.',
+      'Keep technical terms in English (e.g. Slack pipeline, self-QA, n8n, thread root, fail-open).',
+      'Example of the expected Korean tone: "Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+      '',
+    );
+  }
+  lines.push('Card block:', JSON.stringify(prose));
+  return lines.join('\n');
 }
 
 async function callGeminiOnce(apiKey: string, prompt: string) {
@@ -172,48 +249,144 @@ function normalizeKeywords(raw: unknown, vocab: Map<string, string>): string[] {
   return kept;
 }
 
-/* ---- the cards that still need keywords, and the write ---------------------- */
+/* A translated block is adopted only when it mirrors the original exactly:
+   same keys, strings for strings, same-length string arrays for arrays —
+   canvas-sync's rule, against the source block instead of en. Attachments
+   are copied verbatim (file references don't translate). */
+function validateTranslation(src: Record<string, unknown>, cand: unknown): Record<string, unknown> | null {
+  if (!cand || typeof cand !== 'object' || Array.isArray(cand)) return null;
+  const c = cand as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(src)) {
+    if (key === 'attachments') continue;
+    const v = src[key];
+    const t = c[key];
+    if (typeof v === 'string') {
+      if (typeof t !== 'string' || !t.trim()) return null;
+      out[key] = t;
+    } else if (Array.isArray(v)) {
+      if (!Array.isArray(t) || t.length !== v.length || !t.every((s) => typeof s === 'string')) return null;
+      out[key] = t;
+    }
+  }
+  if (src.attachments) out.attachments = src.attachments;
+  return out;
+}
+
+/* ---- the cards that still need something, and the write --------------------- */
 async function fetchPending(url: string, serviceKey: string, cardId: string | null) {
   const filter = cardId ? `&id=eq.${encodeURIComponent(cardId)}` : `&order=created_at.asc&limit=${SWEEP_LIMIT}`;
   const res = await fetch(
-    `${url}/rest/v1/form_cards_without_keywords?select=id,type,source_lang,body${filter}`,
+    `${url}/rest/v1/form_cards_pending_enrichment?select=id,type,source_lang,body,needs_keywords,needs_lang,missing_langs${filter}`,
     { headers: serviceHeaders(serviceKey) },
   );
   if (!res.ok) throw new Error(`reading pending cards failed: HTTP ${res.status}`);
-  return await res.json() as FormCard[];
+  return await res.json() as PendingCard[];
 }
 
-async function assignKeywords(url: string, serviceKey: string, cardId: string, keywords: string[]) {
-  const res = await fetch(`${url}/rest/v1/rpc/assign_card_keywords`, {
+async function assignEnrichment(url: string, serviceKey: string, args: {
+  card_id: string; based_on: Record<string, unknown>;
+  keywords: string[] | null; source_lang: string | null; translations: Record<string, unknown> | null;
+}) {
+  const res = await fetch(`${url}/rest/v1/rpc/assign_card_enrichment`, {
     method: 'POST',
     headers: serviceHeaders(serviceKey),
-    body: JSON.stringify({ card_id: cardId, keywords }),
+    body: JSON.stringify(args),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(`assign_card_keywords failed: ${JSON.stringify(json)}`);
-  return json as { id: string; keywords?: string[]; skipped?: string };
+  if (!res.ok) throw new Error(`assign_card_enrichment failed: ${JSON.stringify(json)}`);
+  return json as {
+    id: string; skipped?: string; source_lang?: string; moved?: boolean; filled?: string[];
+    keywords?: string[] | null; body?: Record<string, unknown>;
+  };
 }
 
-async function tagCards(cards: FormCard[], url: string, serviceKey: string, geminiKey: string) {
-  const tagged: { id: string; keywords: string[] }[] = [];
+async function enrichCard(
+  card: PendingCard, vocab: Map<string, string>,
+  url: string, serviceKey: string, geminiKey: string,
+): Promise<Enriched> {
+  const src = sourceBlock(card);
+  if (!src) throw new Error(`no ${card.source_lang} block to work from`);
+  const body = card.body || {};
+
+  // the language, when it can be known without asking
+  // the whole stored block, as the RPC tests it — the two must agree
+  const korean = hasHangul(src.stored);
+  const knownLang = korean ? 'ko' : (card.needs_lang ? null : src.lang);
+  // which languages are empty once the original sits under its real key
+  const targets = knownLang
+    ? LANGS.filter((l) => l !== knownLang && (l === src.lang || !(l in body)))
+    : null;
+
+  const ask = {
+    keywords: card.needs_keywords,
+    detect: !knownLang,
+    targets: targets ?? ('all-but-source' as const),
+  };
+  const needsModel = ask.keywords || ask.detect || (Array.isArray(ask.targets) && ask.targets.length > 0);
+
+  let keywords: string[] | null = null;
+  let lang: string | null = knownLang;
+  let translations: Record<string, unknown> | null = null;
+  const translationFailed: string[] = [];
+  let modelError: string | null = null;
+
+  if (needsModel) {
+    try {
+      const res = await callGemini(geminiKey, buildPrompt(src.prose, ask, vocab));
+      if (ask.keywords) keywords = normalizeKeywords(res.keywords, vocab);
+      if (ask.detect && (LANGS as readonly string[]).includes(res.source_lang)) lang = res.source_lang;
+      if (lang) {
+        const wanted = targets ?? LANGS.filter((l) => l !== lang);
+        translations = {};
+        for (const l of wanted) {
+          const block = validateTranslation(src.stored, res.translations?.[l]);
+          if (block) translations[l] = block;
+          else translationFailed.push(l);
+        }
+      }
+    } catch (err) {
+      // the whole call failed: nothing from the model, but a Korean card can
+      // still be moved to its key — the Hangul rule needs no model
+      modelError = String(err instanceof Error ? err.message : err).slice(0, 300);
+    }
+  }
+  if (modelError && !knownLang) throw new Error(modelError);
+
+  const written = await assignEnrichment(url, serviceKey, {
+    card_id: card.id,
+    based_on: src.stored,
+    keywords: keywords && keywords.length ? keywords : null,
+    source_lang: lang,
+    translations,
+  });
+  if (written.skipped) throw new Error(written.skipped);
+  if (modelError) throw new Error(`language fixed by the Hangul rule, model failed: ${modelError}`);
+  return {
+    id: card.id,
+    keywords: written.keywords || [],
+    source_lang: written.source_lang || lang || src.lang,
+    moved: !!written.moved,
+    filled: written.filled || [],
+    translation_failed: translationFailed,
+    body: written.body || body,
+  };
+}
+
+async function enrichCards(cards: PendingCard[], url: string, serviceKey: string, geminiKey: string) {
+  const enriched: Enriched[] = [];
   const failed: { id: string; reason: string }[] = [];
-  if (!cards.length) return { tagged, failed };
+  if (!cards.length) return { enriched, failed };
   const vocab = await fetchKeywordVocabulary(url, serviceKey);
   // sequential on purpose: a keyword chosen for one card is offered to the next
   for (const card of cards) {
     try {
-      const { lang, block } = pickTextBlock(card);
-      const res = await callGemini(geminiKey, buildKeywordPrompt(block, lang, vocab));
-      const keywords = normalizeKeywords(res.keywords, vocab);
-      if (!keywords.length) { failed.push({ id: card.id, reason: 'gemini returned no usable keyword' }); continue; }
-      const written = await assignKeywords(url, serviceKey, card.id, keywords);
-      if (written.skipped) failed.push({ id: card.id, reason: written.skipped });
-      else tagged.push({ id: card.id, keywords: written.keywords || keywords });
+      enriched.push(await enrichCard(card, vocab, url, serviceKey, geminiKey));
     } catch (err) {
       failed.push({ id: card.id, reason: String(err instanceof Error ? err.message : err).slice(0, 300) });
     }
   }
-  return { tagged, failed };
+  return { enriched, failed };
 }
 
 /* ---- the handler ------------------------------------------------------------- */
@@ -234,14 +407,20 @@ Deno.serve(async (req: Request) => {
   let body: { card_id?: unknown; sweep?: unknown } = {};
   try { body = await req.json(); } catch (_) { /* empty body handled below */ }
 
-  /* Door 2 — the operator sweep, by header secret. */
+  /* Door 2 — the sweep, by header secret: the daily sync, or an operator. */
   const secret = Deno.env.get('CANVAS_SYNC_SECRET');
   if (body.sweep === true) {
     if (!secret || req.headers.get('x-canvas-sync-secret') !== secret) return json(401, { ok: false, error: 'unauthorized' });
     try {
       const pending = await fetchPending(supabaseUrl, serviceKey, null);
-      const result = await tagCards(pending, supabaseUrl, serviceKey, geminiKey);
-      return json(200, { ok: true, pending: pending.length, ...result });
+      const { enriched, failed } = await enrichCards(pending, supabaseUrl, serviceKey, geminiKey);
+      return json(200, {
+        ok: true,
+        pending: pending.length,
+        // the texts stay out of the report — the Slack summary only needs counts
+        enriched: enriched.map(({ body: _b, ...rest }) => rest),
+        failed,
+      });
     } catch (err) {
       return json(502, { ok: false, error: String(err instanceof Error ? err.message : err) });
     }
@@ -258,11 +437,20 @@ Deno.serve(async (req: Request) => {
 
   try {
     const pending = await fetchPending(supabaseUrl, serviceKey, cardId);
-    // not in the view: already tagged, hand-edited, a canvas card, or unknown — nothing to do, and not an error
-    if (!pending.length) return json(200, { ok: true, id: cardId, keywords: [], skipped: 'nothing to tag' });
-    const { tagged, failed } = await tagCards(pending, supabaseUrl, serviceKey, geminiKey);
-    if (tagged.length) return json(200, { ok: true, id: cardId, keywords: tagged[0].keywords });
-    return json(502, { ok: false, id: cardId, error: failed[0]?.reason || 'tagging failed' });
+    // not in the view: nothing missing, a canvas card, or unknown — not an error
+    if (!pending.length) return json(200, { ok: true, id: cardId, keywords: [], skipped: 'nothing to do' });
+    const { enriched, failed } = await enrichCards(pending, supabaseUrl, serviceKey, geminiKey);
+    if (enriched.length) {
+      const e = enriched[0];
+      return json(200, {
+        ok: true, id: cardId, keywords: e.keywords, source_lang: e.source_lang, moved: e.moved,
+        filled: e.filled, translation_failed: e.translation_failed,
+        // every language block the card now has, so the page can show them
+        // without fetching all four languages again
+        texts: e.body,
+      });
+    }
+    return json(502, { ok: false, id: cardId, error: failed[0]?.reason || 'enrichment failed' });
   } catch (err) {
     return json(502, { ok: false, error: String(err instanceof Error ? err.message : err) });
   }
