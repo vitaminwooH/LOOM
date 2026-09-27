@@ -553,6 +553,30 @@ const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_TIMEOUT_MS = 30_000;
 const TRANSLATION_LANGS = ['ko', 'de', 'tr'] as const;
 
+/* How a translation should read — every prompt that translates uses these
+   lines, and keyword-card carries a copy.
+
+   It used to say "keep technical terms in English", and the model read that
+   widely: a quarter of the Korean was Latin letters — layout, spacing,
+   ad creatives, progress pings, hard backstop, walkthrough. The line is now
+   drawn at names and code: those stay as written, everything else is
+   translated, and a loanword practitioners really use is written in the
+   target language's own script (폴링, 에셋) rather than in Latin letters. */
+const TRANSLATION_STYLE = [
+  'Style: concise internal studio documentation, no added politeness or flourish.',
+  'Keep in their original form ONLY: names of people, studios, companies, products, tools, models and services ' +
+    '(e.g. Slack, n8n, fal.ai, Kling, After Effects, Gemini, Whow, DoubleU); titles of documents, decks and events; ' +
+    'and literal code — status values, identifiers, file names, commands, model ids (e.g. COMPLETED, claude-sonnet-5). ' +
+    'Acronyms that practitioners say as acronyms stay too (QA, AI, API, UI).',
+  'Translate everything else, including technical concepts and everyday work words ' +
+    '(layout, spacing, asset, background, polling, concurrency, payload, fail-open, thread root, walkthrough, ad creatives). ' +
+    'Where practitioners of the target language normally use a loanword, write it in that language\'s own script ' +
+    '(Korean: 레이아웃, 에셋, 폴링, 크레딧, 페이로드), never in Latin letters.',
+  'Korean examples:',
+  '"A hard backstop on credits; the poll loop posts progress pings to the thread root." → "크레딧에 최종 안전장치를 두고, 폴링 루프가 진행 알림을 스레드 첫 메시지에 올린다."',
+  '"Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+];
+
 function buildGeminiPrompt(enBlock: Record<string, unknown>, vocab: Map<string, string>) {
   // attachments are file references, not prose — excluded from what Gemini sees
   const { attachments: _a, ...textBlock } = enBlock as Record<string, unknown>;
@@ -571,16 +595,48 @@ function buildGeminiPrompt(enBlock: Record<string, unknown>, vocab: Map<string, 
     '',
     'ko / de / tr: translate the card block below into Korean, German and Turkish.',
     'Return the SAME keys as the input block; string values stay strings, arrays of strings stay arrays of the same length.',
-    'Style: concise internal studio documentation, no added politeness or flourish.',
-    'Keep technical terms in English (e.g. Slack pipeline, self-QA, n8n, thread root, fail-open).',
-    'Example of the expected Korean tone: "Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+    ...TRANSLATION_STYLE,
     '',
     'Card block (en):',
     JSON.stringify(textBlock),
   ].join('\n');
 }
 
+/* Translations only, for a stored card that is missing some language — its
+   keywords and the languages it has are kept as they are (see the reuse
+   branch in runPipeline). */
+function buildTranslationPrompt(enBlock: Record<string, unknown>, langs: readonly string[]) {
+  const { attachments: _a, ...textBlock } = enBlock as Record<string, unknown>;
+  const names: Record<string, string> = { ko: 'Korean', de: 'German', tr: 'Turkish' };
+  return [
+    'You translate one knowledge card of a shared game-studio knowledge base.',
+    `Return ONLY a JSON object: {${langs.map((l) => `"${l}": {...}`).join(', ')}}`,
+    '',
+    `${langs.join(' / ')}: translate the card block below into ${langs.map((l) => names[l]).join(', ')}.`,
+    'Return the SAME keys as the input block; string values stay strings, arrays of strings stay arrays of the same length.',
+    ...TRANSLATION_STYLE,
+    '',
+    'Card block (en):',
+    JSON.stringify(textBlock),
+  ].join('\n');
+}
+
+/* Calls start at least this far apart. Eight back-to-back calls got 429
+   (quota) on every one while a single call a minute later went through:
+   the free tier is metered per minute, and a loop with ~8 s responses runs
+   right at that line. 7 s between starts caps the rate under 9 a minute;
+   when a response takes longer than that, the gap costs nothing. Kept
+   across requests, because one instance serves many. */
+const GEMINI_MIN_INTERVAL_MS = 7_000;
+let geminiLastStart = 0;
+async function paceGemini() {
+  const wait = geminiLastStart + GEMINI_MIN_INTERVAL_MS - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  geminiLastStart = Date.now();
+}
+
 async function callGeminiOnce(apiKey: string, prompt: string) {
+  await paceGemini();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   try {
@@ -869,6 +925,7 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
       scope: purge || refresh ? 'all' : 'new-only',
       enriched: 0,
       reused: 0, // refresh targets that kept their stored keywords/translations
+      retranslated: 0, // of those, cards that had a missing language translated
       gemini_failed: [] as { id: string; reason: string }[],
       translation_failed: [] as { id: string; lang: string }[],
     };
@@ -878,7 +935,8 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
         /* Already-enriched cards keep what they have — regenerating would
            reshuffle keyword spellings at best and, on a Gemini failure
            (quota days exist), overwrite stored translations with nothing.
-           Gemini runs only for cards that have no enrichment yet. */
+           Gemini runs only for cards that have no enrichment yet — and, for
+           a stored card, only for a language it is missing. */
         const stored = existingById.get(c.id);
         if (stored && ((stored.keywords || []).length || stored.ko || stored.de || stored.tr)) {
           c.keywords = stored.keywords || [];
@@ -890,6 +948,28 @@ async function runPipeline(mode: string, purge: boolean, refresh: boolean) {
             if (!vocab.has(k.toLowerCase())) vocab.set(k.toLowerCase(), k);
           }
           enrichment.reused++;
+          /* A language it does NOT have is translated now, and only that
+             language: a translation that failed once used to stay missing
+             for good (a sync skips the card, a refresh reused what was
+             there), and removing one language's block by hand is how a
+             language is re-translated on purpose. */
+          const missing = TRANSLATION_LANGS.filter((l) => !stored[l]);
+          if (missing.length) {
+            const en = (c.body as Record<string, Record<string, unknown>>).en;
+            try {
+              const res = await callGemini(geminiKey, buildTranslationPrompt(en, missing));
+              for (const lang of missing) {
+                const block = validateTranslation(en, res[lang]);
+                if (block) (c.body as Record<string, unknown>)[lang] = block;
+                else enrichment.translation_failed.push({ id: c.id, lang });
+              }
+              enrichment.retranslated++;
+            } catch (err) {
+              const reason = String(err instanceof Error ? err.message : err).slice(0, 300);
+              console.warn('[canvas-sync] gemini failed for ' + c.id + ' (missing languages): ' + reason);
+              enrichment.gemini_failed.push({ id: c.id, reason });
+            }
+          }
           continue;
         }
         const en = (c.body as Record<string, Record<string, unknown>>).en;

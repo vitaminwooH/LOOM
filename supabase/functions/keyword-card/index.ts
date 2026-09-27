@@ -51,14 +51,33 @@
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_TIMEOUT_MS = 30_000;
 /* Per sweep. The sweep is one request (canvas-sync waits on it), and a
-   request lives about 150 s; a call that also translates takes several
-   seconds, so 10 leaves room. A bigger backlog drains over the next days. */
-const SWEEP_LIMIT = 10;
+   request lives about 150 s. A call that translates takes ~10 s, which
+   already exceeds the 7 s pacing below, so 8 cards run ~80 s; two retried
+   calls (3 s pause + up to 30 s each) still fit, where 10 cards would not.
+   A bigger backlog drains over the next days. */
+const SWEEP_LIMIT = 8;
 const LANGS = ['en', 'ko', 'de', 'tr'] as const;
 const LANG_NAMES: Record<string, string> = { en: 'English', ko: 'Korean', de: 'German', tr: 'Turkish' };
 // any Hangul letter — syllables and jamo. A Korean sentence carries English
 // terms all the time; an English one almost never carries Hangul.
 const HANGUL_RE = /[ᄀ-ᇿ㄰-㆏가-힯]/;
+
+// how a translation should read — a copy of canvas-sync's TRANSLATION_STYLE
+// (the source of truth, with the reasoning); change both together
+const TRANSLATION_STYLE = [
+  'Style: concise internal studio documentation, no added politeness or flourish.',
+  'Keep in their original form ONLY: names of people, studios, companies, products, tools, models and services ' +
+    '(e.g. Slack, n8n, fal.ai, Kling, After Effects, Gemini, Whow, DoubleU); titles of documents, decks and events; ' +
+    'and literal code — status values, identifiers, file names, commands, model ids (e.g. COMPLETED, claude-sonnet-5). ' +
+    'Acronyms that practitioners say as acronyms stay too (QA, AI, API, UI).',
+  'Translate everything else, including technical concepts and everyday work words ' +
+    '(layout, spacing, asset, background, polling, concurrency, payload, fail-open, thread root, walkthrough, ad creatives). ' +
+    'Where practitioners of the target language normally use a loanword, write it in that language\'s own script ' +
+    '(Korean: 레이아웃, 에셋, 폴링, 크레딧, 페이로드), never in Latin letters.',
+  'Korean examples:',
+  '"A hard backstop on credits; the poll loop posts progress pings to the thread root." → "크레딧에 최종 안전장치를 두고, 폴링 루프가 진행 알림을 스레드 첫 메시지에 올린다."',
+  '"Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+];
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -167,9 +186,7 @@ function buildPrompt(
         ? 'translations: translate the card block into every one of English (en), Korean (ko), German (de) and Turkish (tr) EXCEPT its own source_lang, keyed by language code.'
         : `translations: translate the card block into ${ask.targets.map((l) => `${LANG_NAMES[l]} (${l})`).join(', ')}, keyed by language code.`,
       'Each translation has the SAME keys as the input block; string values stay strings, arrays of strings stay arrays of the same length.',
-      'Style: concise internal studio documentation, no added politeness or flourish.',
-      'Keep technical terms in English (e.g. Slack pipeline, self-QA, n8n, thread root, fail-open).',
-      'Example of the expected Korean tone: "Same idea, different stack — n8n Cloud instead of a local codebase." → "같은 아이디어, 다른 스택 — 로컬 코드베이스 대신 n8n Cloud."',
+      ...TRANSLATION_STYLE,
       '',
     );
   }
@@ -177,7 +194,18 @@ function buildPrompt(
   return lines.join('\n');
 }
 
+// calls start at least this far apart — the free tier is metered per minute,
+// and a sweep's back-to-back calls ran into it (see canvas-sync's copy)
+const GEMINI_MIN_INTERVAL_MS = 7_000;
+let geminiLastStart = 0;
+async function paceGemini() {
+  const wait = geminiLastStart + GEMINI_MIN_INTERVAL_MS - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  geminiLastStart = Date.now();
+}
+
 async function callGeminiOnce(apiKey: string, prompt: string) {
+  await paceGemini();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   try {
