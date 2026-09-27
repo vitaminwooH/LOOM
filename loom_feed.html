@@ -10984,6 +10984,25 @@ function cardText(entry) {
   return (entry && entry.text) || {};
 }
 
+/* The language a person actually wrote in, for a card's sourceLang. It used
+   to be the screen's language, so a question typed in Korean on the English
+   screen was stored as English — and would have been "translated" from
+   English. One sure rule here: a Hangul letter anywhere means Korean (a
+   Korean sentence carries English terms all the time; an English one almost
+   never carries Hangul). Anything else keeps the screen's language, and the
+   keyword-card function has Gemini confirm or correct it a moment later —
+   never overruling a ko decided here (db/0018 enforces the same rule). */
+const AUTHORED_HANGUL_RE = /[ᄀ-ᇿ㄰-㆏가-힯]/;
+function authoredLang(text) {
+  const parts = [];
+  (function collect(v) {
+    if (typeof v === 'string') parts.push(v);
+    else if (Array.isArray(v)) v.forEach(collect);
+    else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+  })(text);
+  return AUTHORED_HANGUL_RE.test(parts.join('\n')) ? 'ko' : currentLang;
+}
+
 /* "Original (<language>) · Auto-translation pending", shown whenever a card's
    original language differs from the one being read in.
 
@@ -12843,7 +12862,7 @@ async function askSubmit() {
     id: 'ask-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     studio: MY_STUDIO_KEY,
     type: 'question',
-    sourceLang: currentLang,
+    sourceLang: authoredLang(text),
     /* No keywords at post time: choosing them is the friction this screen
        exists to remove. They arrive a moment later from the keyword-card
        function (Gemini, existing vocabulary first — see the tail of this
@@ -17736,7 +17755,7 @@ function buildQuickUpdateEntry(line, parentId, relation, note) {
     derivedFrom: parentId,
     derivedRelation: relation,
     derivedNote: note || '',
-    sourceLang: currentLang,
+    sourceLang: authoredLang(text),
     image: null,
     imageName: null,
     imageFocal: {},
@@ -20397,7 +20416,7 @@ function commitCardEdit() {
   card.imageFocal = Object.assign({}, selectedImageFocal);
   card.attachments = attachedFiles.slice();
   card.keywords = composeKeywords.slice();
-  card.sourceLang = currentLang;
+  card.sourceLang = authoredLang({ title, body });
   // The moment it last changed, so a reader can tell a correction from the
   // original — see renderEditedStamp.
   card.editedAt = nowStamp();
@@ -20420,7 +20439,7 @@ function commitSeedCardEdit(id, title, body) {
   if (!original) return;
 
   const text = Object.assign({ title, summary: composeSummary(title, body) }, body);
-  const lang = currentLang;
+  const lang = authoredLang(text);
   if (original.isRemote && window.LoomData && LoomData.isConfigured()) {
     writeCredential().then(({ authed, code }) => {
       if (!authed && !code) return commitSeedCardEditLocally(id, title, body);
@@ -20457,7 +20476,7 @@ function commitSeedCardEditLocally(id, title, body) {
     imageFocal: Object.assign({}, selectedImageFocal),
     attachments: attachedFiles.slice(),
     keywords: composeKeywords.slice(),
-    sourceLang: currentLang,
+    sourceLang: authoredLang({ title, body }),
     editedAt: nowStamp(),
     text: Object.assign({ title, summary: composeSummary(title, body) }, body),
   };
@@ -20577,8 +20596,8 @@ function buildSharedCardEntry() {
     conversation: isOpenQ
       ? [{ author: myDisplayName(), studio: MY_STUDIO_KEY, justNow: true, text: (body.blocked || title) }]
       : undefined,
-    // Not a real translation — see LANG_PENDING note near renderCardLangBadge.
-    sourceLang: currentLang,
+    // the language it was written in, not the screen's — see authoredLang
+    sourceLang: authoredLang({ title, body }),
     image: selectedImageUrl,
     imageName: selectedImageName,
     imageFocal: Object.assign({}, selectedImageFocal),
