@@ -310,6 +310,22 @@ const LoomData = (function () {
     }
   }
 
+  /* One block per language, the way get_knowledge_items resolves it: the
+     language's own block, else the original — never an empty text.
+
+     Each language gets its own copy of the card. registerSubmitted puts ONE
+     object into every language's cache, so assigning into it would leave all
+     four holding whichever language was written last. Replaced in place in
+     the array, because the screen holds the array itself (remoteCards). */
+  function patchCachedTexts(id, texts, sourceLang) {
+    for (const lang of Object.keys(cardCache)) {
+      const list = cardCache[lang];
+      const i = list.findIndex((c) => c.id === id);
+      const block = texts[lang] || texts[sourceLang];
+      if (i >= 0 && block) list[i] = Object.assign({}, list[i], { text: block, sourceLang: sourceLang });
+    }
+  }
+
   async function submitCardKeywords(cardId, keywords, code) {
     if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
     const controller = new AbortController();
@@ -364,8 +380,13 @@ const LoomData = (function () {
           message: message,
         };
       }
-      patchCachedCard(cardId, { text: pickText(text), sourceLang: lang, editedAt: json.edited_at || null });
-      return { ok: true };
+      /* The block as the server stored it (0018 returns it: a question's
+         opening post is rebuilt there), in every language — an edit is a new
+         original, and until requestCardEnrichment brings the translations
+         back, every language shows it. */
+      const stored = (json && json.text) || pickText(text);
+      patchCachedCard(cardId, { text: stored, sourceLang: lang, editedAt: json.edited_at || null });
+      return { ok: true, text: stored };
     } catch (err) {
       return { ok: false, reason: 'network', message: String(err) };
     } finally {
@@ -664,15 +685,19 @@ const LoomData = (function () {
     }
   }
 
-  /* Asks the keyword-card function to give a just-posted form card its
-     keywords — Gemini, existing vocabulary first, the same pass the canvas
-     sync runs. Members only: the session JWT is the gate, so a guest gets
-     {ok:false, reason:'signed-out'} without a request. Resolves
-     {ok, keywords} or {ok:false, reason, message?}; on success the caches are
-     patched so the Home bands redraw without a refetch. Never rejects. A
-     failure here is not a lost card: the card is saved, and the daily sync
-     sweeps every form card still without keywords. */
-  async function requestCardKeywords(cardId) {
+  /* Asks the keyword-card function for what a card written in Loom lacks —
+     keywords (Gemini, existing vocabulary first, the same pass the canvas
+     sync runs), the language it was really written in, and its other
+     languages — in one call. Members only: the session JWT is the gate, so a
+     guest gets {ok:false, reason:'signed-out'} without a request.
+
+     Resolves {ok, keywords, sourceLang, filled, translationFailed} or
+     {ok:false, reason, message?}. Never rejects. On success every language's
+     cache gets its own block (the original where a translation is still
+     missing), so the page shows the translations without fetching four
+     languages again. A failure here is not a lost card: the card is saved and
+     shown in its original, and the daily sync sweeps whatever is missing. */
+  async function requestCardEnrichment(cardId) {
     if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
     const session = await getSession();
     if (!session) return { ok: false, reason: 'signed-out' };
@@ -695,7 +720,14 @@ const LoomData = (function () {
       }
       const keywords = Array.isArray(json.keywords) ? json.keywords : [];
       if (keywords.length) patchCachedCard(cardId, { keywords: keywords });
-      return { ok: true, keywords: keywords };
+      if (json.texts && json.source_lang) patchCachedTexts(cardId, json.texts, json.source_lang);
+      return {
+        ok: true,
+        keywords: keywords,
+        sourceLang: json.source_lang || null,
+        filled: json.filled || [],
+        translationFailed: json.translation_failed || [],
+      };
     } catch (err) {
       return { ok: false, reason: 'network', message: String(err) };
     } finally {
@@ -777,7 +809,7 @@ const LoomData = (function () {
 
   return {
     isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
-    submitCardKeywords, submitCardEdit, requestCardKeywords,
+    submitCardKeywords, submitCardEdit, requestCardEnrichment,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };

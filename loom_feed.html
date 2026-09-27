@@ -12883,15 +12883,21 @@ async function askSubmit() {
   rebuildAllSurfaces();
   askSetMessage(t().home.postedTagging, 'info');
 
-  /* Then the keywords, in the background: the card is saved and on the Open
-     questions floor already, so nothing here can lose it. When they land the
-     card joins a band and its dot arrives — the one motion on this floor the
-     reader did not cause with a keypress. If the person has started typing
-     the next line meanwhile, the field's status is theirs, not this one's. */
-  LoomData.requestCardKeywords(res.id).then((tagged) => {
+  /* Then the keywords and the other three languages, in the background, from
+     one call: the card is saved and on the Open questions floor already, in
+     its original in every language, so nothing here can lose it. When they
+     land the card joins a band and its dot arrives — the one motion on this
+     floor the reader did not cause with a keypress. If the person has started
+     typing the next line meanwhile, the field's status is theirs, not this
+     one's. */
+  LoomData.requestCardEnrichment(res.id).then((tagged) => {
     const settled = tagged.ok && tagged.keywords.length;
     if (settled) {
       homeArrivingId = res.id;
+      rebuildAllSurfaces();
+    } else if (tagged.ok && tagged.filled.length) {
+      // translations only (keywords failed): no dot arrives, but the text in
+      // the other languages is there now
       rebuildAllSurfaces();
     }
     if (field.value.trim()) return;
@@ -20452,9 +20458,15 @@ function commitSeedCardEdit(id, title, body) {
         // the DB has it: the local overlay would only shadow the truth
         clearSeedEdit(id);
         const card = (remoteCards || []).find((c) => c.id === id);
-        if (card) { card.text = text; card.sourceLang = lang; card.editedAt = Date.now(); }
+        if (card) { card.text = res.text || text; card.sourceLang = lang; card.editedAt = Date.now(); }
         showToast(t().editSaved);
         rebuildAllSurfaces();
+        /* An edit is a new original: the server dropped the old translations
+           (db/0018), so every language shows the edit until these arrive. A
+           failure is not a lost edit — the daily sweep translates it. */
+        LoomData.requestCardEnrichment(id).then((done) => {
+          if (done.ok && done.filled.length) rebuildAllSurfaces();
+        });
       });
     });
     return;
