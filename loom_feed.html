@@ -4210,6 +4210,12 @@
   .conversation-message.is-me .conversation-message-bubble { background: var(--ink); color: #ffffff; }
   .conversation-message.is-entering { opacity: 0; transform: translateY(8px); animation: conversationMessageIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
   @keyframes conversationMessageIn { to { opacity: 1; transform: translateY(0); } }
+  /* on its way to the server — on the bubble, since the entry animation owns
+     the message's own opacity */
+  .conversation-message.is-pending .conversation-message-bubble { opacity: 0.55; }
+  #conversationInput:disabled { background: transparent; cursor: not-allowed; }
+  .conversation-send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+  .conversation-input-row.is-busy .conversation-send-btn { opacity: 0.5; pointer-events: none; }
 
   .conversation-input-row {
     flex-shrink: 0;
@@ -7725,6 +7731,10 @@ const TRANSLATIONS = {
         briefTabLabel: 'Brief',
         inputPlaceholder: 'Add a reply…',
         sendButton: 'Send',
+        signInToReply: 'Sign in to reply.',
+        localOnly: 'This question only exists in this browser, so there is nowhere to keep a reply.',
+        failed: 'Your reply was not sent. It is back in the box — try again.',
+        tooMany: 'That is a lot of replies in a short time. Try again in a few minutes.',
       },
       brief: {
         aiGenerated: 'AI-generated summary',
@@ -8209,6 +8219,10 @@ const TRANSLATIONS = {
         briefTabLabel: '요약',
         inputPlaceholder: '답글을 입력하세요…',
         sendButton: '보내기',
+        signInToReply: '로그인하면 답글을 남길 수 있어요.',
+        localOnly: '이 질문은 이 브라우저에만 있어서 답글을 저장할 곳이 없어요.',
+        failed: '답글이 전송되지 않았어요. 입력창에 다시 넣어 두었으니 한 번 더 보내 주세요.',
+        tooMany: '짧은 시간에 답글이 너무 많아요. 몇 분 뒤에 다시 시도해 주세요.',
       },
       brief: {
         aiGenerated: 'AI가 생성한 요약',
@@ -8672,6 +8686,10 @@ const TRANSLATIONS = {
         briefTabLabel: 'Zusammenfassung',
         inputPlaceholder: 'Antwort hinzufügen…',
         sendButton: 'Senden',
+        signInToReply: 'Melde dich an, um zu antworten.',
+        localOnly: 'Diese Frage gibt es nur in diesem Browser, daher kann keine Antwort gespeichert werden.',
+        failed: 'Deine Antwort wurde nicht gesendet. Sie steht wieder im Feld — versuch es noch einmal.',
+        tooMany: 'Das sind viele Antworten in kurzer Zeit. Versuch es in ein paar Minuten noch einmal.',
       },
       brief: {
         aiGenerated: 'KI-generierte Zusammenfassung',
@@ -9137,6 +9155,10 @@ const TRANSLATIONS = {
         briefTabLabel: 'Özet',
         inputPlaceholder: 'Bir yanıt yaz…',
         sendButton: 'Gönder',
+        signInToReply: 'Yanıtlamak için giriş yap.',
+        localOnly: 'Bu soru yalnızca bu tarayıcıda var, bu yüzden yanıtı saklayacak bir yer yok.',
+        failed: 'Yanıtın gönderilmedi. Metin kutuya geri kondu — tekrar dene.',
+        tooMany: 'Kısa sürede çok fazla yanıt. Birkaç dakika sonra tekrar dene.',
       },
       brief: {
         aiGenerated: 'Yapay zeka tarafından oluşturulan özet',
@@ -11183,12 +11205,6 @@ function statusBadgeHTML(data) {
   return `<span class="status-badge status-${state}">${t().status[state]}</span>`;
 }
 
-// Replies typed into this session's Conversation pane (see initQuestionDetail) —
-// kept separate from the seed data entirely, keyed by card id, so appending
-// one never has to fight with how static cards zip structure against
-// per-language text (see getConversationMessages just below).
-const sessionExtraMessages = {};
-
 // The thread behind a Question — structural data (who/when) lives on the
 // card itself (language-independent, like everywhere else in this file);
 // only the message text is looked up per-language. Shared (user-authored)
@@ -11202,11 +11218,20 @@ function getConversationMessages(data) {
     base = data.conversation || [];
   } else {
     const text = cardText(data);
+    /* A question asked in Loom is stored with its opening post flagged
+       justNow (submit_card writes the skeleton at the moment of asking), and
+       a flag in a row never ages — a week-old question said "just now" beside
+       replies that carry real times. Such a post takes the card's own age. */
+    const aged = (msg) => (msg.justNow && !msg.at
+      ? { ...msg, justNow: data.justNow, timeValue: data.timeValue, timeUnit: data.timeUnit }
+      : msg);
     base = (data.conversation && text.conversation)
-      ? data.conversation.map((msg, i) => ({ ...msg, text: text.conversation[i] }))
+      ? data.conversation.map((msg, i) => ({ ...aged(msg), text: text.conversation[i] }))
       : [{ author: data.author, studio: data.studio, timeValue: data.timeValue, timeUnit: data.timeUnit, justNow: data.justNow, text: text.problem }];
   }
-  return base.concat(sessionExtraMessages[data.id] || []);
+  // Replies written in Loom come after the opening thread: their own rows
+  // in the DB (db/0020), stamped with when they were said.
+  return base.concat(data.replies || []);
 }
 
 // null means "not enough discussion yet" — the brief panel shows a plain
@@ -12223,7 +12248,7 @@ function cardAsksSomething(card) {
 function cardHasAnswer(card, topicCards) {
   const from = card.studio;
   if (ALL_CARDS.some((c) => c.derivedFrom === card.id && c.studio !== from)) return true;
-  const conversation = card.conversation || [];
+  const conversation = (card.conversation || []).concat(card.replies || []);
   if (conversation.some((m) => m && m.studio && m.studio !== from)) return true;
   /* Without a band to hand it, "the same thread" is every card sharing a
      keyword with this one — what a band is made of, so the floor and the
@@ -16723,10 +16748,9 @@ function relativeFromStamp(stamp) {
    post is the question itself, so it does not count as an answer. */
 function answerCountOf(data) {
   if (!isOpenQuestion(data)) return 0;
-  // getConversationMessages, not data.conversation: replies posted in this
-  // session live in sessionExtraMessages until there is a backend, and a
-  // warning that ignores the three answers you can see on screen is worse
-  // than no warning.
+  // getConversationMessages, not data.conversation: replies written in Loom
+  // are their own rows (data.replies), and a warning that ignores the three
+  // answers you can see on screen is worse than no warning.
   return Math.max(0, getConversationMessages(data).length - 1);
 }
 
@@ -17338,7 +17362,10 @@ function switchQuestionTab(pane) {
 function conversationMessageEl(msg) {
   const studio = STUDIOS[msg.studio];
   const color = studio ? studio.color : 'var(--ink)';
-  const timeText = msg.justNow ? t().justNow : formatRelativeTime(currentLang, msg.timeValue, msg.timeUnit);
+  // a reply carries the moment it was said (`at`); the opening thread carries
+  // the card's own age
+  const timeText = msg.at ? relativeFromStamp(msg.at)
+    : msg.justNow ? t().justNow : formatRelativeTime(currentLang, msg.timeValue, msg.timeUnit);
   const isMe = msg.author === myDisplayName();
   const el = document.createElement('div');
   el.className = 'conversation-message' + (isMe ? ' is-me' : '');
@@ -17427,7 +17454,14 @@ function populateQuestionDetail(data) {
 
   document.getElementById('qTabConversation').textContent = t().conversationUi.tabLabel;
   document.getElementById('qTabBrief').textContent = t().conversationUi.briefTabLabel;
-  document.getElementById('conversationInput').placeholder = t().conversationUi.inputPlaceholder;
+  /* Replying is for signed-in members (a reply is a person, db/0020). Signed
+     out, the field says so instead of taking words it cannot keep; authReady
+     redraws this pane once a session turns up. */
+  const canReply = !!authProfile;
+  const replyInput = document.getElementById('conversationInput');
+  replyInput.disabled = !canReply;
+  replyInput.placeholder = canReply ? t().conversationUi.inputPlaceholder : t().conversationUi.signInToReply;
+  document.getElementById('conversationSendBtn').disabled = !canReply;
   document.getElementById('conversationSendBtn').textContent = t().conversationUi.sendButton;
   switchQuestionTab('conversation');
 
@@ -17515,58 +17549,59 @@ function initResolvedNext() {
   });
 }
 
-// Adding a reply on the left plays a brief fake "Summarizing…" moment, then
-// the brief on the right gains one new line — there's no real AI behind
-// this (see getConversationBrief/currentQuestionData), just a rough mime of
-// what a live summary refresh would feel like.
-function simulateSummaryUpdate() {
-  const body = document.getElementById('briefBody');
-  const updated = document.getElementById('briefUpdated');
-  const s = t().brief;
-  if (body.querySelector('.brief-empty')) return; // nothing to "refresh" without a real brief yet
-
-  body.classList.add('is-updating');
-  updated.textContent = s.summarizing;
-  setTimeout(() => {
-    body.classList.remove('is-updating');
-    updated.textContent = s.lastUpdated(0);
-    const keyIdeasList = body.querySelectorAll('.brief-section ul')[0];
-    if (keyIdeasList) {
-      const li = document.createElement('li');
-      li.className = 'is-new';
-      li.textContent = s.alsoNoted;
-      keyIdeasList.appendChild(li);
-    }
-  }, 900);
-}
-
 function initQuestionDetail() {
   document.querySelectorAll('.question-tab').forEach((btn) => {
     btn.addEventListener('click', () => switchQuestionTab(btn.dataset.pane));
   });
 
-  document.getElementById('conversationForm').addEventListener('submit', (e) => {
+  /* A reply goes to the database or nowhere. It used to live in this page's
+     memory and "feel alive": the person saw their answer on screen, the other
+     studio never did, and a reload took it away. Now it is shown as sent only
+     once the server has it, and a failure says so and gives the words back. */
+  const form = document.getElementById('conversationForm');
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!currentQuestionData) return;
+    if (!currentQuestionData || form.classList.contains('is-busy')) return;
     const input = document.getElementById('conversationInput');
     const value = input.value.trim();
     if (!value) return;
-    input.value = '';
 
-    const msg = { author: myDisplayName(), studio: MY_STUDIO_KEY, justNow: true, text: value };
-    // Kept only in memory for this open session (see sessionExtraMessages) —
-    // a real backend would persist it; here it just needs to feel alive now.
+    const s = t().conversationUi;
+    if (!(await authReady())) { showToast(s.signInToReply); return; }
+    // a card that only ever lived in this browser has no row to reply under
+    if (!currentQuestionData.isRemote) { showToast(s.localOnly); return; }
+
     const id = currentQuestionData.id;
-    if (!sessionExtraMessages[id]) sessionExtraMessages[id] = [];
-    sessionExtraMessages[id].push(msg);
-
     const wrap = document.getElementById('conversationScroll');
-    const el = conversationMessageEl(msg);
-    el.classList.add('is-entering');
-    wrap.appendChild(el);
+    const pending = conversationMessageEl({ author: myDisplayName(), studio: MY_STUDIO_KEY, justNow: true, text: value });
+    pending.classList.add('is-entering', 'is-pending');
+    wrap.appendChild(pending);
     wrap.scrollTop = wrap.scrollHeight;
+    input.value = '';
+    form.classList.add('is-busy');
 
-    simulateSummaryUpdate();
+    const res = await LoomData.submitCardReply(id, value, authoredLang(value));
+    form.classList.remove('is-busy');
+
+    if (!res.ok) {
+      pending.remove();
+      // the words are theirs — put them back rather than making them retype
+      if (!input.value) input.value = value;
+      showToast(res.tooMany ? s.tooMany : res.reason === 'signed-out' ? s.signInToReply : s.failed);
+      return;
+    }
+
+    // data.js has folded the reply into every language's cache; the bands,
+    // the Open questions floor and the badges all judge "answered" from it
+    rebuildAllSurfaces();
+    const fresh = cardById(id);
+    if (fresh && currentQuestionData && currentQuestionData.id === id) {
+      currentQuestionData = fresh;
+      document.getElementById('qdStatusBadge').innerHTML = statusBadgeHTML(fresh);
+      renderConversation(fresh);
+    } else {
+      pending.classList.remove('is-pending');
+    }
   });
 
   document.getElementById('qdDeleteBtn').addEventListener('click', function () {
