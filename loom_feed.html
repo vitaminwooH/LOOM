@@ -14594,6 +14594,10 @@ function buildNebula() {
      thread into a lie about its length. Recomputed on resize below. */
   const w = layer.clientWidth || window.innerWidth;
   const h = layer.clientHeight || Math.round(window.innerHeight * 2.4);
+  /* A page opened in a pane or tab that has not been laid out yet boots with
+     a 0x0 window, and 0/0 put "NaN" in the viewBox. Nothing is visible to
+     draw for then; the resize that gives the window its size draws it. */
+  if (!w || !h) return;
   const vbW = 100;
   const vbH = (h / w) * vbW;
 
