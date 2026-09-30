@@ -109,6 +109,17 @@ const LoomData = (function () {
     return row.author || '';
   }
 
+  function toReply(r) {
+    return {
+      id: r.id,
+      author: r.author || '',
+      studio: r.studio,
+      at: new Date(r.created_at).getTime(),
+      sourceLang: r.source_lang || 'en',
+      text: r.text || '',
+    };
+  }
+
   function toCard(row) {
     const age = row.demo_age
       ? {
@@ -153,6 +164,9 @@ const LoomData = (function () {
       conversation: row.conversation || undefined, // skeleton; texts sit in
                                                    // text.conversation, zipped
                                                    // by getConversationMessages
+      // replies written in Loom (db/0020), oldest first — their own rows, so
+      // a canvas refresh or a body edit can never take them with it
+      replies: (row.replies || []).map(toReply),
       keywords: row.keywords || [],
       link: row.link || undefined,
       sourceLang: row.source_lang,
@@ -387,6 +401,47 @@ const LoomData = (function () {
       const stored = (json && json.text) || pickText(text);
       patchCachedCard(cardId, { text: stored, sourceLang: lang, editedAt: json.edited_at || null });
       return { ok: true, text: stored };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* ---- replies (db/0020) ------------------------------------------------------
+     A reply is a person speaking, so it has no shared-code door: signed out
+     resolves {ok:false, reason:'signed-out'} without a request. On success the
+     reply joins the card in every language's cache — in its original words,
+     which is exactly what a reload would serve until it is translated. */
+  async function submitCardReply(cardId, text, lang) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const session = await getSession();
+    if (!session) return { ok: false, reason: 'signed-out' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_card_reply', {
+        method: 'POST',
+        headers: await writeHeaders(),
+        body: JSON.stringify({ card_id: cardId, body: text, lang: lang || 'en' }),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok || !json) {
+        const message = (json && json.message) || '';
+        return { ok: false, reason: 'rejected', tooMany: /too many/i.test(message), message: message };
+      }
+      const reply = toReply(Object.assign({ text: text.trim() }, json));
+      // a card posted this session is ONE object in every cache (see
+      // registerSubmitted) — touch each object once, or it gets the reply four times
+      const seen = new Set();
+      for (const l of Object.keys(cardCache)) {
+        const card = cardCache[l].find((c) => c.id === cardId);
+        if (!card || seen.has(card)) continue;
+        seen.add(card);
+        card.replies = (card.replies || []).concat([Object.assign({}, reply)]);
+      }
+      return { ok: true, reply: reply };
     } catch (err) {
       return { ok: false, reason: 'network', message: String(err) };
     } finally {
@@ -631,6 +686,7 @@ const LoomData = (function () {
         ? [{ author: row.author || payload.studio, studio: payload.studio, justNow: true }]
         : null,
       applied_by: [],
+      replies: [],
       txt: txt,
     });
     for (const lang of Object.keys(cardCache)) cardCache[lang].unshift(card);
@@ -809,7 +865,7 @@ const LoomData = (function () {
 
   return {
     isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
-    submitCardKeywords, submitCardEdit, requestCardEnrichment,
+    submitCardKeywords, submitCardEdit, requestCardEnrichment, submitCardReply,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };
