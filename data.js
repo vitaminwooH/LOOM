@@ -449,6 +449,91 @@ const LoomData = (function () {
     }
   }
 
+  /* ---- reactions, their replies, emoji (db/0021) -----------------------------
+     Read whole, in the shape the page draws (reactionState); written one
+     action at a time through member-only RPCs. After a write the caller reads
+     the whole layer again — at this size one small request is cheaper than
+     keeping a client copy in step with the server's rules (a removal refused
+     because somebody replied, an emoji another tab already took back). */
+
+  // ISO timestamps → epoch ms, which is what relativeFromStamp reads
+  function stampOf(iso) {
+    const ms = new Date(iso).getTime();
+    return isFinite(ms) ? ms : 0;
+  }
+
+  async function loadReactions() {
+    if (!isConfigured()) return null;
+    try {
+      const data = await rpc('get_reactions', {});
+      if (!data || !Array.isArray(data.reactions)) return null;
+      return {
+        reactions: data.reactions.map(function (r) {
+          return Object.assign({}, r, {
+            at: stampOf(r.at),
+            emoji: r.emoji || {},
+            replies: (r.replies || []).map(function (p) {
+              return Object.assign({}, p, { at: stampOf(p.at), emoji: p.emoji || {} });
+            }),
+          });
+        }),
+        bodyEmoji: data.bodyEmoji || {},
+      };
+    } catch (err) {
+      console.warn('[Loom data] reactions load failed:', err);
+      return null;
+    }
+  }
+
+  /* A write that only a signed-in member may make. Resolves
+     {ok:true, json} or {ok:false, reason, tooMany?, othersReplied?, message?};
+     signed out resolves {ok:false, reason:'signed-out'} without a request. */
+  async function memberRpc(name, params) {
+    if (!isConfigured()) return { ok: false, reason: 'unconfigured' };
+    const session = await getSession();
+    if (!session) return { ok: false, reason: 'signed-out' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + name, {
+        method: 'POST',
+        headers: await writeHeaders(),
+        body: JSON.stringify(params),
+        signal: controller.signal,
+      });
+      const json = await res.json().catch(function () { return null; });
+      if (!res.ok) {
+        const message = (json && json.message) || '';
+        return {
+          ok: false,
+          reason: /sign in/i.test(message) ? 'signed-out' : 'rejected',
+          tooMany: /too many/i.test(message),
+          othersReplied: /others replied/i.test(message),
+          message: message,
+        };
+      }
+      return { ok: true, json: json };
+    } catch (err) {
+      return { ok: false, reason: 'network', message: String(err) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function toggleReaction(cardId, kind) {
+    return memberRpc('toggle_card_reaction', { card_id: cardId, kind: kind });
+  }
+  function setReactionNote(reactionId, note) {
+    return memberRpc('set_reaction_note', { reaction_id: reactionId, note: note || '' });
+  }
+  function submitReactionReply(reactionId, text) {
+    return memberRpc('submit_reaction_reply', { reaction_id: reactionId, body: text });
+  }
+  // target: 'card' | 'reaction' | 'reply'
+  function toggleEmoji(target, targetId, emoji) {
+    return memberRpc('toggle_emoji', { target: target, target_id: String(targetId), emoji: emoji });
+  }
+
   /* ---- roster (Designers) ---------------------------------------------------
      persons is publicly readable (RLS read_all from 0001), so this is a plain
      table select — a handful of rows, no RPC needed. Mapped straight into the
@@ -866,6 +951,7 @@ const LoomData = (function () {
   return {
     isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
     submitCardKeywords, submitCardEdit, requestCardEnrichment, submitCardReply,
+    loadReactions, toggleReaction, setReactionNote, submitReactionReply, toggleEmoji,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };

@@ -3458,6 +3458,9 @@
   .reaction-pill svg { width: 14px; height: 14px; flex-shrink: 0; }
   .reaction-pill:hover { border-color: var(--border-strong); color: var(--ink); transform: translateY(-1px); }
   .reaction-pill.is-mine { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+  /* waiting on the server (reactionWrite) — one click, one answer */
+  .reaction-pill.is-busy, .emoji-chip.is-busy, .emoji-option.is-busy,
+  .reply-form.is-busy, .reaction-note-editor.is-busy { opacity: 0.5; pointer-events: none; }
 
   .reaction-empty { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-faint); }
 
@@ -7765,6 +7768,10 @@ const TRANSLATIONS = {
         noteSave: 'Save',
         notePlaceholder: 'Optional — anything worth saying alongside it',
         replyPlaceholder: 'Reply…',
+        signInToReact: 'Sign in to react or reply.',
+        failed: 'That did not save. Nothing changed — try again.',
+        tooMany: 'That is a lot in a short time. Try again in a few minutes.',
+        othersReplied: 'Others have replied to this reaction, so it stays. You can still clear your note.',
         replySend: 'Send',
         emojiAdd: 'Add a reaction',
       },
@@ -8253,6 +8260,10 @@ const TRANSLATIONS = {
         noteSave: '저장',
         notePlaceholder: '선택 — 함께 전하고 싶은 말이 있다면',
         replyPlaceholder: '답장…',
+        signInToReact: '로그인하면 반응과 답장을 남길 수 있어요.',
+        failed: '저장되지 않았어요. 바뀐 건 없으니 다시 시도해 주세요.',
+        tooMany: '짧은 시간에 너무 많이 눌렀어요. 몇 분 뒤에 다시 시도해 주세요.',
+        othersReplied: '다른 사람이 이 반응에 답장을 남겨서 지울 수 없어요. 내 메모는 지울 수 있어요.',
         replySend: '보내기',
         emojiAdd: '이모지 남기기',
       },
@@ -8720,6 +8731,10 @@ const TRANSLATIONS = {
         noteSave: 'Speichern',
         notePlaceholder: 'Optional — was noch dazugehört',
         replyPlaceholder: 'Antworten…',
+        signInToReact: 'Melde dich an, um zu reagieren oder zu antworten.',
+        failed: 'Das wurde nicht gespeichert. Nichts hat sich geändert — versuch es noch einmal.',
+        tooMany: 'Das ist viel in kurzer Zeit. Versuch es in ein paar Minuten noch einmal.',
+        othersReplied: 'Andere haben auf diese Reaktion geantwortet, deshalb bleibt sie. Deine Notiz kannst du trotzdem löschen.',
         replySend: 'Senden',
         emojiAdd: 'Emoji hinzufügen',
       },
@@ -9189,6 +9204,10 @@ const TRANSLATIONS = {
         noteSave: 'Kaydet',
         notePlaceholder: 'İsteğe bağlı — yanında söylenmeye değer bir şey',
         replyPlaceholder: 'Yanıtla…',
+        signInToReact: 'Tepki vermek ya da yanıtlamak için giriş yap.',
+        failed: 'Kaydedilmedi. Hiçbir şey değişmedi — tekrar dene.',
+        tooMany: 'Kısa sürede çok fazla. Birkaç dakika sonra tekrar dene.',
+        othersReplied: 'Bu tepkiye başkaları yanıt verdi, bu yüzden kalıyor. Notunu yine de silebilirsin.',
         replySend: 'Gönder',
         emojiAdd: 'Emoji ekle',
       },
@@ -15857,39 +15876,55 @@ const REACTION_ICONS = {
 // Small, and five of them. More would be a picker, and a picker is a decision.
 const EMOJI_SET = ['\u2764\uFE0F', '\uD83D\uDC4D', '\uD83D\uDC40', '\uD83D\uDD25', '\u2753'];
 
-/* v3, not v2: the key is bumped on purpose. v2 holds the seeded reactions
-   this build no longer creates - fictional colleagues discussing seed cards
-   that were deleted at the canvas cutover - and reading it back would keep
-   those sentences alive in every browser that ever opened the old demo. A
-   new key orphans them in one line.
-   TODO(backend): reactions are still per-browser localStorage; they belong
-   in the database next to the cards they are about. */
-const REACTIONS_STORAGE_KEY = 'loom_reactions_v3';
+/* The reaction layer as the server holds it (db/0021) — everyone's, not this
+   browser's. Empty until get_reactions answers, which is the truth for a
+   moment rather than a fiction for a session.
 
-/* Nothing is seeded any more. An empty reaction column is the truth until
-   somebody leaves one, and the apparatus below (the three pills, the
-   replies, the emoji) works exactly as it did - it just has no invented
-   material to open with. */
-function seedReactionState() {
-  return { reactions: [], bodyEmoji: {} };
+   It used to be localStorage ('loom_reactions_v3'): the person who left a
+   reaction saw it and nobody else ever did. That key is cleared at boot
+   (initRemoteReactions); what it held never reached anyone and cannot be
+   attributed to a signed-in person now. */
+let reactionState = { reactions: [], bodyEmoji: {} };
+
+async function reloadReactions() {
+  if (!window.LoomData || !LoomData.loadReactions) return false;
+  const next = await LoomData.loadReactions();
+  if (!next) return false;
+  reactionState = next;
+  return true;
 }
 
-function loadReactionState() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(REACTIONS_STORAGE_KEY));
-    if (parsed && Array.isArray(parsed.reactions)) return parsed;
-  } catch (err) {
-    console.error('[Loom feed] could not read reactions:', err);
+/* Every write here goes through one path: signed in or told so, the button
+   busy while the server decides, the whole layer read back afterwards, then
+   one redraw. A refusal is said out loud and changes nothing on screen. */
+async function reactionWrite(call, onChange, busyEl) {
+  const s = t().reactions;
+  if (!(await authReady())) { showToast(s.signInToReact); return null; }
+  if (busyEl) busyEl.classList.add('is-busy');
+  const res = await call();
+  if (busyEl) busyEl.classList.remove('is-busy');
+  if (!res.ok) {
+    showToast(res.reason === 'signed-out' ? s.signInToReact
+      : res.othersReplied ? s.othersReplied
+      : res.tooMany ? s.tooMany
+      : s.failed);
+    return null;
   }
-  return seedReactionState();
+  await reloadReactions();
+  onChange();
+  return res.json || {};
 }
 
-let reactionState = loadReactionState();
-
-function persistReactions() {
-  if (safeSetItem(REACTIONS_STORAGE_KEY, JSON.stringify(reactionState)).ok) return true;
-  showToast(t().share.storageFailed);
-  return false;
+function initRemoteReactions() {
+  try { localStorage.removeItem('loom_reactions_v3'); } catch (err) { /* nothing to clear */ }
+  reloadReactions().then((ok) => {
+    if (!ok) return;
+    // the reaction column and the "what came back" lines read this layer
+    if (isCardExpanded && currentOpenIndex !== null && ALL_CARDS[currentOpenIndex]) {
+      renderReactionArea(ALL_CARDS[currentOpenIndex].id);
+      renderCardStatus(document.getElementById('cardStatusBlock'), ALL_CARDS[currentOpenIndex]);
+    }
+  });
 }
 
 function reactionsOn(cardId) {
@@ -15909,80 +15944,26 @@ function localId(prefix) {
   return prefix + '-' + Date.now().toString(36) + '-' + (localIdSeq++).toString(36);
 }
 
-/* Leaving a reaction. `note` is optional and usually empty: the whole point of
-   the three kinds is that agreeing costs one click. Returns the new reaction so
-   the caller can tell the author about it. */
-function addReaction(cardId, kind, note) {
-  const entry = {
-    id: localId('rx'),
-    cardId, kind,
-    author: myDisplayName(),
-    studio: MY_STUDIO_KEY,
-    note: (note || '').trim(),
-    at: Date.now(),
-    emoji: {},
-    replies: [],
-  };
-  reactionState.reactions.push(entry);
-  if (!persistReactions()) {
-    reactionState.reactions.pop();
-    return null;
-  }
-  return entry;
-}
-
-function removeReaction(id) {
-  const at = reactionState.reactions.findIndex((r) => r.id === id);
-  if (at < 0) return false;
-  const [removed] = reactionState.reactions.splice(at, 1);
-  if (!persistReactions()) {
-    reactionState.reactions.splice(at, 0, removed);
-    return false;
-  }
-  return true;
+/* Who "me" is for the reaction layer: the signed-in Person. Everything there
+   is a person's (db/0021), so without a session nothing on screen is yours —
+   which is also true. */
+function myPersonId() {
+  return (authProfile && authProfile.personId) || null;
 }
 
 // Your own reaction of a given kind on a card, if you have left one — the
 // pills are a toggle, so this is what tells them which state to be in.
 function myReactionOn(cardId, kind) {
-  return reactionState.reactions.find((r) =>
-    r.cardId === cardId && r.kind === kind && r.studio === MY_STUDIO_KEY && r.author === myDisplayName());
+  const me = myPersonId();
+  if (!me) return null;
+  return reactionState.reactions.find((r) => r.cardId === cardId && r.kind === kind && r.person === me);
 }
 
-function addReply(reactionId, text) {
-  const reaction = findReaction(reactionId);
-  if (!reaction) return null;
-  const reply = {
-    id: localId('rp'),
-    author: myDisplayName(),
-    studio: MY_STUDIO_KEY,
-    text: text.trim(),
-    at: Date.now(),
-    emoji: {},
-  };
-  reaction.replies.push(reply);
-  if (!persistReactions()) {
-    reaction.replies.pop();
-    return null;
-  }
-  return reply;
-}
-
-/* Emoji live on three kinds of thing — a card's body, a reaction, a reply — so
-   the toggle takes the map rather than an id, and every caller passes whichever
-   map it owns. Values are studio keys; the tooltip turns them into names. */
-function toggleEmojiIn(map, emoji) {
-  const list = map[emoji] || (map[emoji] = []);
-  const at = list.indexOf(MY_STUDIO_KEY);
-  if (at > -1) list.splice(at, 1);
-  else list.push(MY_STUDIO_KEY);
-  if (!list.length) delete map[emoji];
-  return persistReactions();
-}
-
+/* Emoji live on three kinds of thing — a card's body, a reaction, a reply.
+   Each map is { emoji: [{ person, name, studio }] }: a person's mark, so the
+   tooltip can say who, not just which studio. */
 function bodyEmojiFor(cardId) {
-  if (!reactionState.bodyEmoji) reactionState.bodyEmoji = {};
-  return reactionState.bodyEmoji[cardId] || (reactionState.bodyEmoji[cardId] = {});
+  return (reactionState.bodyEmoji && reactionState.bodyEmoji[cardId]) || {};
 }
 
 /* The reader's own name. There is no login, so it is the first person on their
@@ -16013,8 +15994,11 @@ function myDisplayName() {
   return (mine && mine.name) || 'You';
 }
 
+// a reaction or reply is yours when it carries your Person — not your
+// studio and a matching name, which two colleagues can share
 function isMine(entry) {
-  return entry.studio === MY_STUDIO_KEY && entry.author === myDisplayName();
+  const me = myPersonId();
+  return !!me && !!entry && entry.person === me;
 }
 
 /* ---------- the three pills ----------
@@ -16038,18 +16022,13 @@ function renderReactionPills(wrap, cardId, onChange) {
     label.textContent = t().reactions.kinds[kind];
     btn.appendChild(label);
 
-    btn.addEventListener('click', () => {
-      if (mine) {
-        if (removeReaction(mine.id)) onChange();
-        return;
-      }
-      const entry = addReaction(cardId, kind);
-      if (!entry) return;
-      notifyAuthorOfReaction(cardId, entry);
-      onChange();
+    btn.addEventListener('click', async () => {
+      if (btn.classList.contains('is-busy')) return;
+      // one RPC either way: the server leaves it, or takes yours back
+      const done = await reactionWrite(() => LoomData.toggleReaction(cardId, kind), onChange, btn);
       // The note box opens on the reaction you just left, focused, so adding a
       // line is a continuation rather than a separate decision.
-      openNoteEditor(entry.id);
+      if (done && done.added) openNoteEditor(done.id);
     });
 
     wrap.appendChild(btn);
@@ -16117,8 +16096,8 @@ function reactionItemEl(r, onChange) {
     editor.appendChild(save);
     editor.addEventListener('submit', (e) => {
       e.preventDefault();
-      r.note = input.value.trim();
-      if (persistReactions()) onChange();
+      if (editor.classList.contains('is-busy')) return;
+      reactionWrite(() => LoomData.setReactionNote(r.id, input.value.trim()), onChange, editor);
     });
     item.appendChild(editor);
 
@@ -16130,7 +16109,7 @@ function reactionItemEl(r, onChange) {
     item.appendChild(toggle);
   }
 
-  item.appendChild(emojiRowEl(r.emoji, onChange));
+  item.appendChild(emojiRowEl(r.emoji, 'reaction', r.id, onChange));
 
   // --- replies, one level deep ---
   const replies = document.createElement('div');
@@ -16152,11 +16131,10 @@ function reactionItemEl(r, onChange) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const value = input.value.trim();
-    if (!value) return;
-    const reply = addReply(r.id, value);
-    if (!reply) return;
-    notifyOfReply(r, reply);
-    onChange();
+    if (!value || form.classList.contains('is-busy')) return;
+    // the words stay in the box until the server has them: a refusal redraws
+    // nothing, so there is nothing to retype
+    reactionWrite(() => LoomData.submitReactionReply(r.id, value), onChange, form);
   });
   item.appendChild(form);
 
@@ -16177,7 +16155,7 @@ function replyEl(p, onChange) {
     <p class="reply-text"></p>
   `;
   el.querySelector('.reply-text').textContent = p.text;
-  el.appendChild(emojiRowEl(p.emoji, onChange));
+  el.appendChild(emojiRowEl(p.emoji, 'reply', p.id, onChange));
   return el;
 }
 
@@ -16185,13 +16163,20 @@ function replyEl(p, onChange) {
    Small on purpose. The count is there because a row of five identical hearts
    would be worse, but it is set in the body size, not bold and not coloured —
    who reacted is the tooltip, and that is the part worth reading. */
-function emojiRowEl(map, onChange) {
+/* `target`/`targetId` say what the marks sit on — 'card' (its body),
+   'reaction' or 'reply' — which is what the server toggles. */
+function emojiRowEl(map, target, targetId, onChange) {
   const row = document.createElement('div');
   row.className = 'emoji-row';
+  const me = myPersonId();
+  const toggle = (emoji, el) => {
+    if (el.classList.contains('is-busy')) return;
+    reactionWrite(() => LoomData.toggleEmoji(target, targetId, emoji), onChange, el);
+  };
 
   EMOJI_SET.forEach((emoji) => {
-    const who = (map[emoji] || []).filter(isStudioEnabled);
-    const mine = who.indexOf(MY_STUDIO_KEY) > -1;
+    const who = ((map || {})[emoji] || []).filter((w) => w && isStudioEnabled(w.studio));
+    const mine = !!me && who.some((w) => w.person === me);
     // Only the ones already used are shown at rest; the rest live behind the +
     // so a fresh reaction is not five grey buttons.
     if (!who.length) return;
@@ -16199,12 +16184,10 @@ function emojiRowEl(map, onChange) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'emoji-chip' + (mine ? ' is-mine' : '');
-    // Names only for keys that really are studios. `who` is already filtered,
-    // but a map written by an older build could hold a person's name where a
-    // studio key belongs — omit those rather than title="undefined".
-    btn.title = who.map((k) => (STUDIOS[k] || {}).name).filter(Boolean).join(', ');
+    // who, by name and studio — "Bengt (Whow), Minwoo (DoubleU)"
+    btn.title = who.map((w) => `${displayNameOr(w.name)} (${(STUDIOS[w.studio] || {}).name || ''})`).join(', ');
     btn.innerHTML = `<span class="emoji-glyph">${emoji}</span><span class="emoji-count">${who.length}</span>`;
-    btn.addEventListener('click', () => { if (toggleEmojiIn(map, emoji)) onChange(); });
+    btn.addEventListener('click', () => toggle(emoji, btn));
     row.appendChild(btn);
   });
 
@@ -16223,7 +16206,7 @@ function emojiRowEl(map, onChange) {
     b.type = 'button';
     b.className = 'emoji-option';
     b.textContent = emoji;
-    b.addEventListener('click', () => { if (toggleEmojiIn(map, emoji)) onChange(); });
+    b.addEventListener('click', () => toggle(emoji, b));
     picker.appendChild(b);
   });
   add.appendChild(addBtn);
@@ -16253,7 +16236,7 @@ function renderReactionArea(cardId) {
   const bodyRow = document.getElementById('bodyEmojiRow');
   if (bodyRow) {
     bodyRow.innerHTML = '';
-    bodyRow.appendChild(emojiRowEl(bodyEmojiFor(cardId), redraw));
+    bodyRow.appendChild(emojiRowEl(bodyEmojiFor(cardId), 'card', cardId, redraw));
   }
 }
 
@@ -16466,30 +16449,11 @@ function isMyCard(card) {
   return !!card && card.studio === MY_STUDIO_KEY;
 }
 
-function notifyAuthorOfReaction(cardId, reaction) {
-  const card = cardById(cardId);
-  // Your own card, somebody else's reaction. Reacting to your own work is a
-  // reasonable thing to do — a correction, a note for the next reader — and it
-  // should not ping you about it.
-  if (!isMyCard(card) || isMine(reaction)) return;
-  pushNotification({ kind: 'reaction', cardId, actor: reaction.author, studio: reaction.studio, detail: reaction.kind });
-}
-
-/* A reply reaches whoever's reaction it answers. Three people it must never
-   reach: yourself (you just typed it), the replier when they are the reaction's
-   author too (they are talking to themselves), and anyone when the reaction is
-   your own — you are already looking at the thread.
-
-   Locally that means this almost never fires, because every action in this
-   browser is yours. That is correct: inbound events are what the arrival
-   simulation stands in for, and in a real service the server decides who gets
-   told. A client that can notify itself about its own typing is a bug you
-   only notice when a toast tells you what you just did. */
-function notifyOfReply(reaction, reply) {
-  if (isMine(reply)) return;
-  if (isMine(reaction) || reply.author === reaction.author) return;
-  pushNotification({ kind: 'reply', cardId: reaction.cardId, actor: reply.author, studio: reply.studio, detail: '' });
-}
+/* Telling an author that somebody reacted or replied is the server's job now
+   that reactions are server rows (db/0021): the browser that leaves one is,
+   by definition, never the browser that should hear about it. The two
+   local notify helpers that stood here could only ever have notified the
+   person who just clicked, so they are gone rather than kept as a promise. */
 
 /* ---------- the indicator ----------
    Top-right, opposite the hamburger, on every screen. It carries a count so
@@ -21945,6 +21909,7 @@ safeInit('guest mode', () => {
 // swap (if the DB has rows) is a quiet rebuild, not a race with first paint.
 safeInit('feed empty retry', initFeedEmptyRetry);
 safeInit('remote cards', initRemoteCards);
+safeInit('remote reactions', initRemoteReactions);
 // after the surfaces exist, so a link can put the app straight into one
 safeInit('url state', initUrlState);
 // the roster is fetched at boot now: no seeded stand-in remains, so the
