@@ -3460,7 +3460,8 @@
   .reaction-pill.is-mine { border-color: var(--ink); background: var(--ink); color: #ffffff; }
   /* waiting on the server (reactionWrite) — one click, one answer */
   .reaction-pill.is-busy, .emoji-chip.is-busy, .emoji-option.is-busy,
-  .reply-form.is-busy, .reaction-note-editor.is-busy { opacity: 0.5; pointer-events: none; }
+  .reply-form.is-busy, .reaction-note-editor.is-busy,
+  #applyFlowNext.is-busy { opacity: 0.5; pointer-events: none; }
 
   .reaction-empty { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-faint); }
 
@@ -7861,6 +7862,9 @@ const TRANSLATIONS = {
         save: 'Save the connection',
         saved: 'Connected.',
         failed: 'That connection could not be saved.',
+        signIn: 'Sign in to connect this to your work.',
+        localOnly: 'This card only exists in this browser, so a connection to it cannot be kept.',
+        alreadyLinked: 'That card is already connected to something, and a card has one source.',
       },
       applyButton: 'We applied this too',
       applyButtonDone: '✓ Applied',
@@ -8343,6 +8347,9 @@ const TRANSLATIONS = {
         save: '연결 저장',
         saved: '연결됐어요.',
         failed: '연결을 저장하지 못했어요.',
+        signIn: '로그인하면 우리 작업과 연결할 수 있어요.',
+        localOnly: '이 카드는 이 브라우저에만 있어서 연결을 저장할 수 없어요.',
+        alreadyLinked: '그 카드는 이미 다른 글과 연결돼 있어요. 카드 하나에는 출처가 하나예요.',
       },
       applyButton: '우리도 적용했어요',
       applyButtonDone: '✓ 적용됨',
@@ -8814,6 +8821,9 @@ const TRANSLATIONS = {
         save: 'Verbindung speichern',
         saved: 'Verknüpft.',
         failed: 'Diese Verbindung konnte nicht gespeichert werden.',
+        signIn: 'Melde dich an, um das mit eurer Arbeit zu verknüpfen.',
+        localOnly: 'Diese Karte gibt es nur in diesem Browser, daher kann keine Verbindung gespeichert werden.',
+        alreadyLinked: 'Diese Karte ist schon mit etwas verknüpft, und eine Karte hat eine Quelle.',
       },
       applyButton: 'Das haben wir auch übernommen',
       applyButtonDone: '✓ Übernommen',
@@ -9287,6 +9297,9 @@ const TRANSLATIONS = {
         save: 'Bağlantıyı kaydet',
         saved: 'Bağlandı.',
         failed: 'Bu bağlantı kaydedilemedi.',
+        signIn: 'Bunu kendi işinle bağlamak için giriş yap.',
+        localOnly: 'Bu kart yalnızca bu tarayıcıda var, bu yüzden bağlantı saklanamaz.',
+        alreadyLinked: 'Bu kart zaten bir şeye bağlı ve bir kartın tek kaynağı olur.',
       },
       applyButton: 'Biz de bunu uyguladık',
       applyButtonDone: '✓ Uygulandı',
@@ -15438,19 +15451,6 @@ let currentQuestionData = null; // the card currently shown in the Question deta
 // it didn't earn its keep once the bigger Discover cards became the star of
 // the page (see .card-lineage-hint there instead) — this is the "spell it
 // all out" detail view, deliberately just text and a color dot.
-/* Where an applied-by change is written depends on which kind of card it is:
-   a shared card keeps its own copy, a seed card gets a patch over the seed.
-   Both already have a home — this just picks the right one. */
-function persistAppliedBy(card) {
-  if (card.isShared) {
-    const stored = sharedCards.find((c) => c.id === card.id);
-    if (stored) { stored.appliedBy = card.appliedBy.slice(); writeSharedCards(sharedCards); }
-    return;
-  }
-  const patch = Object.assign({}, seedEditsMap()[card.id] || {}, { appliedBy: card.appliedBy.slice() });
-  saveSeedEdit(card.id, patch);
-}
-
 /* The rows under the strip are what the strip could not show: a sibling
    branch, a related idea. Anything already drawn as a node above would just be
    the same fact twice, so it is filtered out here — and when nothing is left,
@@ -17695,9 +17695,10 @@ function closeCard() {
    Nothing is written until Save. Cancel, Escape and the backdrop all leave the
    data exactly as it was.
 
-   TODO(backend): the edge belongs on the server, created by the account that
-   made it, and the author of the source gets told. Here it is a field on the
-   deriving card, persisted the same way any other edit to that card is.
+   The edge is a server row (db/0022, submit_lineage_link), made by the
+   signed-in account: derived_from on your card, an applications row on
+   theirs. Telling the source's author is still to come (server-side
+   notifications).
    ====================================================================== */
 const APPLY_FLOW_STEPS = 3;
 
@@ -17719,33 +17720,17 @@ function lineageAncestorIds(card) {
    is something you asked, not somewhere you applied an idea — and so is
    anything that already derives from something else, because a card has one
    parent and quietly replacing it would delete a link somebody made. */
+// Only cards the DB holds: a link is a row on the server (db/0022), and a card
+// that only ever lived in this browser has no row to carry it.
 function applyFlowTargets(source) {
   const ancestors = lineageAncestorIds(source);
   return ALL_CARDS.filter((c) =>
+    c.isRemote &&
     c.studio === MY_STUDIO_KEY &&
     c.id !== source.id &&
     c.type !== 'question' &&
     !c.derivedFrom &&
     !ancestors.has(c.id));
-}
-
-// Writes the edge onto the deriving card, wherever that card keeps its state.
-function persistLineageLink(child, parentId, relation, note) {
-  const patch = { derivedFrom: parentId, derivedRelation: relation, derivedNote: note || '' };
-
-  if (child.isShared) {
-    const stored = sharedCards.find((c) => c.id === child.id);
-    if (!stored) return false;
-    const previous = { derivedFrom: stored.derivedFrom, derivedRelation: stored.derivedRelation, derivedNote: stored.derivedNote };
-    Object.assign(stored, patch);
-    if (!writeSharedCards(sharedCards)) { Object.assign(stored, previous); return false; }
-  } else {
-    const merged = Object.assign({}, seedEditsMap()[child.id] || {}, patch);
-    if (!saveSeedEdit(child.id, merged)) return false;
-  }
-
-  Object.assign(child, patch);
-  return true;
 }
 
 // The one-line Update, made on the spot and linked in the same breath. Same
@@ -17919,42 +17904,59 @@ function renderApplyStep() {
   next.disabled = !applyFlowCanAdvance();
 }
 
-function commitApplyFlow() {
+/* Saved on the server or not at all (db/0022). The link used to be written
+   into this browser's copy of the card, where the lineage strip drew it for
+   its maker and the studio whose idea it was never saw it. Now: signed in,
+   both ends in the DB, one RPC — and only then does the strip redraw.
+
+   The quick Update is a card first (submit_card), then linked. If the card
+   saves and the link does not, the card is real and says what was done; the
+   toast says the connection did not make it, and the flow can be run again
+   from the source with that Update now in the list. */
+async function commitApplyFlow() {
   if (!applyFlowState) return;
   const source = cardById(applyFlowState.sourceId);
   if (!source) { closeApplyFlow(); return; }
+  const s = t().applyFlow;
+
+  if (!(await authReady())) { showToast(s.signIn); return; }
+  if (!source.isRemote) { showToast(s.localOnly); return; }
 
   const relation = applyFlowState.relation;
   const note = applyFlowState.note.trim();
-  let ok = false;
-  let linkedId = '';
+  const next = document.getElementById('applyFlowNext');
+  next.disabled = true;
+  next.classList.add('is-busy');
+  const done = () => { next.classList.remove('is-busy'); next.disabled = !applyFlowCanAdvance(); };
 
+  let linkedId = '';
   if (applyFlowState.newUpdate) {
     const entry = buildQuickUpdateEntry(applyFlowState.newUpdateText, source.id, relation, note);
-    if (saveSharedCard(entry)) {
-      sharedCards.unshift(entry);
-      linkedId = entry.id;
-      ok = true;
-    }
+    const saved = await LoomData.submitCard(entry, null);
+    if (!saved.ok) { done(); showToast(s.failed); return; }
+    linkedId = saved.id;
+    // keywords and the other languages arrive in the background, as for an ask
+    LoomData.requestCardEnrichment(saved.id).then((r) => { if (r.ok) rebuildAllSurfaces(); });
   } else {
     const target = cardById(applyFlowState.targetId);
-    if (target) {
-      ok = persistLineageLink(target, source.id, relation, note);
-      linkedId = target.id;
-    }
+    if (!target || !target.isRemote) { done(); showToast(s.localOnly); return; }
+    linkedId = target.id;
   }
 
-  if (!ok) { showToast(t().applyFlow.failed); return; }
-
-  /* The studio-level "who picked this up" fact is still true and still drives
-     the traces and the how-it-has-travelled line — it just no longer pretends
-     to be a node in the lineage. */
-  const list = source.appliedBy || (source.appliedBy = []);
-  if (list.indexOf(MY_STUDIO_KEY) < 0) { list.push(MY_STUDIO_KEY); persistAppliedBy(source); }
+  const res = await LoomData.linkLineage(linkedId, source.id, relation, note);
+  done();
+  if (!res.ok) {
+    showToast(res.reason === 'signed-out' ? s.signIn : res.alreadyLinked ? s.alreadyLinked : s.failed);
+    // a quick Update that saved without its link is still a card — show it
+    if (applyFlowState && applyFlowState.newUpdate) rebuildAllSurfaces();
+    return;
+  }
 
   closeApplyFlow();
 
-  // A new card shifts every index after it, and currentOpenIndex is an index.
+  // data.js has put the edge on the child and the studio on the source in
+  // every cache. A new card shifts every index after it, and
+  // currentOpenIndex is an index.
   ALL_CARDS = buildAllCards();
   const fresh = cardById(source.id);
   const idx = findCardIndexById(source.id);

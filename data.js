@@ -534,6 +534,37 @@ const LoomData = (function () {
     return memberRpc('toggle_emoji', { target: target, target_id: String(targetId), emoji: emoji });
   }
 
+  /* ---- "we applied this too" (db/0022) -------------------------------------
+     Your card took an idea from another one. On success both caches agree
+     with what a reload would serve: the child carries the edge, and the
+     source counts your studio among those who picked it up. Each cached
+     object once — a card posted this session is one object in every cache. */
+  async function linkLineage(childId, parentId, relation, note) {
+    const res = await memberRpc('submit_lineage_link', {
+      child_id: childId, parent_id: parentId, relation: relation, note: note || '',
+    });
+    if (!res.ok) {
+      res.alreadyLinked = /already linked/i.test(res.message || '');
+      return res;
+    }
+    const j = res.json || {};
+    const seen = new Set();
+    for (const l of Object.keys(cardCache)) {
+      for (const card of cardCache[l]) {
+        if (seen.has(card)) continue;
+        if (card.id === childId) {
+          seen.add(card);
+          Object.assign(card, { derivedFrom: parentId, derivedRelation: relation, derivedNote: j.note || undefined });
+        } else if (card.id === parentId) {
+          seen.add(card);
+          const list = card.appliedBy || [];
+          if (j.studio && list.indexOf(j.studio) < 0) card.appliedBy = list.concat([j.studio]);
+        }
+      }
+    }
+    return res;
+  }
+
   /* ---- roster (Designers) ---------------------------------------------------
      persons is publicly readable (RLS read_all from 0001), so this is a plain
      table select — a handful of rows, no RPC needed. Mapped straight into the
@@ -952,6 +983,7 @@ const LoomData = (function () {
     isConfigured, loadCards, cachedCards, prefetchLanguages, hasRemote, submitCard,
     submitCardKeywords, submitCardEdit, requestCardEnrichment, submitCardReply,
     loadReactions, toggleReaction, setReactionNote, submitReactionReply, toggleEmoji,
+    linkLineage,
     loadRoster, submitRosterEdit, removeRosterPerson, uploadRosterPhoto, submitRosterOrder,
     auth,
   };
